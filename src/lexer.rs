@@ -10,9 +10,17 @@ pub enum Token {
     LSquare,
     RSquare,
     At,
+    Plus,
+    PlusEq,
+    Tack,
+    TackEq,
+    Star,
+    StarEq,
+    Slash,
+    SlashEq,
     Equal,
     Colon,
-    Slash,
+    SemiColon,
     Comma,
     Dot,
     LCaret,
@@ -35,8 +43,36 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             ']' => token_stream.push(Token::RSquare),
             '@' => token_stream.push(Token::At),
             '=' => token_stream.push(Token::Equal),
+            '+' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::PlusEq
+                }
+                _ => Token::Plus,
+            }),
+            '-' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::TackEq
+                }
+                _ => Token::Tack,
+            }),
+            '*' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::StarEq
+                }
+                _ => Token::Star,
+            }),
+            '/' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::SlashEq
+                }
+                _ => Token::Slash,
+            }),
             ':' => token_stream.push(Token::Colon),
-            '/' => token_stream.push(Token::Slash),
+            ';' => token_stream.push(Token::SemiColon),
             ',' => token_stream.push(Token::Comma),
             '.' => token_stream.push(Token::Dot),
             '<' => token_stream.push(Token::LCaret),
@@ -72,10 +108,10 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
                     continue;
                 }
                 // get an identifier / number
-                if char.is_alphanumeric() || char == '_' {
+                if char.is_ascii_alphanumeric() || char == '_' {
                     let mut identifier_buf = String::from(char);
                     while let Some(next) = chars.peek() {
-                        if next.is_alphanumeric() || *next == '_' {
+                        if next.is_ascii_alphanumeric() || *next == '_' {
                             identifier_buf
                                 .push(chars.next().ok_or(String::from("Unexpected end of file"))?)
                         } else {
@@ -94,4 +130,32 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
         }
     }
     Ok(token_stream)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lexer::{tokenize, Token};
+
+    #[test]
+    fn lex_literals() {
+        assert_eq!(
+            tokenize("-20.0"),
+            Ok(vec![
+                Token::Tack,
+                Token::Number(20),
+                Token::Dot,
+                Token::Number(0)
+            ])
+        );
+        assert_eq!(
+            tokenize("0-lol -0"),
+            Ok(vec![
+                Token::Number(0),
+                Token::Tack,
+                Token::Identifier(String::from("lol")),
+                Token::Tack,
+                Token::Number(0)
+            ])
+        )
+    }
 }

@@ -12,15 +12,13 @@ pub struct CompiledData {
 
 pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, String> {
     let mut compiled = CompiledData {
-        mcmeta: format!(
-            "{{
-    \"pack\": {{
-      \"pack_format\": 11,
-      \"description\": \"{namespace}, made with MineScript\"
-    }}
-  }}
-  "
-        ),
+        mcmeta: nbt!({
+            pack: nbt!({
+              pack_format: 11,
+              description: format!("{namespace}, made with MineScript")
+            })
+        })
+        .to_json(),
         ..Default::default()
     };
     for item in src.items {
@@ -53,31 +51,25 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
 
         if let Some(on_consume) = item.on_consume {
             let on_consume = on_consume.to_lowercase().replace(' ', "_");
-            let advancement_content = format!(
-                "
-{{
-  \"criteria\": {{
-    \"requirement\": {{
-      \"trigger\": \"minecraft:consume_item\",
-      \"conditions\": {{
-        \"item\": {{
-          \"items\": [
-            \"{base}\"
-            ],
-          \"nbt\": \"{nbt}\"
-        }}
-      }}
-    }}
-  }},
-  \"rewards\": {{
-    \"function\": \"{namespace}:{function}\"
-  }}
-}}
-",
-                base = item.base,
-                nbt = item.nbt,
-                function = on_consume
-            );
+            let advancement_content = nbt!({
+              criteria: nbt!({
+                requirement: nbt!({
+                  trigger: "minecraft:consume_item",
+                  conditions: nbt!({
+                    item: nbt!({
+                      items: nbt!([
+                        item.base.clone()
+                      ]),
+                      nbt: item.nbt.clone()
+                    })
+                  })
+                })
+              }),
+              rewards: nbt!({
+                fuction: format!("{namespace}:{}", on_consume)
+              })
+            })
+            .to_json();
             compiled
                 .advancements
                 .insert(format!("consume/{ident}"), advancement_content);
@@ -88,31 +80,25 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
         }
         if let Some(on_use) = item.on_use {
             let on_use = on_use.to_lowercase().replace(' ', "_");
-            let advancement_content = format!(
-                "
-{{
-  \"criteria\": {{
-    \"requirement\": {{
-      \"trigger\": \"minecraft:using_item\",
-      \"conditions\": {{
-        \"item\": {{
-          \"items\": [
-            \"{base}\"
-            ],
-          \"nbt\": \"{nbt}\"
-        }}
-      }}
-    }}
-  }},
-  \"rewards\": {{
-    \"function\": \"{namespace}:{function}\"
-  }}
-}}
-",
-                base = item.base,
-                nbt = item.nbt,
-                function = on_use
-            );
+            let advancement_content = nbt!({
+              criteria: nbt!({
+                requirement: nbt!({
+                  trigger: "minecraft:using_item",
+                  conditions: nbt!({
+                    item: nbt!({
+                      items: nbt!([
+                        item.base.clone()
+                      ]),
+                      nbt: item.nbt.clone()
+                    })
+                  })
+                })
+              }),
+              rewards: nbt!({
+                fuction: format!("{namespace}:{}", on_use)
+              })
+            })
+            .to_json();
             compiled
                 .advancements
                 .insert(format!("use/{ident}"), advancement_content);
@@ -141,22 +127,20 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
         compiled.recipes.insert(name.clone(), content);
         compiled.advancements.insert(
             format!("craft/{name}"),
-            format!(
-                "{{
-  \"criteria\": {{
-    \"requirement\": {{
-      \"trigger\": \"minecraft:recipe_unlocked\",
-      \"conditions\": {{
-        \"recipe\": \"{namespace}:{name}\"
-      }}
-    }}
-  }},
-  \"rewards\": {{
-    \"function\": \"{namespace}:craft/{name}\"
-  }}
-}}
-"
-            ),
+            nbt!({
+              criteria: nbt!{{
+                requirement: nbt!{{
+                  trigger: "minecraft:recipe_unlocked",
+                  conditions: nbt!{{
+                    recipe: format!("{namespace}:{name}")
+                  }}
+                }}
+              }},
+              rewards: nbt!{{
+                function: format!("{namespace}:craft/{name}")
+              }}
+            })
+            .to_json(),
         );
         compiled.functions.insert(
           format!("craft/{name}"),

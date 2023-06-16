@@ -4,17 +4,27 @@ use crate::{command::SelectorType, lexer::Token};
 
 #[derive(Debug, Clone)]
 pub enum Syntax {
-    Block(Vec<Syntax>),
     Identifier(String),
     Macro(String, Box<Syntax>),
     Object(BTreeMap<String, Syntax>),
     Array(Vec<Syntax>),
     Function(String, Box<Syntax>),
     Selector(SelectorType, Vec<(String, Syntax)>),
-    Property(String, Box<Syntax>),
+    BinaryOp(String, Operation, Box<Syntax>),
     String(String),
-    Number(i32),
+    Integer(i32),
+    Float(f32),
     Unit,
+}
+
+#[derive(Debug, Clone)]
+pub enum Operation {
+    Colon,
+    Equal,
+    AddEq,
+    SubEq,
+    MulEq,
+    DivEq,
 }
 
 impl TryFrom<&Syntax> for String {
@@ -23,7 +33,8 @@ impl TryFrom<&Syntax> for String {
     fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
         match value {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(str.clone()),
-            Syntax::Number(num) => Ok(format!("{num}")),
+            Syntax::Integer(num) => Ok(format!("{num}")),
+            Syntax::Float(float) => Ok(format!("{float}")),
             _ => Err(()),
         }
     }
@@ -32,11 +43,31 @@ impl TryFrom<&Syntax> for String {
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
     match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
-        Some(Token::Number(num)) => Ok(Syntax::Number(num)),
-        Some(Token::Identifier(id)) => {
-            if let Some(Token::Colon) = tokens.peek() {
+        Some(Token::Number(num)) => match tokens.peek() {
+            Some(Token::Dot) => {
                 tokens.next();
-                Ok(Syntax::Property(id, Box::new(parse(tokens)?)))
+                let Some(Token::Number(decimal)) = tokens.next() else {
+                    return Err(String::from("Expected a decimal part after a number"))
+                };
+                Ok(Syntax::Float(
+                    num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32)),
+                ))
+            }
+            _ => Ok(Syntax::Integer(num)),
+        },
+        Some(Token::Identifier(id)) => {
+            let operation = match tokens.peek() {
+                Some(Token::Colon) => Some(Operation::Colon),
+                Some(Token::Equal) => Some(Operation::Equal),
+                Some(Token::PlusEq) => Some(Operation::AddEq),
+                Some(Token::TackEq) => Some(Operation::SubEq),
+                Some(Token::StarEq) => Some(Operation::MulEq),
+                Some(Token::SlashEq) => Some(Operation::DivEq),
+                _ => None,
+            };
+            if let Some(op) = operation {
+                tokens.next();
+                Ok(Syntax::BinaryOp(id, op, Box::new(parse(tokens)?)))
             } else if id == "function" {
                 let Some(Token::Identifier(func)) = tokens.next() else {
                     return Err(String::from("Expected identifier after function"))
@@ -61,7 +92,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                 if tok == &Token::RSquirrely {
                     tokens.next();
                     break;
-                } else if tok == &Token::Comma {
+                } else if tok == &Token::Comma || tok == &Token::SemiColon {
                     tokens.next();
                 }
                 statements_buf.push(parse(tokens)?);
@@ -69,13 +100,13 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             match statements_buf
                 .iter()
                 .map(|syn| match syn {
-                    Syntax::Property(k, v) => Some((k.clone(), *(*v).clone())),
+                    Syntax::BinaryOp(k, Operation::Colon, v) => Some((k.clone(), *(*v).clone())),
                     _ => None,
                 })
                 .collect::<Option<BTreeMap<_, _>>>()
             {
                 Some(props) => Ok(Syntax::Object(props)),
-                None => Ok(Syntax::Block(statements_buf)),
+                None => Err(String::from("Object syntax must only contain props")),
             }
         }
         Some(Token::LSquare) => {

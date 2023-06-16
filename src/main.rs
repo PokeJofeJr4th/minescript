@@ -20,7 +20,7 @@ struct Args {
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let file = format!(
-        "{{{}}}",
+        "[{}]",
         fs::read_to_string(args.path).unwrap_or_else(|err| {
             println!("{err}");
             String::new()
@@ -42,8 +42,10 @@ fn main() -> Result<(), std::io::Error> {
     });
     println!("{state:#?}");
     let compiled = compiler::compile(state, &args.namespace).unwrap();
-    // unused must use is fine because if the directory exists we don't need to remove it
-    fs::remove_dir_all(&args.namespace);
+    match fs::remove_dir_all(&args.namespace) {
+        Ok(_) => println!("Deleted existing directory"),
+        Err(err) => println!("Didn't delete directory: {err}")
+    }
     for (path, contents) in compiled.functions {
         let mut file = create_file_with_parent_dirs(&format!(
             "{nmsp}/data/{nmsp}/functions/{path}.mcfunction",

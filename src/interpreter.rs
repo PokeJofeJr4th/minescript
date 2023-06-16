@@ -40,7 +40,7 @@ pub fn interpret(src: &Syntax) -> Result<InterpreterState, String> {
 
 fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Command>, String> {
     match src {
-        Syntax::Block(statements) => {
+        Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
             for statement in statements {
                 commands_buf.extend(inner_interpret(statement, state)?);
@@ -53,7 +53,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Com
                 state.items.push(item);
             }
             "effect" => {
-                return interpret_effect(properties, state);
+                return interpret_effect(properties);
             }
             "function" => {
                 return Ok(vec![Command::Function {
@@ -189,7 +189,7 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
     }
 }
 
-fn interpret_effect(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Command>, String> {
+fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
@@ -224,23 +224,27 @@ fn interpret_effect(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Co
                 effect = Some(eff);
             }
             "duration" => match value {
-                Syntax::Identifier(str) => {
+                Syntax::Identifier(str) | Syntax::String(str) => {
                     if str != "infinite" {
                         return Err(format!(
-                            "Potion duration should be a number or infinite, not `{str}`"
+                            "Potion duration should be an integer or infinite, not `{str}`"
                         ));
                     }
                 }
-                Syntax::Number(num) => duration = Some(*num),
+                Syntax::Integer(num) => duration = Some(*num),
                 other => {
                     return Err(format!(
-                        "Potion duration should be a number of infinite, not `{other:?}`"
+                        "Potion duration should be an integer or infinite, not `{other:?}`"
                     ))
                 }
             },
             "level" => match value {
-                Syntax::Number(num) => level = Some(*num),
-                other => return Err(format!("Potion level should be a number, not `{other:?}`")),
+                Syntax::Integer(num) => level = Some(*num),
+                other => {
+                    return Err(format!(
+                        "Potion level should be an integer, not `{other:?}`"
+                    ))
+                }
             },
             other => return Err(format!("Unexpected potion property: `{other}`")),
         }

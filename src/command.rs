@@ -63,11 +63,7 @@ macro_rules! nbt {
     }};
 
     ([$($value:expr),*]) => {{
-        let mut vec = Vec::new();
-        $(
-            vec.push(nbt!($value));
-        )*
-        Nbt::Array(vec)
+        Nbt::Array(vec![$(nbt!($value)),*])
     }};
 
     ($obj:expr) => {
@@ -80,7 +76,8 @@ pub enum Nbt {
     Object(BTreeMap<String, Nbt>),
     Array(Vec<Nbt>),
     String(String),
-    Number(i32),
+    Integer(i32),
+    Float(f32),
     Unit,
 }
 
@@ -108,7 +105,8 @@ impl Display for Nbt {
                 data_buf.finish()
             }
             Nbt::String(str) => write!(f, "\"{str}\""),
-            Nbt::Number(num) => write!(f, "{num}"),
+            Nbt::Integer(num) => write!(f, "{num}"),
+            Nbt::Float(float) => write!(f, "{float}"),
             Nbt::Unit => write!(f, "{{}}"),
         }
     }
@@ -144,7 +142,8 @@ impl Nbt {
                 buf
             }
             Nbt::String(str) => format!("\"{str}\""),
-            Nbt::Number(num) => format!("{num}"),
+            Nbt::Integer(num) => format!("{num}"),
+            Nbt::Float(float) => format!("{float}"),
             Nbt::Unit => String::from("{}"),
         }
     }
@@ -167,14 +166,15 @@ impl TryFrom<&Syntax> for Nbt {
                     ))
                 }
             }
-            Syntax::Block(items) | Syntax::Array(items) => Ok(Self::Array(
+            Syntax::Array(items) => Ok(Self::Array(
                 items
                     .iter()
                     .map(Self::try_from)
                     .collect::<Result<Vec<Self>, Self::Error>>()?,
             )),
             Syntax::String(str) => Ok(Self::String(str.clone())),
-            Syntax::Number(num) => Ok(Self::Number(*num)),
+            Syntax::Integer(num) => Ok(Self::Integer(*num)),
+            Syntax::Float(float) => Ok(Self::Float(*float)),
             Syntax::Unit => Ok(Self::default()),
             _ => Err(()),
         }
@@ -195,7 +195,13 @@ impl From<String> for Nbt {
 
 impl From<i32> for Nbt {
     fn from(value: i32) -> Self {
-        Self::Number(value)
+        Self::Integer(value)
+    }
+}
+
+impl From<f32> for Nbt {
+    fn from(value: f32) -> Self {
+        Self::Float(value)
     }
 }
 
@@ -223,7 +229,7 @@ impl TryFrom<Syntax> for Nbt {
                     .collect::<Result<Vec<Nbt>, String>>()?,
             )),
             Syntax::String(str) | Syntax::Identifier(str) => Ok(Nbt::String(str)),
-            Syntax::Number(num) => Ok(Nbt::Number(num)),
+            Syntax::Integer(num) => Ok(Nbt::Integer(num)),
             Syntax::Unit => Ok(Nbt::Unit),
             _ => Err(format!("Can't turn `{value:?}` into Nbt")),
         }
