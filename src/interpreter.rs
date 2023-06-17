@@ -73,28 +73,53 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             (op, Syntax::Identifier(ident)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreOperation {
-                    target: target.clone(),
+                    target: format!("%{target}").into(),
                     target_objective: "dummy".into(),
                     operation: op,
-                    source: ident.clone(),
+                    source: format!("%{ident}").into(),
                     source_objective: "dummy".into(),
                 }]);
             }
             (Operation::Equal, Syntax::Integer(int)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreSet {
-                    target: target.clone(),
+                    target: format!("%{target}").into(),
                     objective: "dummy".into(),
-                    value: format!("{int}").into(),
+                    value: *int,
                 }]);
             }
             (Operation::AddEq, Syntax::Integer(int)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreAdd {
-                    target: target.clone(),
+                    target: format!("%{target}").into(),
                     objective: "dummy".into(),
-                    value: format!("{int}").into(),
+                    value: *int,
                 }]);
+            }
+            (Operation::SubEq, Syntax::Integer(int)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
+                return Ok(vec![Command::ScoreAdd {
+                    target: format!("%{target}").into(),
+                    objective: "dummy".into(),
+                    value: -int,
+                }]);
+            }
+            (op, Syntax::Integer(int)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
+                return Ok(vec![
+                    Command::ScoreSet {
+                        target: "%".into(),
+                        objective: "dummy".into(),
+                        value: *int,
+                    },
+                    Command::ScoreOperation {
+                        target: target.clone(),
+                        target_objective: "dummy".into(),
+                        operation: op,
+                        source: "%".into(),
+                        source_objective: "dummy".into(),
+                    },
+                ]);
             }
             _ => return Err(format!("Unsupported operation: {target} {op} {syn:?}")),
         },

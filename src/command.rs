@@ -259,12 +259,12 @@ pub enum Command {
     ScoreSet {
         target: Rc<str>,
         objective: Rc<str>,
-        value: Rc<str>,
+        value: i32,
     },
     ScoreAdd {
         target: Rc<str>,
         objective: Rc<str>,
-        value: Rc<str>,
+        value: i32,
     },
     ScoreOperation {
         target: Rc<str>,
