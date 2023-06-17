@@ -1,6 +1,9 @@
-use std::{collections::BTreeMap, fmt::Display, rc::Rc};
+use std::{collections::BTreeMap, fmt::Display};
 
-use crate::parser::{Operation, Syntax};
+use crate::{
+    parser::{Operation, Syntax},
+    RStr,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectorType {
@@ -11,13 +14,27 @@ pub enum SelectorType {
     R,
 }
 
-#[derive(Debug, Clone)]
-pub struct Selector {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Selector<T> {
     pub selector_type: SelectorType,
-    pub args: BTreeMap<Rc<str>, String>,
+    pub args: BTreeMap<RStr, T>,
 }
 
-impl Display for Selector {
+impl Selector<Syntax> {
+    pub fn stringify(&self) -> Result<Selector<String>, String> {
+        Ok(Selector {
+            selector_type: self.selector_type,
+            args: self
+                .args
+                .iter()
+                .map(|(k, v)| String::try_from(v).map(|v| (k.clone(), v)))
+                .collect::<Result<BTreeMap<RStr, String>, _>>()
+                .map_err(|_| String::from("Couldn't convert to string in selector"))?,
+        })
+    }
+}
+
+impl<T: Display> Display for Selector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.args.is_empty() {
             write!(
@@ -55,7 +72,7 @@ impl Display for Selector {
 #[macro_export]
 macro_rules! nbt {
     ({$($key:ident: $value:expr),*}) => {{
-        let mut tree: BTreeMap<std::rc::Rc<str>, Nbt> = BTreeMap::new();
+        let mut tree: BTreeMap<RStr, Nbt> = BTreeMap::new();
         $(
             tree.insert(stringify!($key).into(), nbt!($value));
         )*
@@ -73,9 +90,9 @@ macro_rules! nbt {
 
 #[derive(Debug, Clone)]
 pub enum Nbt {
-    Object(BTreeMap<Rc<str>, Nbt>),
+    Object(BTreeMap<RStr, Nbt>),
     Array(Vec<Nbt>),
-    String(Rc<str>),
+    String(RStr),
     Integer(i32),
     Float(f32),
     Unit,
@@ -162,7 +179,7 @@ impl TryFrom<&Syntax> for Nbt {
                         items
                             .iter()
                             .map(|(k, v)| Self::try_from(v).map(|nbt| (k.clone(), nbt)))
-                            .collect::<Result<BTreeMap<Rc<str>, Self>, Self::Error>>()?,
+                            .collect::<Result<BTreeMap<RStr, Self>, Self::Error>>()?,
                     ))
                 }
             }
@@ -193,8 +210,8 @@ impl From<String> for Nbt {
     }
 }
 
-impl From<Rc<str>> for Nbt {
-    fn from(value: Rc<str>) -> Self {
+impl From<RStr> for Nbt {
+    fn from(value: RStr) -> Self {
         Self::String(value)
     }
 }
@@ -211,11 +228,11 @@ impl From<f32> for Nbt {
     }
 }
 
-impl<T> From<BTreeMap<Rc<str>, T>> for Nbt
+impl<T> From<BTreeMap<RStr, T>> for Nbt
 where
     Self: From<T>,
 {
-    fn from(value: BTreeMap<Rc<str>, T>) -> Self {
+    fn from(value: BTreeMap<RStr, T>) -> Self {
         Self::Object(value.into_iter().map(|(k, v)| (k, Self::from(v))).collect())
     }
 }
@@ -227,7 +244,7 @@ impl TryFrom<Syntax> for Nbt {
             Syntax::Object(obj) => Ok(Self::Object(
                 obj.into_iter()
                     .map(|(k, v)| Self::try_from(v).map(|v| (k, v)))
-                    .collect::<Result<BTreeMap<Rc<str>, Self>, String>>()?,
+                    .collect::<Result<BTreeMap<RStr, Self>, String>>()?,
             )),
             Syntax::Array(arr) => Ok(Self::Array(
                 arr.iter()
@@ -245,33 +262,33 @@ impl TryFrom<Syntax> for Nbt {
 #[derive(Debug)]
 pub enum Command {
     EffectGive {
-        target: Selector,
-        effect: Rc<str>,
+        target: Selector<String>,
+        effect: RStr,
         duration: Option<i32>,
         level: Option<i32>,
     },
     Kill {
-        target: Selector,
+        target: Selector<String>,
     },
     Function {
-        func: Rc<str>,
+        func: RStr,
     },
     ScoreSet {
-        target: Rc<str>,
-        objective: Rc<str>,
+        target: RStr,
+        objective: RStr,
         value: i32,
     },
     ScoreAdd {
-        target: Rc<str>,
-        objective: Rc<str>,
+        target: RStr,
+        objective: RStr,
         value: i32,
     },
     ScoreOperation {
-        target: Rc<str>,
-        target_objective: Rc<str>,
+        target: RStr,
+        target_objective: RStr,
         operation: Operation,
-        source: Rc<str>,
-        source_objective: Rc<str>,
+        source: RStr,
+        source_objective: RStr,
     },
 }
 

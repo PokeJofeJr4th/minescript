@@ -1,20 +1,51 @@
 use std::{collections::BTreeMap, fmt::Display, iter::Peekable, rc::Rc};
 
-use crate::{command::SelectorType, lexer::Token};
+use crate::{
+    command::{Selector, SelectorType},
+    lexer::Token,
+    RStr,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Syntax {
-    Identifier(Rc<str>),
-    Macro(Rc<str>, Box<Syntax>),
-    Object(BTreeMap<Rc<str>, Syntax>),
+    Identifier(RStr),
+    Macro(RStr, Box<Syntax>),
+    Object(BTreeMap<RStr, Syntax>),
     Array(Rc<[Syntax]>),
-    Function(Rc<str>, Box<Syntax>),
-    Selector(SelectorType, BTreeMap<Rc<str>, Syntax>),
-    BinaryOp(Rc<str>, Operation, Box<Syntax>),
-    String(Rc<str>),
+    Function(RStr, Box<Syntax>),
+    Selector(Selector<Syntax>),
+    DottedSelector(Selector<Syntax>, RStr),
+    BinaryOp(OpLeft, Operation, Box<Syntax>),
+    String(RStr),
     Integer(i32),
     Float(f32),
     Unit,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OpLeft {
+    Ident(RStr),
+    Dotted(RStr, RStr),
+    Selector(Selector<Syntax>),
+    DottedSelector(Selector<Syntax>, RStr),
+}
+
+impl OpLeft {
+    pub fn stringify_scoreboard_target(&self) -> Result<RStr, String> {
+        match self {
+            Self::Ident(id) | Self::Dotted(id, _) => Ok(format!("%{id}").into()),
+            Self::Selector(selector) | Self::DottedSelector(selector, _) => {
+                Ok(format!("{}", selector.stringify()?).into())
+            }
+        }
+    }
+
+    pub fn stringify_scoreboard_objective(&self) -> RStr {
+        match self {
+            Self::Ident(_) | Self::Selector(_) => "dummy".into(),
+            Self::Dotted(_, score) | Self::DottedSelector(_, score) => score.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,7 +98,7 @@ impl TryFrom<&Syntax> for String {
     }
 }
 
-impl TryFrom<&Syntax> for Rc<str> {
+impl TryFrom<&Syntax> for RStr {
     type Error = ();
 
     fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
@@ -80,9 +111,9 @@ impl TryFrom<&Syntax> for Rc<str> {
     }
 }
 
-#[allow(clippy::cast_precision_loss)]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
-    match tokens.next() {
+    let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
         Some(Token::Number(num)) => match tokens.peek() {
             Some(Token::Dot) => {
@@ -135,7 +166,9 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             statements_buf
                 .iter()
                 .map(|syn| match syn {
-                    Syntax::BinaryOp(k, Operation::Colon, v) => Some((k.clone(), *(*v).clone())),
+                    Syntax::BinaryOp(OpLeft::Ident(k), Operation::Colon, v) => {
+                        Some((k.clone(), *(*v).clone()))
+                    }
                     _ => None,
                 })
                 .collect::<Option<BTreeMap<_, _>>>()
@@ -150,7 +183,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                 if tok == &Token::RSquare {
                     tokens.next();
                     break;
-                } else if tok == &Token::Comma {
+                } else if tok == &Token::Comma || tok == &Token::SemiColon {
                     tokens.next();
                 }
                 statements_buf.push(parse(tokens)?);
@@ -159,48 +192,86 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
         }
         Some(Token::At) => parse_macro(tokens),
         other => Err(format!("Unexpected token `{other:?}`")),
+    };
+    match &first {
+        Ok(Syntax::BinaryOp(OpLeft::Ident(first), Operation::Dot, second)) => {
+            if let Syntax::Identifier(second) = &**second {
+                if let Some(op) = get_op(tokens) {
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::Dotted(first.clone(), second.clone()),
+                        op,
+                        Box::new(parse(tokens)?),
+                    ));
+                }
+            }
+        }
+        Ok(Syntax::Selector(sel)) => {
+            if tokens.peek() == Some(&Token::Dot) {
+                tokens.next();
+                let Some(Token::Identifier(ident)) = tokens.next() else {
+                    return Err(String::from("Selectors can only be indexed with `.<identifier>`"))
+                };
+                if let Some(op) = get_op(tokens) {
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::DottedSelector(sel.clone(), ident),
+                        op,
+                        Box::new(parse(tokens)?),
+                    ));
+                }
+            }
+        }
+        _ => {}
     }
+    first
+}
+
+fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operation> {
+    let val = match tokens.peek() {
+        Some(Token::Colon) => Some(Operation::Colon),
+        Some(Token::Equal) => Some(Operation::Equal),
+        Some(Token::PlusEq) => Some(Operation::AddEq),
+        Some(Token::TackEq) => Some(Operation::SubEq),
+        Some(Token::StarEq) => Some(Operation::MulEq),
+        Some(Token::SlashEq) => Some(Operation::DivEq),
+        Some(Token::PercEq) => Some(Operation::ModEq),
+        Some(Token::LCaret) => Some(Operation::Min),
+        Some(Token::RCaret) => {
+            tokens.next();
+            match tokens.peek() {
+                Some(Token::LCaret) => {
+                    tokens.next();
+                    Some(Operation::Swap)
+                }
+                _ => Some(Operation::Max),
+            }
+        }
+        _ => None,
+    };
+    if val.is_some() {
+        tokens.next();
+    }
+    val
 }
 
 fn parse_identifier<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
-    id: Rc<str>,
+    id: RStr,
 ) -> Result<Syntax, String> {
-    {
-        let operation = match tokens.peek() {
-            Some(Token::Colon) => Some(Operation::Colon),
-            Some(Token::Equal) => Some(Operation::Equal),
-            Some(Token::PlusEq) => Some(Operation::AddEq),
-            Some(Token::TackEq) => Some(Operation::SubEq),
-            Some(Token::StarEq) => Some(Operation::MulEq),
-            Some(Token::SlashEq) => Some(Operation::DivEq),
-            Some(Token::PercEq) => Some(Operation::ModEq),
-            Some(Token::LCaret) => Some(Operation::Min),
-            Some(Token::RCaret) => {
-                tokens.next();
-                match tokens.peek() {
-                    Some(Token::LCaret) => {
-                        tokens.next();
-                        Some(Operation::Swap)
-                    }
-                    _ => Some(Operation::Max),
-                }
-            }
-            _ => None,
-        };
-        if let Some(op) = operation {
-            tokens.next();
-            Ok(Syntax::BinaryOp(id, op, Box::new(parse(tokens)?)))
-        } else if &*id == "function" {
-            let Some(Token::Identifier(func)) = tokens.next() else {
+    if let Some(op) = get_op(tokens) {
+        Ok(Syntax::BinaryOp(
+            OpLeft::Ident(id),
+            op,
+            Box::new(parse(tokens)?),
+        ))
+    } else if &*id == "function" {
+        let Some(Token::Identifier(func)) = tokens.next() else {
                 return Err(String::from("Expected identifier after function"))
             };
-            Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
-        // } else if id == "effect" {
-        //     todo!()
-        } else {
-            Ok(Syntax::Identifier(id))
-        }
+        Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
+    // } else if id == "effect" {
+    //     todo!()
+    } else {
+        Ok(Syntax::Identifier(id))
     }
 }
 
@@ -228,8 +299,8 @@ fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Sy
                         statements_buf.insert(ident.clone(), parse(tokens)?);
                     }
                 }
-                Ok(Syntax::Selector(
-                    match identifier.as_ref() {
+                Ok(Syntax::Selector(Selector {
+                    selector_type: match identifier.as_ref() {
                         "s" => SelectorType::S,
                         "p" => SelectorType::P,
                         "e" => SelectorType::E,
@@ -237,8 +308,8 @@ fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Sy
                         "r" => SelectorType::R,
                         _ => unreachable!(),
                     },
-                    statements_buf,
-                ))
+                    args: statements_buf,
+                }))
             }
             _ => Ok(Syntax::Macro(identifier, Box::new(parse(tokens)?))),
         }
@@ -247,9 +318,12 @@ fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Sy
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use crate::{
+        command::{Selector, SelectorType},
         lexer::Token,
-        parser::{parse, Syntax},
+        parser::{parse, OpLeft, Operation, Syntax},
     };
 
     #[test]
@@ -265,6 +339,35 @@ mod tests {
         assert_eq!(
             parse(&mut [Token::Tack, Token::Number(20)].into_iter().peekable()),
             Ok(Syntax::Integer(-20))
+        );
+    }
+
+    #[test]
+    fn parse_score_op() {
+        assert_eq!(
+            parse(
+                &mut [
+                    Token::At,
+                    Token::Identifier("a".into()),
+                    Token::Dot,
+                    Token::Identifier("x".into()),
+                    Token::PlusEq,
+                    Token::Number(2)
+                ]
+                .into_iter()
+                .peekable()
+            ),
+            Ok(Syntax::BinaryOp(
+                OpLeft::DottedSelector(
+                    Selector {
+                        selector_type: SelectorType::A,
+                        args: BTreeMap::new()
+                    },
+                    "x".into()
+                ),
+                Operation::AddEq,
+                Box::new(Syntax::Integer(2))
+            ))
         );
     }
 }

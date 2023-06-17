@@ -4,23 +4,24 @@ use crate::{
     command::{Command, Nbt, Selector, SelectorType},
     nbt,
     parser::{Operation, Syntax},
+    RStr,
 };
 
 #[derive(Debug)]
 pub struct Item {
-    pub name: Rc<str>,
-    pub base: Rc<str>,
+    pub name: RStr,
+    pub base: RStr,
     pub nbt: Nbt,
-    pub on_consume: Option<Rc<str>>,
-    pub on_use: Option<Rc<str>>,
+    pub on_consume: Option<RStr>,
+    pub on_use: Option<RStr>,
 }
 
 #[derive(Debug)]
 pub struct InterRep {
     pub items: Vec<Item>,
-    pub objectives: BTreeMap<Rc<str>, Rc<str>>,
-    pub functions: Vec<(Rc<str>, Vec<Command>)>,
-    pub recipes: BTreeMap<Rc<str>, String>,
+    pub objectives: BTreeMap<RStr, RStr>,
+    pub functions: Vec<(RStr, Vec<Command>)>,
+    pub recipes: BTreeMap<RStr, String>,
 }
 
 impl InterRep {
@@ -73,34 +74,44 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             (op, Syntax::Identifier(ident)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreOperation {
-                    target: format!("%{target}").into(),
-                    target_objective: "dummy".into(),
+                    target: target.stringify_scoreboard_target()?,
+                    target_objective: target.stringify_scoreboard_objective(),
                     operation: op,
                     source: format!("%{ident}").into(),
                     source_objective: "dummy".into(),
                 }]);
             }
+            (op, Syntax::DottedSelector(sel, ident)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
+                return Ok(vec![Command::ScoreOperation {
+                    target: target.stringify_scoreboard_target()?,
+                    target_objective: target.stringify_scoreboard_objective(),
+                    operation: op,
+                    source: format!("{}", sel.stringify()?).into(),
+                    source_objective: ident.clone(),
+                }]);
+            }
             (Operation::Equal, Syntax::Integer(int)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreSet {
-                    target: format!("%{target}").into(),
-                    objective: "dummy".into(),
+                    target: target.stringify_scoreboard_target()?,
+                    objective: target.stringify_scoreboard_objective(),
                     value: *int,
                 }]);
             }
             (Operation::AddEq, Syntax::Integer(int)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreAdd {
-                    target: format!("%{target}").into(),
-                    objective: "dummy".into(),
+                    target: target.stringify_scoreboard_target()?,
+                    objective: target.stringify_scoreboard_objective(),
                     value: *int,
                 }]);
             }
             (Operation::SubEq, Syntax::Integer(int)) => {
                 state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreAdd {
-                    target: format!("%{target}").into(),
-                    objective: "dummy".into(),
+                    target: target.stringify_scoreboard_target()?,
+                    objective: target.stringify_scoreboard_objective(),
                     value: -int,
                 }]);
             }
@@ -113,15 +124,15 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                         value: *int,
                     },
                     Command::ScoreOperation {
-                        target: target.clone(),
-                        target_objective: "dummy".into(),
+                        target: target.stringify_scoreboard_target()?,
+                        target_objective: target.stringify_scoreboard_objective(),
                         operation: op,
                         source: "%".into(),
                         source_objective: "dummy".into(),
                     },
                 ]);
             }
-            _ => return Err(format!("Unsupported operation: {target} {op} {syn:?}")),
+            _ => return Err(format!("Unsupported operation: {target:?} {op} {syn:?}")),
         },
         Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
@@ -205,7 +216,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
                                 .map(|str| (k.clone(), nbt!({ item: str })))
                                 .map_err(|_| String::from("Expected string for item"))
                         })
-                        .collect::<Result<BTreeMap<Rc<str>, Nbt>, String>>()?,
+                        .collect::<Result<BTreeMap<RStr, Nbt>, String>>()?,
                 );
                 recipe_buf = Some(nbt!({
                     type: "minecraft:crafting_shaped",
@@ -221,12 +232,12 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
         }
     }
     if !on_consume_buf.is_empty() {
-        let func_name: Rc<str> = format!("consume/{}", item.name).into();
+        let func_name: RStr = format!("consume/{}", item.name).into();
         state.functions.push((func_name.clone(), on_consume_buf));
         item.on_consume = Some(func_name);
     }
     if !on_use_buf.is_empty() {
-        let func_name: Rc<str> = format!("use/{}", item.name).into();
+        let func_name: RStr = format!("use/{}", item.name).into();
         state.functions.push((func_name.clone(), on_use_buf));
         item.on_use = Some(func_name);
     }
@@ -250,7 +261,7 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
-    let mut selector: Option<Selector> = None;
+    let mut selector: Option<Selector<String>> = None;
     let mut effect = None;
     let mut duration = None;
     let mut level = None;
@@ -258,15 +269,8 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
     for (prop, value) in src.iter() {
         match prop.as_ref() {
             "selector" => match value {
-                Syntax::Selector(seltype, contents) => {
-                    selector = Some(Selector {
-                        selector_type: *seltype,
-                        args: contents
-                            .iter()
-                            .map(|(k, v)| String::try_from(v).map(|v| (k.clone(), v)))
-                            .collect::<Result<BTreeMap<Rc<str>, String>, _>>()
-                            .map_err(|_| String::from("Couldn't convert to string in selector"))?,
-                    });
+                Syntax::Selector(sel) => {
+                    selector = Some(sel.stringify()?);
                 }
                 other => {
                     return Err(format!(

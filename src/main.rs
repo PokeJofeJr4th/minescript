@@ -1,6 +1,7 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 use std::fs::{self, File};
 use std::io::Write;
+use std::rc::Rc;
 
 use clap::Parser;
 
@@ -11,6 +12,8 @@ mod compiler;
 mod interpreter;
 mod lexer;
 mod parser;
+
+type RStr = Rc<str>;
 
 #[derive(Parser)]
 struct Args {

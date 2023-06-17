@@ -1,12 +1,12 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::BTreeMap;
 
-use crate::{command::Nbt, interpreter::InterRep, nbt};
+use crate::{command::Nbt, interpreter::InterRep, nbt, RStr};
 
 #[derive(Debug, Clone, Default)]
 pub struct CompiledData {
-    pub functions: BTreeMap<Rc<str>, String>,
-    pub advancements: BTreeMap<Rc<str>, String>,
-    pub recipes: BTreeMap<Rc<str>, String>,
+    pub functions: BTreeMap<RStr, String>,
+    pub advancements: BTreeMap<RStr, String>,
+    pub recipes: BTreeMap<RStr, String>,
     pub mcmeta: String,
 }
 
@@ -32,7 +32,7 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
     compiled.functions.insert("load".into(), load);
     compile_items(src, namespace, &mut compiled)?;
     for (name, statements) in &src.functions {
-        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
+        let name: RStr = name.to_lowercase().replace(' ', "_").into();
         let mut fn_buf = String::new();
         for statement in statements {
             fn_buf.push('\n');
@@ -46,7 +46,7 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
         }
     }
     for (name, content) in &src.recipes {
-        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
+        let name: RStr = name.to_lowercase().replace(' ', "_").into();
         compiled.recipes.insert(name.clone(), content.clone());
         compiled.advancements.insert(
             format!("craft/{name}").into(),
@@ -68,7 +68,7 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
         compiled.functions.insert(
           format!("craft/{name}").into(),
           format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\nrecipe take @s {namespace}:{name}\n{give}", 
-          give=compiled.functions.get::<Rc<str>>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
+          give=compiled.functions.get::<RStr>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
         );
     }
     println!("{compiled:?}");

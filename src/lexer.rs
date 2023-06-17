@@ -1,9 +1,9 @@
-use std::rc::Rc;
+use crate::RStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
-    String(Rc<str>),
-    Identifier(Rc<str>),
+    String(RStr),
+    Identifier(RStr),
     Number(i32),
     LSquirrely,
     RSquirrely,
@@ -12,6 +12,7 @@ pub enum Token {
     LSquare,
     RSquare,
     At,
+    Equal,
     Plus,
     PlusEq,
     Tack,
@@ -22,7 +23,8 @@ pub enum Token {
     SlashEq,
     Percent,
     PercEq,
-    Equal,
+    Bang,
+    BangEq,
     Colon,
     SemiColon,
     Comma,
@@ -31,7 +33,6 @@ pub enum Token {
     RCaret,
     Woogly,
     UCaret,
-    Bang,
 }
 
 macro_rules! possible_eq {
@@ -64,6 +65,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             '*' => token_stream.push(possible_eq!(chars => Token::Star, Token::StarEq)),
             '/' => token_stream.push(possible_eq!(chars => Token::Slash, Token::SlashEq)),
             '%' => token_stream.push(possible_eq!(chars => Token::Percent, Token::PercEq)),
+            '!' => token_stream.push(possible_eq!(chars => Token::Bang, Token::BangEq)),
             ':' => token_stream.push(Token::Colon),
             ';' => token_stream.push(Token::SemiColon),
             ',' => token_stream.push(Token::Comma),
@@ -72,7 +74,6 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             '>' => token_stream.push(Token::RCaret),
             '^' => token_stream.push(Token::UCaret),
             '~' => token_stream.push(Token::Woogly),
-            '!' => token_stream.push(Token::Bang),
             '"' => {
                 let mut string_buf = String::new();
                 while let Some(next) = chars.next() {
