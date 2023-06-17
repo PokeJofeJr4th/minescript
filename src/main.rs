@@ -52,7 +52,7 @@ fn main() -> Result<(), std::io::Error> {
             nmsp = args.namespace
         ))?;
         write!(file, "{}", contents)?;
-        if path == "tick" {
+        if &*path == "tick" {
             let mut tick = create_file_with_parent_dirs(&format!(
                 "{nmsp}/data/minecraft/tags/functions/tick.json",
                 nmsp = args.namespace
@@ -63,7 +63,7 @@ fn main() -> Result<(), std::io::Error> {
                 nmsp = args.namespace
             )?;
         }
-        if path == "load" {
+        if &*path == "load" {
             let mut load = create_file_with_parent_dirs(&format!(
                 "{nmsp}/data/minecraft/tags/functions/load.json",
                 nmsp = args.namespace

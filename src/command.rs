@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display, rc::Rc};
 
 use crate::parser::Syntax;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectorType {
     S,
     P,
@@ -14,7 +14,7 @@ pub enum SelectorType {
 #[derive(Debug, Clone)]
 pub struct Selector {
     pub selector_type: SelectorType,
-    pub args: BTreeMap<String, String>,
+    pub args: BTreeMap<Rc<str>, String>,
 }
 
 impl Display for Selector {
@@ -55,9 +55,9 @@ impl Display for Selector {
 #[macro_export]
 macro_rules! nbt {
     ({$($key:ident: $value:expr),*}) => {{
-        let mut tree: BTreeMap<String, Nbt> = BTreeMap::new();
+        let mut tree: BTreeMap<std::rc::Rc<str>, Nbt> = BTreeMap::new();
         $(
-            tree.insert(stringify!($key).to_string(), nbt!($value));
+            tree.insert(stringify!($key).into(), nbt!($value));
         )*
         Nbt::Object(tree)
     }};
@@ -73,9 +73,9 @@ macro_rules! nbt {
 
 #[derive(Debug, Clone)]
 pub enum Nbt {
-    Object(BTreeMap<String, Nbt>),
+    Object(BTreeMap<Rc<str>, Nbt>),
     Array(Vec<Nbt>),
-    String(String),
+    String(Rc<str>),
     Integer(i32),
     Float(f32),
     Unit,
@@ -150,7 +150,7 @@ impl Nbt {
 }
 
 impl TryFrom<&Syntax> for Nbt {
-    type Error = ();
+    type Error = String;
 
     fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
         match value {
@@ -162,7 +162,7 @@ impl TryFrom<&Syntax> for Nbt {
                         items
                             .iter()
                             .map(|(k, v)| Self::try_from(v).map(|nbt| (k.clone(), nbt)))
-                            .collect::<Result<BTreeMap<String, Self>, Self::Error>>()?,
+                            .collect::<Result<BTreeMap<Rc<str>, Self>, Self::Error>>()?,
                     ))
                 }
             }
@@ -176,19 +176,25 @@ impl TryFrom<&Syntax> for Nbt {
             Syntax::Integer(num) => Ok(Self::Integer(*num)),
             Syntax::Float(float) => Ok(Self::Float(*float)),
             Syntax::Unit => Ok(Self::default()),
-            _ => Err(()),
+            other => Err(format!("Can't make nbt from {other:?}")),
         }
     }
 }
 
 impl From<&str> for Nbt {
     fn from(value: &str) -> Self {
-        Self::String(String::from(value))
+        Self::String(String::from(value).into())
     }
 }
 
 impl From<String> for Nbt {
     fn from(value: String) -> Self {
+        Self::String(value.into())
+    }
+}
+
+impl From<Rc<str>> for Nbt {
+    fn from(value: Rc<str>) -> Self {
         Self::String(value)
     }
 }
@@ -205,11 +211,11 @@ impl From<f32> for Nbt {
     }
 }
 
-impl<T> From<BTreeMap<String, T>> for Nbt
+impl<T> From<BTreeMap<Rc<str>, T>> for Nbt
 where
     Nbt: From<T>,
 {
-    fn from(value: BTreeMap<String, T>) -> Self {
+    fn from(value: BTreeMap<Rc<str>, T>) -> Self {
         Self::Object(value.into_iter().map(|(k, v)| (k, Nbt::from(v))).collect())
     }
 }
@@ -221,10 +227,10 @@ impl TryFrom<Syntax> for Nbt {
             Syntax::Object(obj) => Ok(Self::Object(
                 obj.into_iter()
                     .map(|(k, v)| Nbt::try_from(v).map(|v| (k, v)))
-                    .collect::<Result<BTreeMap<String, Nbt>, String>>()?,
+                    .collect::<Result<BTreeMap<Rc<str>, Nbt>, String>>()?,
             )),
             Syntax::Array(arr) => Ok(Self::Array(
-                arr.into_iter()
+                arr.iter()
                     .map(Nbt::try_from)
                     .collect::<Result<Vec<Nbt>, String>>()?,
             )),

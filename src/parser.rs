@@ -1,23 +1,23 @@
-use std::{collections::BTreeMap, iter::Peekable};
+use std::{collections::BTreeMap, iter::Peekable, rc::Rc};
 
 use crate::{command::SelectorType, lexer::Token};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Syntax {
-    Identifier(String),
-    Macro(String, Box<Syntax>),
-    Object(BTreeMap<String, Syntax>),
-    Array(Vec<Syntax>),
-    Function(String, Box<Syntax>),
-    Selector(SelectorType, Vec<(String, Syntax)>),
-    BinaryOp(String, Operation, Box<Syntax>),
-    String(String),
+    Identifier(Rc<str>),
+    Macro(Rc<str>, Box<Syntax>),
+    Object(BTreeMap<Rc<str>, Syntax>),
+    Array(Rc<[Syntax]>),
+    Function(Rc<str>, Box<Syntax>),
+    Selector(SelectorType, Vec<(Rc<str>, Syntax)>),
+    BinaryOp(Rc<str>, Operation, Box<Syntax>),
+    String(Rc<str>),
     Integer(i32),
     Float(f32),
     Unit,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operation {
     Colon,
     Equal,
@@ -32,9 +32,22 @@ impl TryFrom<&Syntax> for String {
 
     fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
         match value {
-            Syntax::Identifier(str) | Syntax::String(str) => Ok(str.clone()),
+            Syntax::Identifier(str) | Syntax::String(str) => Ok(String::from(&**str)),
             Syntax::Integer(num) => Ok(format!("{num}")),
             Syntax::Float(float) => Ok(format!("{float}")),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&Syntax> for Rc<str> {
+    type Error = ();
+
+    fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
+        match value {
+            Syntax::Identifier(str) | Syntax::String(str) => Ok(str.clone()),
+            Syntax::Integer(num) => Ok(format!("{num}").into()),
+            Syntax::Float(float) => Ok(format!("{float}").into()),
             _ => Err(()),
         }
     }
@@ -47,14 +60,31 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             Some(Token::Dot) => {
                 tokens.next();
                 let Some(Token::Number(decimal)) = tokens.next() else {
-                    return Err(String::from("Expected a decimal part after a number"))
+                    return Err(String::from("Expected a decimal part after a point"))
                 };
                 Ok(Syntax::Float(
-                    num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32)),
+                    num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32 + 1)),
                 ))
             }
             _ => Ok(Syntax::Integer(num)),
         },
+        Some(Token::Tack) => {
+            let Some(Token::Number(num)) = tokens.next() else {
+                return Err(String::from("Expected a number after `-`"))
+            };
+            match tokens.peek() {
+                Some(Token::Dot) => {
+                    tokens.next();
+                    let Some(Token::Number(decimal)) = tokens.next() else {
+                        return Err(String::from("Expected a decimal part after a point"))
+                    };
+                    Ok(Syntax::Float(
+                        -num as f32 + (decimal as f32 / 10f32.powi(decimal.ilog10() as i32 + 1)),
+                    ))
+                }
+                _ => Ok(Syntax::Integer(-num)),
+            }
+        }
         Some(Token::Identifier(id)) => {
             let operation = match tokens.peek() {
                 Some(Token::Colon) => Some(Operation::Colon),
@@ -68,7 +98,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             if let Some(op) = operation {
                 tokens.next();
                 Ok(Syntax::BinaryOp(id, op, Box::new(parse(tokens)?)))
-            } else if id == "function" {
+            } else if &*id == "function" {
                 let Some(Token::Identifier(func)) = tokens.next() else {
                     return Err(String::from("Expected identifier after function"))
                 };
@@ -120,7 +150,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                 }
                 statements_buf.push(parse(tokens)?)
             }
-            Ok(Syntax::Array(statements_buf))
+            Ok(Syntax::Array(statements_buf.into()))
         }
         Some(Token::At) => {
             let Some(Token::Identifier(identifier)) = tokens.next() else {
@@ -161,5 +191,29 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             }
         }
         other => Err(format!("Unexpected token `{other:?}`")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        lexer::Token,
+        parser::{parse, Syntax},
+    };
+
+    #[test]
+    fn parse_literals() {
+        assert_eq!(
+            parse(
+                &mut [Token::Number(0), Token::Dot, Token::Number(2)]
+                    .into_iter()
+                    .peekable()
+            ),
+            Ok(Syntax::Float(0.2))
+        );
+        assert_eq!(
+            parse(&mut [Token::Tack, Token::Number(20)].into_iter().peekable()),
+            Ok(Syntax::Integer(-20))
+        )
     }
 }

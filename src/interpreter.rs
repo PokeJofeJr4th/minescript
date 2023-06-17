@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
 use crate::{
     command::{Command, Nbt, Selector, SelectorType},
@@ -8,18 +8,18 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Item {
-    pub name: String,
-    pub base: String,
+    pub name: Rc<str>,
+    pub base: Rc<str>,
     pub nbt: Nbt,
-    pub on_consume: Option<String>,
-    pub on_use: Option<String>,
+    pub on_consume: Option<Rc<str>>,
+    pub on_use: Option<Rc<str>>,
 }
 
 #[derive(Debug)]
 pub struct InterpreterState {
     pub items: Vec<Item>,
-    pub functions: Vec<(String, Vec<Command>)>,
-    pub recipes: BTreeMap<String, String>,
+    pub functions: Vec<(Rc<str>, Vec<Command>)>,
+    pub recipes: BTreeMap<Rc<str>, String>,
 }
 
 impl InterpreterState {
@@ -42,7 +42,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Com
     match src {
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
-            for statement in statements {
+            for statement in statements.iter() {
                 commands_buf.extend(inner_interpret(statement, state)?);
             }
             return Ok(commands_buf);
@@ -79,8 +79,8 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
     let mut item = Item {
-        name: String::new(),
-        base: String::new(),
+        name: String::new().into(),
+        base: String::new().into(),
         nbt: Nbt::default(),
         on_consume: None,
         on_use: None,
@@ -91,13 +91,13 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
     for (prop, value) in src.iter() {
         match prop.as_ref() {
             "name" => {
-                let Ok(name) = String::try_from(value) else {
+                let Ok(name) = Rc::<str>::try_from(value) else {
                     return Err(String::from("Item name must be a string"))
                 };
                 item.name = name;
             }
             "base" => {
-                let Ok(name) = String::try_from(value) else {
+                let Ok(name) = Rc::<str>::try_from(value) else {
                     return Err(String::from("Item base must be a string"))
                 };
                 item.base = name;
@@ -148,7 +148,7 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
                                 .map(|str| (k.clone(), nbt!({ item: str })))
                                 .map_err(|_| String::from("Expected string for item"))
                         })
-                        .collect::<Result<BTreeMap<String, Nbt>, String>>()?,
+                        .collect::<Result<BTreeMap<Rc<str>, Nbt>, String>>()?,
                 );
                 recipe_buf = Some(nbt!({
                     type: "minecraft:crafting_shaped",
@@ -164,12 +164,12 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
         }
     }
     if !on_consume_buf.is_empty() {
-        let func_name = format!("consume/{}", item.name);
+        let func_name: Rc<str> = format!("consume/{}", item.name).into();
         state.functions.push((func_name.clone(), on_consume_buf));
         item.on_consume = Some(func_name);
     }
     if !on_use_buf.is_empty() {
-        let func_name = format!("use/{}", item.name);
+        let func_name: Rc<str> = format!("use/{}", item.name).into();
         state.functions.push((func_name.clone(), on_use_buf));
         item.on_use = Some(func_name);
     }
@@ -207,7 +207,7 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
                         args: contents
                             .iter()
                             .map(|(k, v)| String::try_from(v).map(|v| (k.clone(), v)))
-                            .collect::<Result<BTreeMap<String, String>, _>>()
+                            .collect::<Result<BTreeMap<Rc<str>, String>, _>>()
                             .map_err(|_| String::from("Couldn't convert to string in selector"))?,
                     })
                 }
@@ -225,7 +225,7 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
             }
             "duration" => match value {
                 Syntax::Identifier(str) | Syntax::String(str) => {
-                    if str != "infinite" {
+                    if *str != "infinite".into() {
                         return Err(format!(
                             "Potion duration should be an integer or infinite, not `{str}`"
                         ));

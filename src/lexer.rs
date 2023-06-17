@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
-    String(String),
-    Identifier(String),
+    String(Rc<str>),
+    Identifier(Rc<str>),
     Number(i32),
     LSquirrely,
     RSquirrely,
@@ -92,7 +94,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
                             .push(chars.next().ok_or(String::from("Unexpected end of file"))?);
                     }
                 }
-                token_stream.push(Token::String(string_buf));
+                token_stream.push(Token::String(string_buf.into()));
             }
             '#' => {
                 // consume a full-line comment
@@ -120,7 +122,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
                     }
                     token_stream.push(match identifier_buf.parse() {
                         Ok(int) => Token::Number(int),
-                        Err(_) => Token::Identifier(identifier_buf),
+                        Err(_) => Token::Identifier(identifier_buf.into()),
                     });
                     continue;
                 }
@@ -152,7 +154,7 @@ mod tests {
             Ok(vec![
                 Token::Number(0),
                 Token::Tack,
-                Token::Identifier(String::from("lol")),
+                Token::Identifier(String::from("lol").into()),
                 Token::Tack,
                 Token::Number(0)
             ])
