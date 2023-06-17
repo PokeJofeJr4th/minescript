@@ -16,6 +16,7 @@ pub enum Syntax {
     Selector(Selector<Syntax>),
     DottedSelector(Selector<Syntax>, RStr),
     BinaryOp(OpLeft, Operation, Box<Syntax>),
+    If(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     String(RStr),
     Integer(i32),
     Float(f32),
@@ -45,6 +46,12 @@ impl Hash for Syntax {
                 op.hash(state);
                 syn.hash(state);
             }
+            Self::If(left, op, right, content) => {
+                left.hash(state);
+                op.hash(state);
+                right.hash(state);
+                content.hash(state);
+            }
             Self::Integer(int) => int.hash(state),
             Self::Float(float) => unsafe { &*(float as *const f32).cast::<u32>() }.hash(state),
             Self::Unit => {}
@@ -55,16 +62,16 @@ impl Hash for Syntax {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OpLeft {
     Ident(RStr),
-    Dotted(RStr, RStr),
+    Colon(RStr, RStr),
     Selector(Selector<Syntax>),
-    DottedSelector(Selector<Syntax>, RStr),
+    SelectorColon(Selector<Syntax>, RStr),
 }
 
 impl OpLeft {
     pub fn stringify_scoreboard_target(&self) -> Result<RStr, String> {
         match self {
-            Self::Ident(id) | Self::Dotted(id, _) => Ok(format!("%{id}").into()),
-            Self::Selector(selector) | Self::DottedSelector(selector, _) => {
+            Self::Ident(id) | Self::Colon(id, _) => Ok(format!("%{id}").into()),
+            Self::Selector(selector) | Self::SelectorColon(selector, _) => {
                 Ok(format!("{}", selector.stringify()?).into())
             }
         }
@@ -73,7 +80,7 @@ impl OpLeft {
     pub fn stringify_scoreboard_objective(&self) -> RStr {
         match self {
             Self::Ident(_) | Self::Selector(_) => "dummy".into(),
-            Self::Dotted(_, score) | Self::DottedSelector(_, score) => score.clone(),
+            Self::Colon(_, score) | Self::SelectorColon(_, score) => score.clone(),
         }
     }
 }
@@ -83,14 +90,17 @@ pub enum Operation {
     Colon,
     Dot,
     Equal,
+    LCaret,
+    LCaretEq,
+    RCaret,
+    RCaretEq,
+    BangEq,
     AddEq,
     SubEq,
     MulEq,
     DivEq,
     ModEq,
     Swap,
-    Min,
-    Max,
 }
 
 impl Display for Operation {
@@ -102,14 +112,17 @@ impl Display for Operation {
                 Self::Colon => ":",
                 Self::Dot => ".",
                 Self::Equal => "=",
+                Self::LCaretEq => "<=",
+                Self::RCaretEq => ">=",
+                Self::BangEq => "!=",
                 Self::AddEq => "+=",
                 Self::SubEq => "-=",
                 Self::MulEq => "*=",
                 Self::DivEq => "/=",
                 Self::ModEq => "%=",
                 Self::Swap => "><",
-                Self::Min => "<",
-                Self::Max => ">",
+                Self::LCaret => "<",
+                Self::RCaret => ">",
             }
         )
     }
@@ -194,8 +207,10 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                     break;
                 } else if tok == &Token::Comma || tok == &Token::SemiColon {
                     tokens.next();
+                } else {
+                    // println!("Squirrely Object");
+                    statements_buf.push(parse(tokens)?);
                 }
-                statements_buf.push(parse(tokens)?);
             }
             statements_buf
                 .iter()
@@ -207,7 +222,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                 })
                 .collect::<Option<BTreeMap<_, _>>>()
                 .map_or_else(
-                    || Err(String::from("Object syntax must only contain props")),
+                    || Ok(Syntax::Array(statements_buf.into())),
                     |props| Ok(Syntax::Object(props)),
                 )
         }
@@ -219,20 +234,27 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                     break;
                 } else if tok == &Token::Comma || tok == &Token::SemiColon {
                     tokens.next();
+                } else {
+                    // println!("Square Object");
+                    statements_buf.push(parse(tokens)?);
                 }
-                statements_buf.push(parse(tokens)?);
             }
             Ok(Syntax::Array(statements_buf.into()))
         }
         Some(Token::At) => parse_macro(tokens),
-        other => Err(format!("Unexpected token `{other:?}`")),
+        other => Err(format!(
+            "Unexpected token `{other:?}`; {:?}",
+            tokens.collect::<Vec<_>>()
+        )),
     };
     match &first {
-        Ok(Syntax::BinaryOp(OpLeft::Ident(first), Operation::Dot, second)) => {
+        Ok(Syntax::BinaryOp(OpLeft::Ident(first), Operation::Colon, second)) => {
+            // println!("Binary Operation");
             if let Syntax::Identifier(second) = &**second {
                 if let Some(op) = get_op(tokens) {
+                    // println!("Secondary Operation");
                     return Ok(Syntax::BinaryOp(
-                        OpLeft::Dotted(first.clone(), second.clone()),
+                        OpLeft::Colon(first.clone(), second.clone()),
                         op,
                         Box::new(parse(tokens)?),
                     ));
@@ -240,14 +262,15 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             }
         }
         Ok(Syntax::Selector(sel)) => {
-            if tokens.peek() == Some(&Token::Dot) {
+            // println!("Selector");
+            if tokens.peek() == Some(&Token::Colon) {
                 tokens.next();
                 let Some(Token::Identifier(ident)) = tokens.next() else {
                     return Err(String::from("Selectors can only be indexed with `.<identifier>`"))
                 };
                 if let Some(op) = get_op(tokens) {
                     return Ok(Syntax::BinaryOp(
-                        OpLeft::DottedSelector(sel.clone(), ident),
+                        OpLeft::SelectorColon(sel.clone(), ident),
                         op,
                         Box::new(parse(tokens)?),
                     ));
@@ -256,6 +279,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
         }
         _ => {}
     }
+    // println!("{first:?}");
     first
 }
 
@@ -263,12 +287,15 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
     let val = match tokens.peek() {
         Some(Token::Colon) => Some(Operation::Colon),
         Some(Token::Equal) => Some(Operation::Equal),
+        Some(Token::LCaretEq) => Some(Operation::LCaretEq),
+        Some(Token::RCaretEq) => Some(Operation::RCaretEq),
+        Some(Token::BangEq) => Some(Operation::BangEq),
         Some(Token::PlusEq) => Some(Operation::AddEq),
         Some(Token::TackEq) => Some(Operation::SubEq),
         Some(Token::StarEq) => Some(Operation::MulEq),
         Some(Token::SlashEq) => Some(Operation::DivEq),
         Some(Token::PercEq) => Some(Operation::ModEq),
-        Some(Token::LCaret) => Some(Operation::Min),
+        Some(Token::LCaret) => Some(Operation::LCaret),
         Some(Token::RCaret) => {
             tokens.next();
             match tokens.peek() {
@@ -276,12 +303,13 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
                     tokens.next();
                     Some(Operation::Swap)
                 }
-                _ => Some(Operation::Max),
+                _ => Some(Operation::RCaret),
             }
         }
         _ => None,
     };
-    if val.is_some() {
+    // the `>` already consumes the next token
+    if val.is_some() && val != Some(Operation::RCaret) {
         tokens.next();
     }
     val
@@ -304,6 +332,13 @@ fn parse_identifier<T: Iterator<Item = Token>>(
         Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
     // } else if id == "effect" {
     //     todo!()
+    } else if &*id == "if" {
+        // println!("If Statement");
+        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
+            return Err(String::from("If statement requires a check like `x = 2`"))
+        };
+        // println!("If Block");
+        Ok(Syntax::If(left, op, right, Box::new(parse(tokens)?)))
     } else {
         Ok(Syntax::Identifier(id))
     }
@@ -383,7 +418,7 @@ mod tests {
                 &mut [
                     Token::At,
                     Token::Identifier("a".into()),
-                    Token::Dot,
+                    Token::Colon,
                     Token::Identifier("x".into()),
                     Token::PlusEq,
                     Token::Number(2)
@@ -392,7 +427,7 @@ mod tests {
                 .peekable()
             ),
             Ok(Syntax::BinaryOp(
-                OpLeft::DottedSelector(
+                OpLeft::SelectorColon(
                     Selector {
                         selector_type: SelectorType::A,
                         args: BTreeMap::new()

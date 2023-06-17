@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, rc::Rc};
 
 use crate::{
-    command::{Command, Nbt, Selector, SelectorType},
+    command::{Command, ExecuteOption, Nbt, Selector, SelectorType},
     nbt,
     parser::{OpLeft, Operation, Syntax},
-    RStr,
+    silly_hash, RStr,
 };
 
 #[derive(Debug)]
@@ -72,12 +72,158 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             let inner = inner_interpret(content, state)?;
             state.functions.push((func.clone(), inner));
         }
+        Syntax::If(left, op, right, block) => return interpret_if(left, *op, right, block, state),
         Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
         Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(Vec::new())
+}
+
+#[allow(clippy::too_many_lines)]
+fn interpret_if(
+    left: &OpLeft,
+    op: Operation,
+    right: &Syntax,
+    block: &Syntax,
+    state: &mut InterRep,
+) -> Result<Vec<Command>, String> {
+    {
+        let content = inner_interpret(block, state)?;
+        if content.is_empty() {
+            return Err(String::from("`if` body cannot be empty"));
+        }
+        let cmd: Command = if let [cmd] = &content[..] {
+            cmd.clone()
+        } else {
+            let func_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
+            state.functions.push((func_name.clone(), content.clone()));
+            Command::Function { func: func_name }
+        };
+        let target_player = left.stringify_scoreboard_target()?;
+        let target_objective = left.stringify_scoreboard_objective();
+        let options = match right {
+            Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::DottedSelector(_, _) => {
+                let (source, source_objective) = match right {
+                    Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
+                    Syntax::BinaryOp(left, Operation::Colon, right) => match &**right {
+                        Syntax::Identifier(ident) => {
+                            (left.stringify_scoreboard_target()?, ident.clone())
+                        }
+                        _ => {
+                            return Err(format!(
+                                "Scoreboard must be indexed by an identifier; got {right:?}"
+                            ))
+                        }
+                    },
+                    Syntax::DottedSelector(selector, right) => {
+                        (selector.stringify()?.to_string().into(), right.clone())
+                    }
+                    _ => return Err(format!("Can't compare to `{right:?}`")),
+                };
+                match op {
+                    // x = var
+                    Operation::LCaret
+                    | Operation::LCaretEq
+                    | Operation::Equal
+                    | Operation::RCaretEq
+                    | Operation::RCaret => {
+                        vec![ExecuteOption::ScoreSource {
+                            invert: false,
+                            target: target_player,
+                            target_objective,
+                            operation: op,
+                            source,
+                            source_objective,
+                        }]
+                    }
+                    // x != var
+                    Operation::BangEq => {
+                        vec![ExecuteOption::ScoreSource {
+                            invert: true,
+                            target: target_player,
+                            target_objective,
+                            operation: Operation::Equal,
+                            source,
+                            source_objective,
+                        }]
+                    }
+                    _ => return Err(format!("Can't compare using `{op}`")),
+                }
+            }
+            Syntax::Integer(num) => {
+                match op {
+                    // x = 1
+                    Operation::Equal => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: false,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: Some(*num),
+                            upper: Some(*num),
+                        }]
+                    }
+                    // x >= 1
+                    Operation::RCaretEq => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: false,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: Some(*num),
+                            upper: None,
+                        }]
+                    }
+                    // x <= 1
+                    Operation::LCaretEq => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: false,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: None,
+                            upper: Some(*num),
+                        }]
+                    }
+                    // x != 1
+                    Operation::BangEq => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: true,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: Some(*num),
+                            upper: Some(*num),
+                        }]
+                    }
+                    // x > 1
+                    Operation::RCaret => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: true,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: None,
+                            upper: Some(*num),
+                        }]
+                    }
+                    // x < 1
+                    Operation::LCaret => {
+                        vec![ExecuteOption::ScoreMatches {
+                            invert: true,
+                            target: target_player,
+                            objective: target_objective,
+                            lower: Some(*num),
+                            upper: None,
+                        }]
+                    }
+                    _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
+                }
+            }
+            _ => return Err(format!("Can't end an if statement with {right:?}")),
+        };
+        Ok(vec![Command::Execute {
+            options,
+            cmd: Box::new(cmd),
+        }])
+    }
 }
 
 fn interpret_operation(
@@ -204,6 +350,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     };
     let mut on_consume_buf = Vec::new();
     let mut on_use_buf = Vec::new();
+    let mut while_using_buf = Vec::new();
     let mut recipe_buf = None;
     for (prop, value) in src.iter() {
         match prop.as_ref() {
@@ -236,6 +383,15 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
                     on_consume_buf = inner_interpret(other, state)?;
                 }
             },
+            "on_use" => match value {
+                Syntax::String(str) => item.on_use = Some(str.clone()),
+                Syntax::Function(name, body) => {
+                    let new_body = inner_interpret(body, state)?;
+                    state.functions.push((name.clone(), new_body));
+                    item.on_use = Some(name.clone());
+                }
+                other => on_use_buf = inner_interpret(other, state)?,
+            },
             "while_using" => match value {
                 Syntax::String(str) => item.while_using = Some(str.clone()),
                 Syntax::Function(name, body) => {
@@ -244,7 +400,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
                     item.while_using = Some(name.clone());
                 }
                 other => {
-                    on_use_buf = inner_interpret(other, state)?;
+                    while_using_buf = inner_interpret(other, state)?;
                 }
             },
             "recipe" => {
@@ -288,6 +444,15 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     if !on_use_buf.is_empty() {
         let func_name: RStr = format!("use/{}", item.name).into();
         state.functions.push((func_name.clone(), on_use_buf));
+        state.objectives.insert(
+            format!("use_{}", item.base).into(),
+            format!("minecraft.used:minecraft.{}", item.base).into(),
+        );
+        item.on_use = Some(func_name);
+    }
+    if !while_using_buf.is_empty() {
+        let func_name: RStr = format!("using/{}", item.name).into();
+        state.functions.push((func_name.clone(), while_using_buf));
         item.while_using = Some(func_name);
     }
     if let Some(recipe) = recipe_buf {
@@ -295,7 +460,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     }
     if item.base.is_empty() {
         Err(String::from(
-            "Item must have a specified base item; @item {... base: \"minecraft:potion\"}",
+            "Item must have a specified base item; @item {... base: \"potion\"}",
         ))
     } else if item.name.is_empty() {
         Err(String::from(

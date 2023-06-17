@@ -71,7 +71,6 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
           give=compiled.functions.get::<RStr>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
         );
     }
-    println!("{compiled:?}");
     Ok(compiled)
 }
 
@@ -102,7 +101,7 @@ fn compile_items(
         compiled.functions.insert(
             format!("give/{ident}").into(),
             format!(
-                "give @s {base}{nbt}",
+                "give @s minecraft:{base}{nbt}",
                 base = item.base,
                 nbt = Nbt::Object(give_obj)
             ),
@@ -117,7 +116,7 @@ fn compile_items(
                   conditions: nbt!({
                     item: nbt!({
                       items: nbt!([
-                        item.base.clone()
+                        format!("minecraft:{}", item.base)
                       ]),
                       nbt: item.nbt.clone()
                     })
@@ -125,7 +124,7 @@ fn compile_items(
                 })
               }),
               rewards: nbt!({
-                fuction: format!("{namespace}:{on_consume}")
+                function: format!("{namespace}:{on_consume}")
               })
             })
             .to_json();
@@ -146,7 +145,7 @@ fn compile_items(
                   conditions: nbt!({
                     item: nbt!({
                       items: nbt!([
-                        item.base.clone()
+                        format!("minecraft:{}", item.base)
                       ]),
                       nbt: item.nbt.clone()
                     })
@@ -154,7 +153,7 @@ fn compile_items(
                 })
               }),
               rewards: nbt!({
-                fuction: format!("{namespace}:{on_use}")
+                function: format!("{namespace}:{on_use}")
               })
             })
             .to_json();

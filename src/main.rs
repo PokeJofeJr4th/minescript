@@ -1,11 +1,13 @@
 #![warn(clippy::nursery, clippy::pedantic)]
+use core::hash::Hash;
+use std::collections::hash_map::DefaultHasher;
+use std::error::Error;
 use std::fs::{self, File};
+use std::hash::Hasher;
 use std::io::Write;
 use std::rc::Rc;
 
 use clap::Parser;
-
-use crate::{interpreter::InterRep, parser::Syntax};
 
 mod command;
 mod compiler;
@@ -15,40 +17,23 @@ mod parser;
 
 type RStr = Rc<str>;
 
-//objective for stuff: minecraft.<>:minecraft.<>
-// used item
-
 #[derive(Parser)]
 struct Args {
     path: String,
     namespace: String,
 }
 
-fn main() -> Result<(), std::io::Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let file = format!(
-        "[{}]",
-        fs::read_to_string(args.path).unwrap_or_else(|err| {
-            println!("{err}");
-            String::new()
-        })
-    );
-    let tokens = lexer::tokenize(&file).unwrap_or_else(|err| {
-        println!("{err}");
-        Vec::new()
-    });
+    let file = format!("[{}]", fs::read_to_string(args.path)?);
+    let tokens = lexer::tokenize(&file)?;
     println!("{tokens:?}");
-    let syntax = parser::parse(&mut tokens.into_iter().peekable()).unwrap_or_else(|err| {
-        println!("{err}");
-        Syntax::Unit
-    });
+    let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
     println!("{syntax:?}");
-    let state = interpreter::interpret(&syntax).unwrap_or_else(|err| {
-        println!("{err}");
-        InterRep::new()
-    });
+    let state = interpreter::interpret(&syntax)?;
     println!("{state:#?}");
-    let compiled = compiler::compile(&state, &args.namespace).unwrap();
+    let compiled = compiler::compile(&state, &args.namespace)?;
+    println!("{compiled:#?}");
     match fs::remove_dir_all(&args.namespace) {
         Ok(_) => println!("Deleted existing directory"),
         Err(err) => println!("Didn't delete directory: {err}"),
@@ -107,4 +92,10 @@ fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> 
     fs::create_dir_all(parent_dir)?;
 
     File::create(filename)
+}
+
+pub fn silly_hash<T: Hash>(obj: T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    obj.hash(&mut hasher);
+    hasher.finish()
 }
