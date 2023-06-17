@@ -20,6 +20,8 @@ pub enum Token {
     StarEq,
     Slash,
     SlashEq,
+    Percent,
+    PercEq,
     Equal,
     Colon,
     SemiColon,
@@ -30,6 +32,18 @@ pub enum Token {
     Woogly,
     UCaret,
     Bang,
+}
+
+macro_rules! possible_eq {
+    ($chars:ident => $just:expr, $eq:expr) => {
+        match $chars.peek() {
+            Some('=') => {
+                $chars.next();
+                $eq
+            }
+            _ => $just,
+        }
+    };
 }
 
 pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
@@ -45,34 +59,11 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             ']' => token_stream.push(Token::RSquare),
             '@' => token_stream.push(Token::At),
             '=' => token_stream.push(Token::Equal),
-            '+' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::PlusEq
-                }
-                _ => Token::Plus,
-            }),
-            '-' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::TackEq
-                }
-                _ => Token::Tack,
-            }),
-            '*' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::StarEq
-                }
-                _ => Token::Star,
-            }),
-            '/' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::SlashEq
-                }
-                _ => Token::Slash,
-            }),
+            '+' => token_stream.push(possible_eq!(chars => Token::Plus, Token::PlusEq)),
+            '-' => token_stream.push(possible_eq!(chars => Token::Tack, Token::TackEq)),
+            '*' => token_stream.push(possible_eq!(chars => Token::Star, Token::StarEq)),
+            '/' => token_stream.push(possible_eq!(chars => Token::Slash, Token::SlashEq)),
+            '%' => token_stream.push(possible_eq!(chars => Token::Percent, Token::PercEq)),
             ':' => token_stream.push(Token::Colon),
             ';' => token_stream.push(Token::SemiColon),
             ',' => token_stream.push(Token::Comma),
@@ -90,8 +81,11 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
                     }
                     string_buf.push(next);
                     if next == '\\' {
-                        string_buf
-                            .push(chars.next().ok_or(String::from("Unexpected end of file"))?);
+                        string_buf.push(
+                            chars
+                                .next()
+                                .ok_or_else(|| String::from("Unexpected end of file"))?,
+                        );
                     }
                 }
                 token_stream.push(Token::String(string_buf.into()));
@@ -114,16 +108,21 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
                     let mut identifier_buf = String::from(char);
                     while let Some(next) = chars.peek() {
                         if next.is_ascii_alphanumeric() || *next == '_' {
-                            identifier_buf
-                                .push(chars.next().ok_or(String::from("Unexpected end of file"))?)
+                            identifier_buf.push(
+                                chars
+                                    .next()
+                                    .ok_or_else(|| String::from("Unexpected end of file"))?,
+                            );
                         } else {
                             break;
                         }
                     }
-                    token_stream.push(match identifier_buf.parse() {
-                        Ok(int) => Token::Number(int),
-                        Err(_) => Token::Identifier(identifier_buf.into()),
-                    });
+                    token_stream.push(
+                        identifier_buf.parse().map_or_else(
+                            |_| Token::Identifier(identifier_buf.into()),
+                            Token::Number,
+                        ),
+                    );
                     continue;
                 }
                 // unexpected character
@@ -158,6 +157,6 @@ mod tests {
                 Token::Tack,
                 Token::Number(0)
             ])
-        )
+        );
     }
 }

@@ -1,9 +1,10 @@
+#![warn(clippy::nursery, clippy::pedantic)]
 use std::fs::{self, File};
 use std::io::Write;
 
 use clap::Parser;
 
-use crate::{interpreter::InterpreterState, parser::Syntax};
+use crate::{interpreter::InterRep, parser::Syntax};
 
 mod command;
 mod compiler;
@@ -38,20 +39,20 @@ fn main() -> Result<(), std::io::Error> {
     println!("{syntax:?}");
     let state = interpreter::interpret(&syntax).unwrap_or_else(|err| {
         println!("{err}");
-        InterpreterState::new()
+        InterRep::new()
     });
     println!("{state:#?}");
-    let compiled = compiler::compile(state, &args.namespace).unwrap();
+    let compiled = compiler::compile(&state, &args.namespace).unwrap();
     match fs::remove_dir_all(&args.namespace) {
         Ok(_) => println!("Deleted existing directory"),
-        Err(err) => println!("Didn't delete directory: {err}")
+        Err(err) => println!("Didn't delete directory: {err}"),
     }
     for (path, contents) in compiled.functions {
         let mut file = create_file_with_parent_dirs(&format!(
             "{nmsp}/data/{nmsp}/functions/{path}.mcfunction",
             nmsp = args.namespace
         ))?;
-        write!(file, "{}", contents)?;
+        write!(file, "{contents}")?;
         if &*path == "tick" {
             let mut tick = create_file_with_parent_dirs(&format!(
                 "{nmsp}/data/minecraft/tags/functions/tick.json",

@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::{command::Nbt, interpreter::InterpreterState, nbt};
+use crate::{command::Nbt, interpreter::InterRep, nbt};
 
 #[derive(Debug, Clone, Default)]
 pub struct CompiledData {
@@ -10,7 +10,7 @@ pub struct CompiledData {
     pub mcmeta: String,
 }
 
-pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, String> {
+pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> {
     let mut compiled = CompiledData {
         mcmeta: nbt!({
             pack: nbt!({
@@ -25,7 +25,57 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
         "load".into(),
         format!("say {namespace}, a datapack created with MineScript"),
     );
-    for item in src.items {
+    compile_items(src, namespace, &mut compiled)?;
+    for (name, statements) in &src.functions {
+        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
+        let mut fn_buf = String::new();
+        for statement in statements {
+            fn_buf.push('\n');
+            fn_buf.push_str(&statement.stringify(namespace));
+        }
+        match compiled.functions.get_mut(&name) {
+            Some(func) => func.push_str(&fn_buf),
+            None => {
+                compiled.functions.insert(name.clone(), fn_buf);
+            }
+        }
+    }
+    for (name, content) in &src.recipes {
+        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
+        compiled.recipes.insert(name.clone(), content.clone());
+        compiled.advancements.insert(
+            format!("craft/{name}").into(),
+            nbt!({
+              criteria: nbt!{{
+                requirement: nbt!{{
+                  trigger: "minecraft:recipe_unlocked",
+                  conditions: nbt!{{
+                    recipe: format!("{namespace}:{name}")
+                  }}
+                }}
+              }},
+              rewards: nbt!{{
+                function: format!("{namespace}:craft/{name}")
+              }}
+            })
+            .to_json(),
+        );
+        compiled.functions.insert(
+          format!("craft/{name}").into(),
+          format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\nrecipe take @s {namespace}:{name}\n{give}", 
+          give=compiled.functions.get::<Rc<str>>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
+        );
+    }
+    println!("{compiled:?}");
+    Ok(compiled)
+}
+
+fn compile_items(
+    src: &InterRep,
+    namespace: &str,
+    compiled: &mut CompiledData,
+) -> Result<(), String> {
+    for item in &src.items {
         let ident = item.name.to_lowercase().replace(' ', "_");
 
         let mut give_obj = match &item.nbt {
@@ -53,7 +103,7 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
             ),
         );
 
-        if let Some(on_consume) = item.on_consume {
+        if let Some(on_consume) = &item.on_consume {
             let on_consume = on_consume.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({
               criteria: nbt!({
@@ -70,7 +120,7 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
                 })
               }),
               rewards: nbt!({
-                fuction: format!("{namespace}:{}", on_consume)
+                fuction: format!("{namespace}:{on_consume}")
               })
             })
             .to_json();
@@ -82,7 +132,7 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
                 format!("advancement revoke @s only {namespace}:consume/{ident}"),
             );
         }
-        if let Some(on_use) = item.on_use {
+        if let Some(on_use) = &item.on_use {
             let on_use = on_use.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({
               criteria: nbt!({
@@ -99,7 +149,7 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
                 })
               }),
               rewards: nbt!({
-                fuction: format!("{namespace}:{}", on_use)
+                fuction: format!("{namespace}:{on_use}")
               })
             })
             .to_json();
@@ -112,46 +162,5 @@ pub fn compile(src: InterpreterState, namespace: &str) -> Result<CompiledData, S
             );
         }
     }
-    for (name, statements) in src.functions {
-        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
-        let mut fn_buf = String::new();
-        for statement in statements {
-            fn_buf.push('\n');
-            fn_buf.push_str(&statement.stringify(namespace));
-        }
-        match compiled.functions.get_mut(&name) {
-            Some(func) => func.push_str(&fn_buf),
-            None => {
-                compiled.functions.insert(name.clone(), fn_buf);
-            }
-        }
-    }
-    for (name, content) in src.recipes {
-        let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();
-        compiled.recipes.insert(name.clone(), content);
-        compiled.advancements.insert(
-            format!("craft/{name}").into(),
-            nbt!({
-              criteria: nbt!{{
-                requirement: nbt!{{
-                  trigger: "minecraft:recipe_unlocked",
-                  conditions: nbt!{{
-                    recipe: format!("{namespace}:{name}")
-                  }}
-                }}
-              }},
-              rewards: nbt!{{
-                function: format!("{namespace}:craft/{name}")
-              }}
-            })
-            .to_json(),
-        );
-        compiled.functions.insert(
-          format!("craft/{name}").into(),
-          format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\nrecipe take @s {namespace}:{name}\n{give}", 
-          give=compiled.functions.get::<Rc<str>>(&format!("give/{name}").into()).ok_or(String::from("Some kind of weird internal error happened with the recipe :("))?)
-        );
-    }
-    println!("{compiled:?}");
-    Ok(compiled)
+    Ok(())
 }

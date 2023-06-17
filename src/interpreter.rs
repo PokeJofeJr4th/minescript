@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, rc::Rc};
 use crate::{
     command::{Command, Nbt, Selector, SelectorType},
     nbt,
-    parser::Syntax,
+    parser::{Operation, Syntax},
 };
 
 #[derive(Debug)]
@@ -16,14 +16,14 @@ pub struct Item {
 }
 
 #[derive(Debug)]
-pub struct InterpreterState {
+pub struct InterRep {
     pub items: Vec<Item>,
     pub functions: Vec<(Rc<str>, Vec<Command>)>,
     pub recipes: BTreeMap<Rc<str>, String>,
 }
 
-impl InterpreterState {
-    pub fn new() -> Self {
+impl InterRep {
+    pub const fn new() -> Self {
         Self {
             items: Vec::new(),
             functions: Vec::new(),
@@ -32,13 +32,13 @@ impl InterpreterState {
     }
 }
 
-pub fn interpret(src: &Syntax) -> Result<InterpreterState, String> {
-    let mut state = InterpreterState::new();
+pub fn interpret(src: &Syntax) -> Result<InterRep, String> {
+    let mut state = InterRep::new();
     inner_interpret(src, &mut state)?;
     Ok(state)
 }
 
-fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Command>, String> {
+fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, String> {
     match src {
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
@@ -57,7 +57,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Com
             }
             "function" => {
                 return Ok(vec![Command::Function {
-                    func: String::try_from(&**properties)
+                    func: Rc::<str>::try_from(&**properties)
                         .map_err(|_| String::from("Function macro should have a string"))?,
                 }])
             }
@@ -65,8 +65,34 @@ fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Com
         },
         Syntax::Function(func, content) => {
             let inner = inner_interpret(content, state)?;
-            state.functions.push((func.clone(), inner))
+            state.functions.push((func.clone(), inner));
         }
+        Syntax::BinaryOp(target, op, syn) => match (*op, &**syn) {
+            (op, Syntax::Identifier(ident)) => {
+                return Ok(vec![Command::ScoreOperation {
+                    target: target.clone(),
+                    target_objective: "dummy".into(),
+                    operation: op,
+                    source: ident.clone(),
+                    source_objective: "dummy".into(),
+                }])
+            }
+            (Operation::Equal, Syntax::Integer(int)) => {
+                return Ok(vec![Command::ScoreSet {
+                    target: target.clone(),
+                    objective: "dummy".into(),
+                    value: format!("{int}").into(),
+                }])
+            }
+            (Operation::AddEq, Syntax::Integer(int)) => {
+                return Ok(vec![Command::ScoreAdd {
+                    target: target.clone(),
+                    objective: "dummy".into(),
+                    value: format!("{int}").into(),
+                }])
+            }
+            _ => return Err(format!("Unsupported operation: {target} {op} {syn:?}")),
+        },
         Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
@@ -74,7 +100,8 @@ fn inner_interpret(src: &Syntax, state: &mut InterpreterState) -> Result<Vec<Com
     Ok(Vec::new())
 }
 
-fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, String> {
+#[allow(clippy::too_many_lines)]
+fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
@@ -158,7 +185,7 @@ fn interpret_item(src: &Syntax, state: &mut InterpreterState) -> Result<Item, St
                         item: "minecraft:knowledge_book",
                         count: 1
                     })
-                }))
+                }));
             }
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
@@ -209,7 +236,7 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
                             .map(|(k, v)| String::try_from(v).map(|v| (k.clone(), v)))
                             .collect::<Result<BTreeMap<Rc<str>, String>, _>>()
                             .map_err(|_| String::from("Couldn't convert to string in selector"))?,
-                    })
+                    });
                 }
                 other => {
                     return Err(format!(
@@ -218,7 +245,7 @@ fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
                 }
             },
             "effect" => {
-                let Ok(eff) = String::try_from(value) else {
+                let Ok(eff) = Rc::<str>::try_from(value) else {
                     return Err(String::from("Potion effect must be a string"))
                 };
                 effect = Some(eff);

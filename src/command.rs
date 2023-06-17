@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Display, rc::Rc};
 
-use crate::parser::Syntax;
+use crate::parser::{Operation, Syntax};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectorType {
@@ -44,7 +44,7 @@ impl Display for Selector {
                 }
             )?;
             let mut args_buf = f.debug_list();
-            for (k, v) in self.args.iter() {
+            for (k, v) in &self.args {
                 args_buf.entry(&format_args!("{k}={v}"));
             }
             args_buf.finish()
@@ -90,24 +90,24 @@ impl Default for Nbt {
 impl Display for Nbt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Nbt::Object(data) => {
+            Self::Object(data) => {
                 let mut data_buf = f.debug_map();
                 for (ident, value) in data {
                     data_buf.entry(&format_args!("{ident}"), &format_args!("{value}"));
                 }
                 data_buf.finish()
             }
-            Nbt::Array(data) => {
+            Self::Array(data) => {
                 let mut data_buf = f.debug_list();
                 for value in data {
                     data_buf.entry(&format_args!("{value}"));
                 }
                 data_buf.finish()
             }
-            Nbt::String(str) => write!(f, "\"{str}\""),
-            Nbt::Integer(num) => write!(f, "{num}"),
-            Nbt::Float(float) => write!(f, "{float}"),
-            Nbt::Unit => write!(f, "{{}}"),
+            Self::String(str) => write!(f, "\"{str}\""),
+            Self::Integer(num) => write!(f, "{num}"),
+            Self::Float(float) => write!(f, "{float}"),
+            Self::Unit => write!(f, "{{}}"),
         }
     }
 }
@@ -115,7 +115,7 @@ impl Display for Nbt {
 impl Nbt {
     pub fn to_json(&self) -> String {
         match self {
-            Nbt::Object(obj) => {
+            Self::Object(obj) => {
                 let mut buf = String::from("{");
                 for (key, value) in obj {
                     buf.push('"');
@@ -130,7 +130,7 @@ impl Nbt {
                 buf.push('}');
                 buf
             }
-            Nbt::Array(arr) => {
+            Self::Array(arr) => {
                 let mut buf = String::from('[');
                 for item in arr {
                     buf.push_str(&item.to_json());
@@ -141,10 +141,10 @@ impl Nbt {
                 buf.push(']');
                 buf
             }
-            Nbt::String(str) => format!("\"{str}\""),
-            Nbt::Integer(num) => format!("{num}"),
-            Nbt::Float(float) => format!("{float}"),
-            Nbt::Unit => String::from("{}"),
+            Self::String(str) => format!("\"{str}\""),
+            Self::Integer(num) => format!("{num}"),
+            Self::Float(float) => format!("{float}"),
+            Self::Unit => String::from("{}"),
         }
     }
 }
@@ -213,10 +213,10 @@ impl From<f32> for Nbt {
 
 impl<T> From<BTreeMap<Rc<str>, T>> for Nbt
 where
-    Nbt: From<T>,
+    Self: From<T>,
 {
     fn from(value: BTreeMap<Rc<str>, T>) -> Self {
-        Self::Object(value.into_iter().map(|(k, v)| (k, Nbt::from(v))).collect())
+        Self::Object(value.into_iter().map(|(k, v)| (k, Self::from(v))).collect())
     }
 }
 
@@ -226,17 +226,17 @@ impl TryFrom<Syntax> for Nbt {
         match value {
             Syntax::Object(obj) => Ok(Self::Object(
                 obj.into_iter()
-                    .map(|(k, v)| Nbt::try_from(v).map(|v| (k, v)))
-                    .collect::<Result<BTreeMap<Rc<str>, Nbt>, String>>()?,
+                    .map(|(k, v)| Self::try_from(v).map(|v| (k, v)))
+                    .collect::<Result<BTreeMap<Rc<str>, Self>, String>>()?,
             )),
             Syntax::Array(arr) => Ok(Self::Array(
                 arr.iter()
-                    .map(Nbt::try_from)
-                    .collect::<Result<Vec<Nbt>, String>>()?,
+                    .map(Self::try_from)
+                    .collect::<Result<Vec<Self>, String>>()?,
             )),
-            Syntax::String(str) | Syntax::Identifier(str) => Ok(Nbt::String(str)),
-            Syntax::Integer(num) => Ok(Nbt::Integer(num)),
-            Syntax::Unit => Ok(Nbt::Unit),
+            Syntax::String(str) | Syntax::Identifier(str) => Ok(Self::String(str)),
+            Syntax::Integer(num) => Ok(Self::Integer(num)),
+            Syntax::Unit => Ok(Self::Unit),
             _ => Err(format!("Can't turn `{value:?}` into Nbt")),
         }
     }
@@ -246,7 +246,7 @@ impl TryFrom<Syntax> for Nbt {
 pub enum Command {
     EffectGive {
         target: Selector,
-        effect: String,
+        effect: Rc<str>,
         duration: Option<i32>,
         level: Option<i32>,
     },
@@ -254,14 +254,31 @@ pub enum Command {
         target: Selector,
     },
     Function {
-        func: String,
+        func: Rc<str>,
+    },
+    ScoreSet {
+        target: Rc<str>,
+        objective: Rc<str>,
+        value: Rc<str>,
+    },
+    ScoreAdd {
+        target: Rc<str>,
+        objective: Rc<str>,
+        value: Rc<str>,
+    },
+    ScoreOperation {
+        target: Rc<str>,
+        target_objective: Rc<str>,
+        operation: Operation,
+        source: Rc<str>,
+        source_objective: Rc<str>,
     },
 }
 
 impl Command {
     pub fn stringify(&self, namespace: &str) -> String {
         match self {
-            Command::EffectGive {
+            Self::EffectGive {
                 target,
                 effect,
                 duration,
@@ -269,15 +286,29 @@ impl Command {
             } => {
                 format!(
                     "effect give {target} {effect} {} {}",
-                    match duration {
-                        Some(num) => format!("{num}"),
-                        None => String::from("infinite"),
-                    },
+                    duration.map_or_else(|| String::from("infinite"), |num| format!("{num}")),
                     level.unwrap_or(0)
                 )
             }
-            Command::Kill { target } => format!("kill {target}"),
-            Command::Function { func } => format!("function {namespace}:{func}"),
+            Self::Kill { target } => format!("kill {target}"),
+            Self::Function { func } => format!("function {namespace}:{func}"),
+            Self::ScoreSet {
+                target: player,
+                objective: score,
+                value,
+            } => format!("scoreboard players set {player} {score} {value}"),
+            Self::ScoreAdd {
+                target: player,
+                objective: score,
+                value,
+            } => format!("scoreboard players add {player} {score} {value}"),
+            Self::ScoreOperation {
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            } => format!("scoreboard players operation {target} {target_objective} {operation} {source} {source_objective}"),
         }
     }
 }
