@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display, iter::Peekable, rc::Rc};
+use std::{collections::BTreeMap, fmt::Display, hash::Hash, iter::Peekable, rc::Rc};
 
 use crate::{
     command::{Selector, SelectorType},
@@ -22,7 +22,37 @@ pub enum Syntax {
     Unit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+// this is fine because hash is deterministic except for NaNs and I don't care about them
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Syntax {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Identifier(str) | Self::String(str) => str.hash(state),
+            Self::Function(name, syn) | Self::Macro(name, syn) => {
+                name.hash(state);
+                syn.hash(state);
+            }
+            Self::Object(map) => map.hash(state),
+            Self::Array(arr) => arr.hash(state),
+            Self::Selector(sel) => sel.hash(state),
+            Self::DottedSelector(sel, ident) => {
+                sel.hash(state);
+                ident.hash(state);
+            }
+            Self::BinaryOp(left, op, syn) => {
+                left.hash(state);
+                op.hash(state);
+                syn.hash(state);
+            }
+            Self::Integer(int) => int.hash(state),
+            Self::Float(float) => unsafe { &*(float as *const f32).cast::<u32>() }.hash(state),
+            Self::Unit => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OpLeft {
     Ident(RStr),
     Dotted(RStr, RStr),
@@ -48,7 +78,7 @@ impl OpLeft {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Operation {
     Colon,
     Dot,
@@ -111,7 +141,11 @@ impl TryFrom<&Syntax> for RStr {
     }
 }
 
-#[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    clippy::too_many_lines
+)]
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),

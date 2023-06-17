@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, rc::Rc};
 use crate::{
     command::{Command, Nbt, Selector, SelectorType},
     nbt,
-    parser::{Operation, Syntax},
+    parser::{OpLeft, Operation, Syntax},
     RStr,
 };
 
@@ -52,6 +52,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
         }
         Syntax::Macro(name, properties) => match name.as_ref() {
             "item" => {
+                // can't borrow state as mutable more than once at a time
                 let item = interpret_item(properties, state)?;
                 state.items.push(item);
             }
@@ -70,75 +71,121 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             let inner = inner_interpret(content, state)?;
             state.functions.push((func.clone(), inner));
         }
-        Syntax::BinaryOp(target, op, syn) => match (*op, &**syn) {
-            (op, Syntax::Identifier(ident)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![Command::ScoreOperation {
-                    target: target.stringify_scoreboard_target()?,
-                    target_objective: target.stringify_scoreboard_objective(),
-                    operation: op,
-                    source: format!("%{ident}").into(),
-                    source_objective: "dummy".into(),
-                }]);
-            }
-            (op, Syntax::DottedSelector(sel, ident)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![Command::ScoreOperation {
-                    target: target.stringify_scoreboard_target()?,
-                    target_objective: target.stringify_scoreboard_objective(),
-                    operation: op,
-                    source: format!("{}", sel.stringify()?).into(),
-                    source_objective: ident.clone(),
-                }]);
-            }
-            (Operation::Equal, Syntax::Integer(int)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![Command::ScoreSet {
-                    target: target.stringify_scoreboard_target()?,
-                    objective: target.stringify_scoreboard_objective(),
-                    value: *int,
-                }]);
-            }
-            (Operation::AddEq, Syntax::Integer(int)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![Command::ScoreAdd {
-                    target: target.stringify_scoreboard_target()?,
-                    objective: target.stringify_scoreboard_objective(),
-                    value: *int,
-                }]);
-            }
-            (Operation::SubEq, Syntax::Integer(int)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![Command::ScoreAdd {
-                    target: target.stringify_scoreboard_target()?,
-                    objective: target.stringify_scoreboard_objective(),
-                    value: -int,
-                }]);
-            }
-            (op, Syntax::Integer(int)) => {
-                state.objectives.insert("dummy".into(), "dummy".into());
-                return Ok(vec![
-                    Command::ScoreSet {
-                        target: "%".into(),
-                        objective: "dummy".into(),
-                        value: *int,
-                    },
-                    Command::ScoreOperation {
-                        target: target.stringify_scoreboard_target()?,
-                        target_objective: target.stringify_scoreboard_objective(),
-                        operation: op,
-                        source: "%".into(),
-                        source_objective: "dummy".into(),
-                    },
-                ]);
-            }
-            _ => return Err(format!("Unsupported operation: {target:?} {op} {syn:?}")),
-        },
+        Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
         Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(Vec::new())
+}
+
+fn interpret_operation(
+    target: &OpLeft,
+    op: Operation,
+    syn: &Syntax,
+    state: &mut InterRep,
+) -> Result<Vec<Command>, String> {
+    match (op, syn) {
+        // x = y
+        (op, Syntax::Identifier(ident)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            Ok(vec![Command::ScoreOperation {
+                target: target.stringify_scoreboard_target()?,
+                target_objective,
+                operation: op,
+                source: format!("%{ident}").into(),
+                source_objective: "dummy".into(),
+            }])
+        }
+        // x = @r.y
+        (op, Syntax::DottedSelector(sel, ident)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            Ok(vec![Command::ScoreOperation {
+                target: target.stringify_scoreboard_target()?,
+                target_objective,
+                operation: op,
+                source: format!("{}", sel.stringify()?).into(),
+                source_objective: ident.clone(),
+            }])
+        }
+        // x = 2
+        (Operation::Equal, Syntax::Integer(int)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            Ok(vec![Command::ScoreSet {
+                target: target.stringify_scoreboard_target()?,
+                objective: target_objective,
+                value: *int,
+            }])
+        }
+        // x += 2
+        (Operation::AddEq, Syntax::Integer(int)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            Ok(vec![Command::ScoreAdd {
+                target: target.stringify_scoreboard_target()?,
+                objective: target_objective,
+                value: *int,
+            }])
+        }
+        // x -= 2
+        (Operation::SubEq, Syntax::Integer(int)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            Ok(vec![Command::ScoreAdd {
+                target: target.stringify_scoreboard_target()?,
+                objective: target_objective,
+                value: -int,
+            }])
+        }
+        // x %= 2
+        (op, Syntax::Integer(int)) => {
+            let target_objective = target.stringify_scoreboard_objective();
+            if !state.objectives.contains_key(&target_objective) {
+                state
+                    .objectives
+                    .insert(target_objective.clone(), "dummy".into());
+            }
+            state.objectives.insert("dummy".into(), "dummy".into());
+            Ok(vec![
+                Command::ScoreSet {
+                    target: "%".into(),
+                    objective: "dummy".into(),
+                    value: *int,
+                },
+                Command::ScoreOperation {
+                    target: target.stringify_scoreboard_target()?,
+                    target_objective,
+                    operation: op,
+                    source: "%".into(),
+                    source_objective: "dummy".into(),
+                },
+            ])
+        }
+        _ => Err(format!("Unsupported operation: {target:?} {op} {syn:?}")),
+    }
 }
 
 #[allow(clippy::too_many_lines)]

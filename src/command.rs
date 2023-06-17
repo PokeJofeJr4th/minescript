@@ -5,7 +5,7 @@ use crate::{
     RStr,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SelectorType {
     S,
     P,
@@ -14,7 +14,7 @@ pub enum SelectorType {
     R,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Selector<T> {
     pub selector_type: SelectorType,
     pub args: BTreeMap<RStr, T>,
