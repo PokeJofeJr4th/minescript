@@ -21,10 +21,15 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
         .to_json(),
         ..Default::default()
     };
-    compiled.functions.insert(
-        "load".into(),
-        format!("say {namespace}, a datapack created with MineScript"),
-    );
+    let mut load = format!("say {namespace}, a datapack created with MineScript");
+    for (objective, trigger) in &src.objectives {
+        load.push('\n');
+        load.push_str("scoreboard objectives add ");
+        load.push_str(objective);
+        load.push(' ');
+        load.push_str(trigger);
+    }
+    compiled.functions.insert("load".into(), load);
     compile_items(src, namespace, &mut compiled)?;
     for (name, statements) in &src.functions {
         let name: Rc<str> = name.to_lowercase().replace(' ', "_").into();

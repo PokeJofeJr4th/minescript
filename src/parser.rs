@@ -133,12 +133,16 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                 statements_buf.push(parse(tokens)?);
             }
             statements_buf
-            .iter()
-            .map(|syn| match syn {
-                Syntax::BinaryOp(k, Operation::Colon, v) => Some((k.clone(), *(*v).clone())),
-                _ => None,
-            })
-            .collect::<Option<BTreeMap<_, _>>>().map_or_else(|| Err(String::from("Object syntax must only contain props")), |props| Ok(Syntax::Object(props)))
+                .iter()
+                .map(|syn| match syn {
+                    Syntax::BinaryOp(k, Operation::Colon, v) => Some((k.clone(), *(*v).clone())),
+                    _ => None,
+                })
+                .collect::<Option<BTreeMap<_, _>>>()
+                .map_or_else(
+                    || Err(String::from("Object syntax must only contain props")),
+                    |props| Ok(Syntax::Object(props)),
+                )
         }
         Some(Token::LSquare) => {
             let mut statements_buf = Vec::new();
@@ -158,7 +162,10 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
     }
 }
 
-fn parse_identifier<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, id: Rc<str>) -> Result<Syntax, String> {
+fn parse_identifier<T: Iterator<Item = Token>>(
+    tokens: &mut Peekable<T>,
+    id: Rc<str>,
+) -> Result<Syntax, String> {
     {
         let operation = match tokens.peek() {
             Some(Token::Colon) => Some(Operation::Colon),
@@ -195,7 +202,6 @@ fn parse_identifier<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, id: Rc<
             Ok(Syntax::Identifier(id))
         }
     }
-
 }
 
 fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {

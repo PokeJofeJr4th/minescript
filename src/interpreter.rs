@@ -18,6 +18,7 @@ pub struct Item {
 #[derive(Debug)]
 pub struct InterRep {
     pub items: Vec<Item>,
+    pub objectives: BTreeMap<Rc<str>, Rc<str>>,
     pub functions: Vec<(Rc<str>, Vec<Command>)>,
     pub recipes: BTreeMap<Rc<str>, String>,
 }
@@ -26,6 +27,7 @@ impl InterRep {
     pub const fn new() -> Self {
         Self {
             items: Vec::new(),
+            objectives: BTreeMap::new(),
             functions: Vec::new(),
             recipes: BTreeMap::new(),
         }
@@ -69,27 +71,30 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
         }
         Syntax::BinaryOp(target, op, syn) => match (*op, &**syn) {
             (op, Syntax::Identifier(ident)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreOperation {
                     target: target.clone(),
                     target_objective: "dummy".into(),
                     operation: op,
                     source: ident.clone(),
                     source_objective: "dummy".into(),
-                }])
+                }]);
             }
             (Operation::Equal, Syntax::Integer(int)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreSet {
                     target: target.clone(),
                     objective: "dummy".into(),
                     value: format!("{int}").into(),
-                }])
+                }]);
             }
             (Operation::AddEq, Syntax::Integer(int)) => {
+                state.objectives.insert("dummy".into(), "dummy".into());
                 return Ok(vec![Command::ScoreAdd {
                     target: target.clone(),
                     objective: "dummy".into(),
                     value: format!("{int}").into(),
-                }])
+                }]);
             }
             _ => return Err(format!("Unsupported operation: {target} {op} {syn:?}")),
         },
