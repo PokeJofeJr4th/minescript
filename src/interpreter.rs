@@ -13,6 +13,7 @@ pub struct Item {
     pub base: RStr,
     pub nbt: Nbt,
     pub on_consume: Option<RStr>,
+    pub while_using: Option<RStr>,
     pub on_use: Option<RStr>,
 }
 
@@ -199,6 +200,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
         nbt: Nbt::default(),
         on_consume: None,
         on_use: None,
+        while_using: None,
     };
     let mut on_consume_buf = Vec::new();
     let mut on_use_buf = Vec::new();
@@ -234,12 +236,12 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
                     on_consume_buf = inner_interpret(other, state)?;
                 }
             },
-            "on_use" => match value {
-                Syntax::String(str) => item.on_use = Some(str.clone()),
+            "while_using" => match value {
+                Syntax::String(str) => item.while_using = Some(str.clone()),
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_use = Some(name.clone());
+                    item.while_using = Some(name.clone());
                 }
                 other => {
                     on_use_buf = inner_interpret(other, state)?;
@@ -286,7 +288,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     if !on_use_buf.is_empty() {
         let func_name: RStr = format!("use/{}", item.name).into();
         state.functions.push((func_name.clone(), on_use_buf));
-        item.on_use = Some(func_name);
+        item.while_using = Some(func_name);
     }
     if let Some(recipe) = recipe_buf {
         state.recipes.insert(item.name.clone(), recipe.to_json());

@@ -137,7 +137,7 @@ fn compile_items(
                 format!("advancement revoke @s only {namespace}:consume/{ident}"),
             );
         }
-        if let Some(on_use) = &item.on_use {
+        if let Some(on_use) = &item.while_using {
             let on_use = on_use.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({
               criteria: nbt!({

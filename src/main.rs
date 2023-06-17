@@ -15,6 +15,9 @@ mod parser;
 
 type RStr = Rc<str>;
 
+//objective for stuff: minecraft.<>:minecraft.<>
+// used item
+
 #[derive(Parser)]
 struct Args {
     path: String,
