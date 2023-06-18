@@ -444,11 +444,13 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     if !on_use_buf.is_empty() {
         let func_name: RStr = format!("use/{}", item.name).into();
         state.functions.push((func_name.clone(), on_use_buf));
+        item.on_use = Some(func_name);
+    }
+    if item.on_use.is_some() {
         state.objectives.insert(
             format!("use_{}", item.base).into(),
             format!("minecraft.used:minecraft.{}", item.base).into(),
         );
-        item.on_use = Some(func_name);
     }
     if !while_using_buf.is_empty() {
         let func_name: RStr = format!("using/{}", item.name).into();

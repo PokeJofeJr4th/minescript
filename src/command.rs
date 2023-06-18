@@ -72,19 +72,19 @@ impl<T: Display> Display for Selector<T> {
 #[macro_export]
 macro_rules! nbt {
     ({$($key:ident: $value:expr),*}) => {{
-        let mut tree: BTreeMap<RStr, Nbt> = BTreeMap::new();
+        let mut tree: std::collections::BTreeMap<$crate::RStr, $crate::command::Nbt> = std::collections::BTreeMap::new();
         $(
             tree.insert(stringify!($key).into(), nbt!($value));
         )*
-        Nbt::Object(tree)
+        $crate::command::Nbt::Object(tree)
     }};
 
     ([$($value:expr),*]) => {{
-        Nbt::Array(vec![$(nbt!($value)),*])
+        $crate::command::Nbt::Array(vec![$(nbt!($value)),*])
     }};
 
     ($obj:expr) => {
-        Nbt::from($obj)
+        $crate::command::Nbt::from($obj)
     }
 }
 
@@ -158,7 +158,7 @@ impl Nbt {
                 buf.push(']');
                 buf
             }
-            Self::String(str) => format!("\"{str}\""),
+            Self::String(str) => format!("{str:?}"),
             Self::Integer(num) => format!("{num}"),
             Self::Float(float) => format!("{float}"),
             Self::Unit => String::from("{}"),

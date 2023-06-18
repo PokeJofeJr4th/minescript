@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{command::Nbt, interpreter::InterRep, nbt, RStr};
 
@@ -74,11 +74,14 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
     Ok(compiled)
 }
 
+#[allow(clippy::too_many_lines)]
 fn compile_items(
     src: &InterRep,
     namespace: &str,
     compiled: &mut CompiledData,
 ) -> Result<(), String> {
+    let mut tick_buf = String::new();
+    let mut using_base_item_scores = BTreeSet::new();
     for item in &src.items {
         let ident = item.name.to_lowercase().replace(' ', "_");
 
@@ -118,7 +121,7 @@ fn compile_items(
                       items: nbt!([
                         format!("minecraft:{}", item.base)
                       ]),
-                      nbt: item.nbt.clone()
+                      nbt: item.nbt.to_json()
                     })
                   })
                 })
@@ -136,8 +139,20 @@ fn compile_items(
                 format!("advancement revoke @s only {namespace}:consume/{ident}"),
             );
         }
-        if let Some(on_use) = &item.while_using {
-            let on_use = on_use.to_lowercase().replace(' ', "_").into();
+        if let Some(on_use) = &item.on_use {
+            let on_use = on_use.to_lowercase().replace(' ', "_");
+            let using_base = format!("use_{}", item.base);
+            let holding_item = format!("holding_{ident}");
+            tick_buf.push_str(&format!("execute as @a[tag={holding_item},scores={{{using_base}=1}}] run function {namespace}:{on_use}\n"));
+            tick_buf.push_str(&format!(
+                "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
+                item.base,
+                item.nbt
+            ));
+            using_base_item_scores.insert(using_base);
+        }
+        if let Some(while_using) = &item.while_using {
+            let while_using = while_using.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({
               criteria: nbt!({
                 requirement: nbt!({
@@ -153,7 +168,7 @@ fn compile_items(
                 })
               }),
               rewards: nbt!({
-                function: format!("{namespace}:{on_use}")
+                function: format!("{namespace}:{while_using}")
               })
             })
             .to_json();
@@ -161,10 +176,14 @@ fn compile_items(
                 .advancements
                 .insert(format!("use/{ident}").into(), advancement_content);
             compiled.functions.insert(
-                on_use,
+                while_using,
                 format!("advancement revoke @s only {namespace}:use/{ident}"),
             );
         }
     }
+    for base_score in using_base_item_scores {
+        tick_buf.push_str(&format!("scoreboard players reset @a {base_score}\n"));
+    }
+    compiled.functions.insert("tick".into(), tick_buf);
     Ok(())
 }
