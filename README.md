@@ -42,9 +42,19 @@ where namespace is the name of your datapack. Minescript will create a folder re
 
 Minescript literals are very simple
 
+```
+{
+    Integers: [1, 2, 3, 4, -20],
+    Floats: [1.0, -10.0, 20.02],
+    Strings: ["hello world", "hi \"john\"!"],
+    Ranges: [1..10, 1.., ..4]
+}
+```
+
 - Integers are trivial
-- Strings are enclosed in double quotes and allow escaped double quotes
 - Floats require a portion on both the left and right side of the decimal point
+- Strings are enclosed in double quotes and allow escaped double quotes with a backslash
+- Ranges are integers with two dots in between. If either integer is omitted, the range effectively continues indefinitely in that direction
 
 ### Identifier
 
