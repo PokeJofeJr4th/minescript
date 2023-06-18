@@ -170,19 +170,10 @@ impl TryFrom<&Syntax> for RStr {
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
-        Some(Token::Number(num)) => match tokens.peek() {
-            Some(Token::Dot) => {
-                tokens.next();
-                let Some(Token::Number(decimal)) = tokens.next() else {
-                    return Err(String::from("Expected a decimal part after `.`"))
-                };
-                Ok(Syntax::Float(
-                    num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32 + 1)),
-                ))
-            }
+        Some(Token::Integer(num)) => match tokens.peek() {
             Some(Token::Doot) => {
                 tokens.next();
-                let end = if let Some(Token::Number(end)) = tokens.peek() {
+                let end = if let Some(Token::Integer(end)) = tokens.peek() {
                     Some(*end)
                 } else {
                     None
@@ -195,29 +186,16 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             _ => Ok(Syntax::Integer(num)),
         },
         Some(Token::Doot) => {
-            let Some(Token::Number(num)) = tokens.next() else {
+            let Some(Token::Integer(num)) = tokens.next() else {
                 return Err(String::from("Expected number after `..`"))
             };
             Ok(Syntax::Range(None, Some(num)))
         }
-        Some(Token::Tack) => {
-            let Some(Token::Number(num)) = tokens.next() else {
-                return Err(String::from("Expected a number after `-`"))
-            };
-            match tokens.peek() {
-                Some(Token::Dot) => {
-                    tokens.next();
-                    let Some(Token::Number(decimal)) = tokens.next() else {
-                        return Err(String::from("Expected a decimal part after a point"))
-                    };
-                    Ok(Syntax::Float(
-                        // turn float literal into float...just realized it doesn't work with 0.02
-                        -num as f32 + (decimal as f32 / 10f32.powi(decimal.ilog10() as i32 + 1)),
-                    ))
-                }
-                _ => Ok(Syntax::Integer(-num)),
-            }
-        }
+        Some(Token::Tack) => match tokens.next() {
+            Some(Token::Integer(num)) => Ok(Syntax::Integer(-num)),
+            Some(Token::Float(num)) => Ok(Syntax::Float(num)),
+            _ => Err(String::from("Expected a number or float after `-`")),
+        },
         Some(Token::Identifier(id)) => parse_identifier(tokens, id),
         Some(Token::LSquirrely) => {
             let mut statements_buf = Vec::new();
@@ -478,22 +456,16 @@ mod tests {
 
     #[test]
     fn parse_literals() {
+        // -20
         assert_eq!(
-            parse(
-                &mut [Token::Number(0), Token::Dot, Token::Number(2)]
-                    .into_iter()
-                    .peekable()
-            ),
-            Ok(Syntax::Float(0.2))
-        );
-        assert_eq!(
-            parse(&mut [Token::Tack, Token::Number(20)].into_iter().peekable()),
+            parse(&mut [Token::Tack, Token::Integer(20)].into_iter().peekable()),
             Ok(Syntax::Integer(-20))
         );
     }
 
     #[test]
     fn parse_score_op() {
+        // @a:x += 2
         assert_eq!(
             parse(
                 &mut [
@@ -502,7 +474,7 @@ mod tests {
                     Token::Colon,
                     Token::Identifier("x".into()),
                     Token::PlusEq,
-                    Token::Number(2)
+                    Token::Integer(2)
                 ]
                 .into_iter()
                 .peekable()
@@ -523,14 +495,15 @@ mod tests {
 
     #[test]
     fn parse_in_range() {
+        // x in 0..10
         assert_eq!(
             parse(
                 &mut [
                     Token::Identifier("x".into()),
                     Token::Identifier("in".into()),
-                    Token::Number(0),
+                    Token::Integer(0),
                     Token::Doot,
-                    Token::Number(10)
+                    Token::Integer(10)
                 ]
                 .into_iter()
                 .peekable()
