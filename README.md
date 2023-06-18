@@ -8,12 +8,12 @@ First, set up your source file. The following is a simple, fully-functional exam
 
 ```
 @item {
-    base: "minecraft:cookie"
-    name: "Goodberry"
+    base: cookie
+    name: Goodberry
     nbt: {customModelData:10007}
     on_consume: [
         @effect {
-            effect: "saturation"
+            effect: saturation
             level: 10
             duration: 1
         }
@@ -25,8 +25,8 @@ First, set up your source file. The following is a simple, fully-functional exam
             " l "
         ]
         key: {
-            b: "minecraft:sweet_berries"
-            l: "minecraft:lapis_lazuli"
+            b: sweet_berries
+            l: lapis_lazuli
         }
     }
 }
@@ -68,7 +68,7 @@ The item macro defines a custom item type, including a /give function by default
 
 ```
 @item {
-    base: "minecraft:bread"
+    base: bread
     name: "My Custom Item"
 }
 ```
@@ -96,8 +96,8 @@ The following implementation shows the optional fields:
             " l "
         ]
         key: {
-            l: "minecraft:stick"
-            o: "minecraft:string"
+            l: stick
+            o: string
         }
     }
 }
@@ -115,7 +115,7 @@ The effect macro compiles to a command in the form of `effect give @s [effect] [
 
 ```
 @effect {
-    effect: "saturation"
+    effect: saturation
 }
 ```
 
@@ -145,6 +145,7 @@ Variables and assignments allow more complex control flow to be implemented. Her
 
 ```
 x = 10
+x++
 x %= 2
 x *= x
 x = @r:some_objective
@@ -156,6 +157,7 @@ Internally, minescript uses scoreboard objectives for variables. These examples 
 
 ```
 scoreboard players set %x dummy 10
+scoreboard objectives add %x dummy 1
 scoreboard players set % dummy 2
 scoreboard players operation %x dummy %= % dummy
 scoreboard players operation %x dummy *= %x dummy
@@ -163,13 +165,15 @@ scoreboard players operation %x dummy = @r some_objective
 scoreboard players set @p some_objective 2
 ```
 
-The compiler ensures that all scoreboard objectives referenced in variables exist and initializes them to the `dummy` objective if they don't. Minescript assignments support all operations present in the `scoreboard players operation` command: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `><` (swap values), `<` (choose lower), and `>` (choose greater).
+The compiler ensures that all scoreboard objectives referenced in variables exist and initializes them to the `dummy` objective if they don't. Minescript assignments support all operations present in the `scoreboard players operation` command: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `><` (swap values), `<` (choose lower), and `>` (choose greater). In addition, the `++` and `--` operators don't require a second argument and compile to the equivalent `+= 1` and `-= 1` respectively.
 
 > To complete certain operations, the compiler uses multiple minecraft commands. `x %= 2` requires the literal `2` to be placed into another objective (`%`) before the game will complete the `%=` operation.
 
 ### Control Flow
 
-Currently, the only form of control flow in Minescript is the if statement. Here's an example:
+Control flow refers to the process of deciding what a program does based on data.
+
+#### If
 
 ```
 x += 1
@@ -182,3 +186,16 @@ if x > 10 {
 Operations supported include `=`, `!=`, `<`, `>`, `<=`, and `>=`. The left and right sides follow the same rules as variables; note that numbers can't be used on the left.
 
 > Even though Minecraft doesn't make all of these operations available, the compiler can use the `unless` option to get the necessary effect.
+
+#### While
+
+```
+i = 0
+while i < 10 {
+    i += 1
+}
+```
+
+This loop supports the same operations as the if statement.
+
+> The while loop can heavily bloat the number of commands run, so try not to use it often. Hitting the command limit can cause undefined behavior in your program.

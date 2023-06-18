@@ -14,8 +14,10 @@ pub enum Token {
     At,
     Equal,
     Plus,
+    PlusPlus,
     PlusEq,
     Tack,
+    TackTack,
     TackEq,
     Star,
     StarEq,
@@ -62,8 +64,28 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             ']' => token_stream.push(Token::RSquare),
             '@' => token_stream.push(Token::At),
             '=' => token_stream.push(Token::Equal),
-            '+' => token_stream.push(possible_eq!(chars => Token::Plus, Token::PlusEq)),
-            '-' => token_stream.push(possible_eq!(chars => Token::Tack, Token::TackEq)),
+            '+' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::PlusEq
+                }
+                Some('+') => {
+                    chars.next();
+                    Token::PlusPlus
+                }
+                _ => Token::Plus,
+            }),
+            '-' => token_stream.push(match chars.peek() {
+                Some('=') => {
+                    chars.next();
+                    Token::TackEq
+                }
+                Some('-') => {
+                    chars.next();
+                    Token::TackTack
+                }
+                _ => Token::Tack,
+            }),
             '*' => token_stream.push(possible_eq!(chars => Token::Star, Token::StarEq)),
             '/' => token_stream.push(possible_eq!(chars => Token::Slash, Token::SlashEq)),
             '%' => token_stream.push(possible_eq!(chars => Token::Percent, Token::PercEq)),

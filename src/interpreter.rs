@@ -72,7 +72,35 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             let inner = inner_interpret(content, state)?;
             state.functions.push((func.clone(), inner));
         }
-        Syntax::If(left, op, right, block) => return interpret_if(left, *op, right, block, state),
+        Syntax::If(left, op, right, block) => {
+            return interpret_if(
+                left,
+                *op,
+                right,
+                &inner_interpret(block, state)?,
+                &format!("{:x}", silly_hash(block)),
+                state,
+            )
+        }
+        Syntax::While(left, op, right, block) => {
+            let fn_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
+            let [goto_fn] = &interpret_if(
+                left,
+                *op,
+                right,
+                &[Command::Function {
+                    func: fn_name.clone(),
+                }],
+                "",
+                state,
+            )?[..] else {
+                return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
+            };
+            let mut body = inner_interpret(block, state)?;
+            body.push(goto_fn.clone());
+            state.functions.push((fn_name, body));
+            return Ok(vec![goto_fn.clone()]);
+        }
         Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
         Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
@@ -86,19 +114,19 @@ fn interpret_if(
     left: &OpLeft,
     op: Operation,
     right: &Syntax,
-    block: &Syntax,
+    content: &[Command],
+    hash: &str,
     state: &mut InterRep,
 ) -> Result<Vec<Command>, String> {
     {
-        let content = inner_interpret(block, state)?;
         if content.is_empty() {
             return Err(String::from("`if` body cannot be empty"));
         }
-        let cmd: Command = if let [cmd] = &content[..] {
+        let cmd: Command = if let [cmd] = content {
             cmd.clone()
         } else {
-            let func_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
-            state.functions.push((func_name.clone(), content.clone()));
+            let func_name: RStr = format!("closure/{hash}").into();
+            state.functions.push((func_name.clone(), content.to_vec()));
             Command::Function { func: func_name }
         };
         let target_player = left.stringify_scoreboard_target()?;

@@ -17,6 +17,7 @@ pub enum Syntax {
     DottedSelector(Selector<Syntax>, RStr),
     BinaryOp(OpLeft, Operation, Box<Syntax>),
     If(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
+    While(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     String(RStr),
     Integer(i32),
     Float(f32),
@@ -46,7 +47,7 @@ impl Hash for Syntax {
                 op.hash(state);
                 syn.hash(state);
             }
-            Self::If(left, op, right, content) => {
+            Self::If(left, op, right, content) | Self::While(left, op, right, content) => {
                 left.hash(state);
                 op.hash(state);
                 right.hash(state);
@@ -166,7 +167,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             Some(Token::Dot) => {
                 tokens.next();
                 let Some(Token::Number(decimal)) = tokens.next() else {
-                    return Err(String::from("Expected a decimal part after a point"))
+                    return Err(String::from("Expected a decimal part after `.`"))
                 };
                 Ok(Syntax::Float(
                     num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32 + 1)),
@@ -258,6 +259,20 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                         op,
                         Box::new(parse(tokens)?),
                     ));
+                } else if tokens.peek() == Some(&Token::PlusPlus) {
+                    tokens.next();
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::Colon(first.clone(), second.clone()),
+                        Operation::AddEq,
+                        Box::new(Syntax::Integer(1)),
+                    ));
+                } else if tokens.peek() == Some(&Token::TackTack) {
+                    tokens.next();
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::Colon(first.clone(), second.clone()),
+                        Operation::SubEq,
+                        Box::new(Syntax::Integer(1)),
+                    ));
                 }
             }
         }
@@ -266,13 +281,27 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             if tokens.peek() == Some(&Token::Colon) {
                 tokens.next();
                 let Some(Token::Identifier(ident)) = tokens.next() else {
-                    return Err(String::from("Selectors can only be indexed with `.<identifier>`"))
+                    return Err(String::from("Selectors can only be indexed with `:<identifier>`"))
                 };
                 if let Some(op) = get_op(tokens) {
                     return Ok(Syntax::BinaryOp(
                         OpLeft::SelectorColon(sel.clone(), ident),
                         op,
                         Box::new(parse(tokens)?),
+                    ));
+                } else if tokens.peek() == Some(&Token::PlusPlus) {
+                    tokens.next();
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::SelectorColon(sel.clone(), ident),
+                        Operation::AddEq,
+                        Box::new(Syntax::Integer(1)),
+                    ));
+                } else if tokens.peek() == Some(&Token::TackTack) {
+                    tokens.next();
+                    return Ok(Syntax::BinaryOp(
+                        OpLeft::SelectorColon(sel.clone(), ident),
+                        Operation::SubEq,
+                        Box::new(Syntax::Integer(1)),
                     ));
                 }
             }
@@ -325,8 +354,22 @@ fn parse_identifier<T: Iterator<Item = Token>>(
             op,
             Box::new(parse(tokens)?),
         ))
+    } else if tokens.peek() == Some(&Token::PlusPlus) {
+        tokens.next();
+        Ok(Syntax::BinaryOp(
+            OpLeft::Ident(id),
+            Operation::AddEq,
+            Box::new(Syntax::Integer(1)),
+        ))
+    } else if tokens.peek() == Some(&Token::TackTack) {
+        tokens.next();
+        Ok(Syntax::BinaryOp(
+            OpLeft::Ident(id),
+            Operation::SubEq,
+            Box::new(Syntax::Integer(1)),
+        ))
     } else if &*id == "function" {
-        let Some(Token::Identifier(func)) = tokens.next() else {
+        let Some(Token::Identifier(func) | Token::String(func)) = tokens.next() else {
                 return Err(String::from("Expected identifier after function"))
             };
         Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
@@ -339,6 +382,11 @@ fn parse_identifier<T: Iterator<Item = Token>>(
         };
         // println!("If Block");
         Ok(Syntax::If(left, op, right, Box::new(parse(tokens)?)))
+    } else if &*id == "while" {
+        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
+            return Err(String::from("While loop requires a check like `x = 2`"))
+        };
+        Ok(Syntax::While(left, op, right, Box::new(parse(tokens)?)))
     } else {
         Ok(Syntax::Identifier(id))
     }
