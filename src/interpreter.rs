@@ -118,140 +118,152 @@ fn interpret_if(
     hash: &str,
     state: &mut InterRep,
 ) -> Result<Vec<Command>, String> {
-    {
-        if content.is_empty() {
-            return Err(String::from("`if` body cannot be empty"));
-        }
-        let cmd: Command = if let [cmd] = content {
-            cmd.clone()
-        } else {
-            let func_name: RStr = format!("closure/{hash}").into();
-            state.functions.push((func_name.clone(), content.to_vec()));
-            Command::Function { func: func_name }
-        };
-        let target_player = left.stringify_scoreboard_target()?;
-        let target_objective = left.stringify_scoreboard_objective();
-        let options = match right {
-            Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::DottedSelector(_, _) => {
-                let (source, source_objective) = match right {
-                    Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
-                    Syntax::BinaryOp(left, Operation::Colon, right) => match &**right {
-                        Syntax::Identifier(ident) => {
-                            (left.stringify_scoreboard_target()?, ident.clone())
-                        }
-                        _ => {
-                            return Err(format!(
-                                "Scoreboard must be indexed by an identifier; got {right:?}"
-                            ))
-                        }
-                    },
-                    Syntax::DottedSelector(selector, right) => {
-                        (selector.stringify()?.to_string().into(), right.clone())
-                    }
-                    _ => return Err(format!("Can't compare to `{right:?}`")),
-                };
-                match op {
-                    // x = var
-                    Operation::LCaret
-                    | Operation::LCaretEq
-                    | Operation::Equal
-                    | Operation::RCaretEq
-                    | Operation::RCaret => {
-                        vec![ExecuteOption::ScoreSource {
-                            invert: false,
-                            target: target_player,
-                            target_objective,
-                            operation: op,
-                            source,
-                            source_objective,
-                        }]
-                    }
-                    // x != var
-                    Operation::BangEq => {
-                        vec![ExecuteOption::ScoreSource {
-                            invert: true,
-                            target: target_player,
-                            target_objective,
-                            operation: Operation::Equal,
-                            source,
-                            source_objective,
-                        }]
-                    }
-                    _ => return Err(format!("Can't compare using `{op}`")),
-                }
-            }
-            Syntax::Integer(num) => {
-                match op {
-                    // x = 1
-                    Operation::Equal => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: false,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: Some(*num),
-                            upper: Some(*num),
-                        }]
-                    }
-                    // x >= 1
-                    Operation::RCaretEq => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: false,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: Some(*num),
-                            upper: None,
-                        }]
-                    }
-                    // x <= 1
-                    Operation::LCaretEq => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: false,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: None,
-                            upper: Some(*num),
-                        }]
-                    }
-                    // x != 1
-                    Operation::BangEq => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: true,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: Some(*num),
-                            upper: Some(*num),
-                        }]
-                    }
-                    // x > 1
-                    Operation::RCaret => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: true,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: None,
-                            upper: Some(*num),
-                        }]
-                    }
-                    // x < 1
-                    Operation::LCaret => {
-                        vec![ExecuteOption::ScoreMatches {
-                            invert: true,
-                            target: target_player,
-                            objective: target_objective,
-                            lower: Some(*num),
-                            upper: None,
-                        }]
-                    }
-                    _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
-                }
-            }
-            _ => return Err(format!("Can't end an if statement with {right:?}")),
-        };
-        Ok(vec![Command::Execute {
-            options,
-            cmd: Box::new(cmd),
-        }])
+    if content.is_empty() {
+        return Err(String::from("`if` body cannot be empty"));
     }
+    let cmd: Command = if let [cmd] = content {
+        cmd.clone()
+    } else {
+        let func_name: RStr = format!("closure/{hash}").into();
+        state.functions.push((func_name.clone(), content.to_vec()));
+        Command::Function { func: func_name }
+    };
+    let target_player = left.stringify_scoreboard_target()?;
+    let target_objective = left.stringify_scoreboard_objective();
+    let options = match right {
+        Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::DottedSelector(_, _) => {
+            let (source, source_objective) = match right {
+                Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
+                Syntax::BinaryOp(left, Operation::Colon, right) => match &**right {
+                    Syntax::Identifier(ident) => {
+                        (left.stringify_scoreboard_target()?, ident.clone())
+                    }
+                    _ => {
+                        return Err(format!(
+                            "Scoreboard must be indexed by an identifier; got {right:?}"
+                        ))
+                    }
+                },
+                Syntax::DottedSelector(selector, right) => {
+                    (selector.stringify()?.to_string().into(), right.clone())
+                }
+                _ => return Err(format!("Can't compare to `{right:?}`")),
+            };
+            match op {
+                // x = var
+                Operation::LCaret
+                | Operation::LCaretEq
+                | Operation::Equal
+                | Operation::RCaretEq
+                | Operation::RCaret => {
+                    vec![ExecuteOption::ScoreSource {
+                        invert: false,
+                        target: target_player,
+                        target_objective,
+                        operation: op,
+                        source,
+                        source_objective,
+                    }]
+                }
+                // x != var
+                Operation::BangEq => {
+                    vec![ExecuteOption::ScoreSource {
+                        invert: true,
+                        target: target_player,
+                        target_objective,
+                        operation: Operation::Equal,
+                        source,
+                        source_objective,
+                    }]
+                }
+                _ => return Err(format!("Can't compare using `{op}`")),
+            }
+        }
+        Syntax::Integer(num) => {
+            match op {
+                // x = 1
+                Operation::Equal => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: false,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: Some(*num),
+                        upper: Some(*num),
+                    }]
+                }
+                // x >= 1
+                Operation::RCaretEq => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: false,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: Some(*num),
+                        upper: None,
+                    }]
+                }
+                // x <= 1
+                Operation::LCaretEq => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: false,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: None,
+                        upper: Some(*num),
+                    }]
+                }
+                // x != 1
+                Operation::BangEq => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: true,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: Some(*num),
+                        upper: Some(*num),
+                    }]
+                }
+                // x > 1
+                Operation::RCaret => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: true,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: None,
+                        upper: Some(*num),
+                    }]
+                }
+                // x < 1
+                Operation::LCaret => {
+                    vec![ExecuteOption::ScoreMatches {
+                        invert: true,
+                        target: target_player,
+                        objective: target_objective,
+                        lower: Some(*num),
+                        upper: None,
+                    }]
+                }
+                _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
+            }
+        }
+        Syntax::Range(left, right) => {
+            if op != Operation::In {
+                return Err(format!(
+                    "The only available operation for a range like `{right:?}` is `in`; not `{op}`"
+                ));
+            };
+            vec![ExecuteOption::ScoreMatches {
+                invert: false,
+                target: target_player,
+                objective: target_objective,
+                lower: *left,
+                upper: *right,
+            }]
+        }
+        _ => return Err(format!("Can't end an if statement with {right:?}")),
+    };
+    Ok(vec![Command::Execute {
+        options,
+        cmd: Box::new(cmd),
+    }])
 }
 
 fn interpret_operation(

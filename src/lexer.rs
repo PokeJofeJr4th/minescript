@@ -35,17 +35,18 @@ pub enum Token {
     SemiColon,
     Comma,
     Dot,
+    Doot,
     Woogly,
     UCaret,
 }
 
 macro_rules! possible_eq {
-    ($chars:ident => $just:expr, $eq:expr) => {
+    ($chars:ident $just:expr; {$($char:expr => $eq:expr),*}) => {
         match $chars.peek() {
-            Some('=') => {
+            $(Some($char) => {
                 $chars.next();
                 $eq
-            }
+            })*
             _ => $just,
         }
     };
@@ -64,38 +65,22 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
             ']' => token_stream.push(Token::RSquare),
             '@' => token_stream.push(Token::At),
             '=' => token_stream.push(Token::Equal),
-            '+' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::PlusEq
-                }
-                Some('+') => {
-                    chars.next();
-                    Token::PlusPlus
-                }
-                _ => Token::Plus,
-            }),
-            '-' => token_stream.push(match chars.peek() {
-                Some('=') => {
-                    chars.next();
-                    Token::TackEq
-                }
-                Some('-') => {
-                    chars.next();
-                    Token::TackTack
-                }
-                _ => Token::Tack,
-            }),
-            '*' => token_stream.push(possible_eq!(chars => Token::Star, Token::StarEq)),
-            '/' => token_stream.push(possible_eq!(chars => Token::Slash, Token::SlashEq)),
-            '%' => token_stream.push(possible_eq!(chars => Token::Percent, Token::PercEq)),
-            '!' => token_stream.push(possible_eq!(chars => Token::Bang, Token::BangEq)),
-            '<' => token_stream.push(possible_eq!(chars => Token::LCaret, Token::LCaretEq)),
-            '>' => token_stream.push(possible_eq!(chars => Token::RCaret, Token::RCaretEq)),
+            '+' => token_stream.push(
+                possible_eq!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus}),
+            ),
+            '-' => token_stream.push(
+                possible_eq!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack}),
+            ),
+            '*' => token_stream.push(possible_eq!(chars Token::Star; {'=' => Token::StarEq})),
+            '/' => token_stream.push(possible_eq!(chars Token::Slash; {'=' => Token::SlashEq})),
+            '%' => token_stream.push(possible_eq!(chars Token::Percent; {'=' => Token::PercEq})),
+            '!' => token_stream.push(possible_eq!(chars Token::Bang; {'=' => Token::BangEq})),
+            '<' => token_stream.push(possible_eq!(chars Token::LCaret; {'=' => Token::LCaretEq})),
+            '>' => token_stream.push(possible_eq!(chars Token::RCaret; {'=' => Token::RCaretEq})),
+            '.' => token_stream.push(possible_eq!(chars Token::Dot; {'.' => Token::Doot})),
             ':' => token_stream.push(Token::Colon),
             ';' => token_stream.push(Token::SemiColon),
             ',' => token_stream.push(Token::Comma),
-            '.' => token_stream.push(Token::Dot),
             '^' => token_stream.push(Token::UCaret),
             '~' => token_stream.push(Token::Woogly),
             '"' => {

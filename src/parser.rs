@@ -20,6 +20,7 @@ pub enum Syntax {
     While(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     String(RStr),
     Integer(i32),
+    Range(Option<i32>, Option<i32>),
     Float(f32),
     Unit,
 }
@@ -54,6 +55,10 @@ impl Hash for Syntax {
                 content.hash(state);
             }
             Self::Integer(int) => int.hash(state),
+            Self::Range(left, right) => {
+                left.hash(state);
+                right.hash(state);
+            }
             Self::Float(float) => unsafe { &*(float as *const f32).cast::<u32>() }.hash(state),
             Self::Unit => {}
         }
@@ -102,6 +107,7 @@ pub enum Operation {
     DivEq,
     ModEq,
     Swap,
+    In,
 }
 
 impl Display for Operation {
@@ -124,6 +130,7 @@ impl Display for Operation {
                 Self::Swap => "><",
                 Self::LCaret => "<",
                 Self::RCaret => ">",
+                Self::In => "in",
             }
         )
     }
@@ -173,8 +180,26 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                     num as f32 + (decimal as f32 / 10.0f32.powi(decimal.ilog10() as i32 + 1)),
                 ))
             }
+            Some(Token::Doot) => {
+                tokens.next();
+                let end = if let Some(Token::Number(end)) = tokens.peek() {
+                    Some(*end)
+                } else {
+                    None
+                };
+                if end.is_some() {
+                    tokens.next();
+                }
+                Ok(Syntax::Range(Some(num), end))
+            }
             _ => Ok(Syntax::Integer(num)),
         },
+        Some(Token::Doot) => {
+            let Some(Token::Number(num)) = tokens.next() else {
+                return Err(String::from("Expected number after `..`"))
+            };
+            Ok(Syntax::Range(None, Some(num)))
+        }
         Some(Token::Tack) => {
             let Some(Token::Number(num)) = tokens.next() else {
                 return Err(String::from("Expected a number after `-`"))
@@ -186,6 +211,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
                         return Err(String::from("Expected a decimal part after a point"))
                     };
                     Ok(Syntax::Float(
+                        // turn float literal into float...just realized it doesn't work with 0.02
                         -num as f32 + (decimal as f32 / 10f32.powi(decimal.ilog10() as i32 + 1)),
                     ))
                 }
@@ -325,6 +351,13 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
         Some(Token::SlashEq) => Some(Operation::DivEq),
         Some(Token::PercEq) => Some(Operation::ModEq),
         Some(Token::LCaret) => Some(Operation::LCaret),
+        Some(Token::Identifier(ident)) => {
+            if ident.as_ref() == "in" {
+                Some(Operation::In)
+            } else {
+                None
+            }
+        }
         Some(Token::RCaret) => {
             tokens.next();
             match tokens.peek() {
@@ -484,6 +517,28 @@ mod tests {
                 ),
                 Operation::AddEq,
                 Box::new(Syntax::Integer(2))
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_in_range() {
+        assert_eq!(
+            parse(
+                &mut [
+                    Token::Identifier("x".into()),
+                    Token::Identifier("in".into()),
+                    Token::Number(0),
+                    Token::Doot,
+                    Token::Number(10)
+                ]
+                .into_iter()
+                .peekable()
+            ),
+            Ok(Syntax::BinaryOp(
+                OpLeft::Ident("x".into()),
+                Operation::In,
+                Box::new(Syntax::Range(Some(0), Some(10)))
             ))
         );
     }

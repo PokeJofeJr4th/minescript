@@ -165,7 +165,7 @@ scoreboard players operation %x dummy = @r some_objective
 scoreboard players set @p some_objective 2
 ```
 
-The compiler ensures that all scoreboard objectives referenced in variables exist and initializes them to the `dummy` objective if they don't. Minescript assignments support all operations present in the `scoreboard players operation` command: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `><` (swap values), `<` (choose lower), and `>` (choose greater). In addition, the `++` and `--` operators don't require a second argument and compile to the equivalent `+= 1` and `-= 1` respectively.
+The compiler ensures that all scoreboard objectives referenced in variables exist and initializes them to the `dummy` objective if they don't. Minescript assignments support all operations present in the `scoreboard players operation` command: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `><` (swap values), `<` (choose lower), and `>` (choose greater). In addition, the `++` and `--` operators don't require a second argument and compile to the equivalent `+= 1` and `-= 1` respectively. Finally, you can use the syntax `x in 0..10` to check if a value is in a range.
 
 > To complete certain operations, the compiler uses multiple minecraft commands. `x %= 2` requires the literal `2` to be placed into another objective (`%`) before the game will complete the `%=` operation.
 
