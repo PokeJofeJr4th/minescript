@@ -82,7 +82,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                 state,
             )
         }
-        Syntax::Block(BlockType::While, left, op, right, block) => {
+        Syntax::Block(block_type, left, op, right, block) => {
             let fn_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
             let [goto_fn] = &interpret_if(
                 left,
@@ -97,34 +97,23 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                 return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
             };
             let mut body = inner_interpret(block, state)?;
-            body.push(goto_fn.clone());
-            state.functions.push((fn_name, body));
-            return Ok(vec![goto_fn.clone()]);
-        }
-        Syntax::Block(BlockType::For, left, Operation::In, right, block) => {
-            let &Syntax::Range(start, _) = &**right else {
-                return Err(format!("Expected a range in a for loop; got `{right:?}`"))
-            };
-            let fn_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
-            let [goto_fn] = &interpret_if(
-                left,
-                Operation::In,
-                right,
-                &[Command::Function {
+            if *block_type == BlockType::For {
+                let &Syntax::Range(start, _) = &**right else {
+                    return Err(format!("Expected a range in for loop; got `{right:?}`"))
+                };
+                body.push(Command::ScoreAdd {
+                    target: left.stringify_scoreboard_target()?,
+                    objective: left.stringify_scoreboard_objective(),
+                    value: start.unwrap_or(0),
+                });
+            }
+            if *block_type == BlockType::DoWhile {
+                body.push(Command::Function {
                     func: fn_name.clone(),
-                }],
-                "",
-                state,
-            )?[..] else {
-                return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
-            };
-            let mut body = inner_interpret(block, state)?;
-            body.push(Command::ScoreAdd {
-                target: left.stringify_scoreboard_target()?,
-                objective: left.stringify_scoreboard_objective(),
-                value: start.unwrap_or(0),
-            });
-            body.push(goto_fn.clone());
+                });
+            } else {
+                body.push(goto_fn.clone());
+            }
             state.functions.push((fn_name, body));
             return Ok(vec![goto_fn.clone()]);
         }

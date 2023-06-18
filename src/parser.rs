@@ -27,8 +27,9 @@ pub enum Syntax {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockType {
     If,
-    While,
     For,
+    DoWhile,
+    While,
 }
 
 // this is fine because hash is deterministic except for NaNs and I don't care about them
@@ -388,6 +389,20 @@ fn parse_identifier<T: Iterator<Item = Token>>(
         // println!("If Block");
         Ok(Syntax::Block(
             BlockType::If,
+            left,
+            op,
+            right,
+            Box::new(parse(tokens)?),
+        ))
+    } else if &*id == "do" {
+        if tokens.next() != Some(Token::Identifier("while".into())) {
+            return Err(String::from("Expected `while` after `do`"));
+        };
+        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
+            return Err(String::from("Do-while loop requires a check like `x = 2`"))
+        };
+        Ok(Syntax::Block(
+            BlockType::DoWhile,
             left,
             op,
             right,
