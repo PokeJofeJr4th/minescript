@@ -1,6 +1,6 @@
 # Minescript
 
-Rust-comipled markup language to create Minecraft datapacks
+Rust-compiled markup language to create Minecraft datapacks
 
 ## Usage
 
@@ -74,7 +74,7 @@ The macro is an `@` sign followed by the name of the macro and a syntax element,
 
 #### Item
 
-The item macro defines a custom item type, including a /give function by default. The following is the minimal implementation:
+The item macro defines a custom item type, including a `/give` function by default. The following is the minimal implementation:
 
 ```
 @item {
@@ -115,7 +115,7 @@ The following implementation shows the optional fields:
 
 `nbt` should be an object containing data to be placed into the item whenever it is given or checked for. `display:{Name:"..."}` should not be included unless you wish to remove the item's functionality when it is renamed.
 
-`on_consume`, `on_use`, and `while_using` contain function bodies, which are lists that expand to commands. `on_consume` only applies to items that trigger `consume_item` advancements, like food and potions. `on_use` is for right-clicking with most items. The compiler takes care of differentiating items with the same base and handling the relevant scorebord. `while_using` only applies to items that trigger the `using_item` advancements, like bows, shields, and spyglasses. Currently, `while_using` is run every tick.
+`on_consume`, `on_use`, and `while_using` contain function bodies, which are lists that expand to commands. `on_consume` only applies to items that trigger `consume_item` advancements, like food and potions. `on_use` is for right-clicking with most items. The compiler takes care of differentiating items with the same base and handling the relevant scoreboard. `while_using` only applies to items that trigger the `using_item` advancements, like bows, shields, and spyglasses. Currently, `while_using` is run every tick.
 
 `recipe` creates a crafting recipe for the item. On the crafting table, it looks like it produces a knowledge book, but the datapack replaces it once it's crafted. Only shaped recipes are currently supported.
 
@@ -218,7 +218,7 @@ for i in 1..64 {
 }
 ```
 
-This loop simply compiles to a while loop, but the only syntax currently supported is the range shown above. The for loop is a more concise way to write the followig while loop:
+This loop simply compiles to a while loop, but the only syntax currently supported is the range shown above. The for loop is a more concise way to write the following while loop:
 
 ```
 i = 1
