@@ -211,12 +211,15 @@ This loop supports the same operations as the if statement. The similar `do whil
 > The while loop can heavily bloat the number of commands run, so try not to use it often. Hitting the command limit can cause undefined behavior in your program.
 
 #### For
+
 ```
 for i in 1..64 {
     @function "give/item"
 }
 ```
+
 This loop simply compiles to a while loop, but the only syntax currently supported is the range shown above. The for loop is a more concise way to write the followig while loop:
+
 ```
 i = 1
 while i <= 64 {
