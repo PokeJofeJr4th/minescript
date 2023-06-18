@@ -7,6 +7,7 @@ pub enum Token {
     String(RStr),
     Identifier(RStr),
     Integer(i32),
+    Range(Option<i32>, Option<i32>),
     Float(f32),
     LSquirrely,
     RSquirrely,
@@ -41,6 +42,8 @@ pub enum Token {
     Doot,
     Woogly,
     UCaret,
+    Arrow,
+    FatArrow,
 }
 
 macro_rules! possible_eq {
@@ -69,7 +72,8 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
 #[allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap
+    clippy::cast_possible_wrap,
+    clippy::too_many_lines
 )]
 fn inner_tokenize<T: Iterator<Item = char>>(
     chars: &mut Peekable<T>,
@@ -85,9 +89,11 @@ fn inner_tokenize<T: Iterator<Item = char>>(
         '[' => Token::LSquare,
         ']' => Token::RSquare,
         '@' => Token::At,
-        '=' => Token::Equal,
+        '=' => possible_eq!(chars Token::Equal; {'>' => Token::FatArrow}),
         '+' => possible_eq!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus}),
-        '-' => possible_eq!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack}),
+        '-' => {
+            possible_eq!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow})
+        }
         '*' => possible_eq!(chars Token::Star; {'=' => Token::StarEq}),
         '/' => possible_eq!(chars Token::Slash; {'=' => Token::SlashEq}),
         '%' => possible_eq!(chars Token::Percent; {'=' => Token::PercEq}),
@@ -131,7 +137,7 @@ fn inner_tokenize<T: Iterator<Item = char>>(
             if char.is_whitespace() {
                 return Ok(None);
             }
-            // get an identifier / number
+            // get an identifier / number / range
             if char.is_ascii_alphanumeric() || char == '_' {
                 let mut identifier_buf = String::from(char);
                 while let Some(next) = chars.peek() {
@@ -150,6 +156,13 @@ fn inner_tokenize<T: Iterator<Item = char>>(
                         Some('.') => {
                             chars.next();
                             let mut decimal_buf = String::new();
+                            let doot: bool = match chars.peek() {
+                                Some('.') => {
+                                    chars.next();
+                                    true
+                                }
+                                _ => false,
+                            };
                             while let Some(next) = chars.peek() {
                                 if next.is_ascii_digit() {
                                     decimal_buf.push(*next);
@@ -158,13 +171,16 @@ fn inner_tokenize<T: Iterator<Item = char>>(
                                     break;
                                 }
                             }
-                            Token::Float(
-                                int as f32
-                                    + decimal_buf
-                                        .parse::<f32>()
-                                        .map_err(|_| String::from("Expected number after `.`"))?
-                                        / 10.0f32.powi(decimal_buf.len() as i32),
-                            )
+                            if doot {
+                                Token::Range(Some(int), decimal_buf.parse::<i32>().ok())
+                            } else {
+                                Token::Float(
+                                    int as f32
+                                        + decimal_buf.parse::<f32>().map_err(|_| {
+                                            String::from("Expected number after `.`")
+                                        })? / 10.0f32.powi(decimal_buf.len() as i32),
+                                )
+                            }
                         }
                         _ => Token::Integer(int),
                     },
@@ -195,6 +211,25 @@ mod tests {
                 Token::Identifier(String::from("lol").into()),
                 Token::Tack,
                 Token::Integer(0)
+            ])
+        );
+    }
+
+    #[test]
+    fn lex_for_loop() {
+        assert_eq!(tokenize("1..10"), Ok(vec![Token::Range(Some(1), Some(10))]));
+        assert_eq!(
+            tokenize("for x in 1..10 {@function \"tick\"}"),
+            Ok(vec![
+                Token::Identifier("for".into()),
+                Token::Identifier("x".into()),
+                Token::Identifier("in".into()),
+                Token::Range(Some(1), Some(10)),
+                Token::LSquirrely,
+                Token::At,
+                Token::Identifier("function".into()),
+                Token::String("tick".into()),
+                Token::RSquirrely
             ])
         );
     }

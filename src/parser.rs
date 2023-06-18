@@ -16,13 +16,19 @@ pub enum Syntax {
     Selector(Selector<Syntax>),
     DottedSelector(Selector<Syntax>, RStr),
     BinaryOp(OpLeft, Operation, Box<Syntax>),
-    If(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
-    While(OpLeft, Operation, Box<Syntax>, Box<Syntax>),
+    Block(BlockType, OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     String(RStr),
     Integer(i32),
     Range(Option<i32>, Option<i32>),
     Float(f32),
     Unit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BlockType {
+    If,
+    While,
+    For,
 }
 
 // this is fine because hash is deterministic except for NaNs and I don't care about them
@@ -48,7 +54,8 @@ impl Hash for Syntax {
                 op.hash(state);
                 syn.hash(state);
             }
-            Self::If(left, op, right, content) | Self::While(left, op, right, content) => {
+            Self::Block(blocktype, left, op, right, content) => {
+                blocktype.hash(state);
                 left.hash(state);
                 op.hash(state);
                 right.hash(state);
@@ -170,21 +177,8 @@ impl TryFrom<&Syntax> for RStr {
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
-        Some(Token::Integer(num)) => match tokens.peek() {
-            Some(Token::Doot) => {
-                tokens.next();
-                let end = if let Some(Token::Integer(end)) = tokens.peek() {
-                    Some(*end)
-                } else {
-                    None
-                };
-                if end.is_some() {
-                    tokens.next();
-                }
-                Ok(Syntax::Range(Some(num), end))
-            }
-            _ => Ok(Syntax::Integer(num)),
-        },
+        Some(Token::Integer(num)) => Ok(Syntax::Integer(num)),
+        Some(Token::Range(l, r)) => Ok(Syntax::Range(l, r)),
         Some(Token::Doot) => {
             let Some(Token::Integer(num)) = tokens.next() else {
                 return Err(String::from("Expected number after `..`"))
@@ -392,12 +386,35 @@ fn parse_identifier<T: Iterator<Item = Token>>(
             return Err(String::from("If statement requires a check like `x = 2`"))
         };
         // println!("If Block");
-        Ok(Syntax::If(left, op, right, Box::new(parse(tokens)?)))
+        Ok(Syntax::Block(
+            BlockType::If,
+            left,
+            op,
+            right,
+            Box::new(parse(tokens)?),
+        ))
     } else if &*id == "while" {
         let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
             return Err(String::from("While loop requires a check like `x = 2`"))
         };
-        Ok(Syntax::While(left, op, right, Box::new(parse(tokens)?)))
+        Ok(Syntax::Block(
+            BlockType::While,
+            left,
+            op,
+            right,
+            Box::new(parse(tokens)?),
+        ))
+    } else if &*id == "for" {
+        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
+            return Err(String::from("For loop requires a check like `x = 2`"))
+        };
+        Ok(Syntax::Block(
+            BlockType::For,
+            left,
+            op,
+            right,
+            Box::new(parse(tokens)?),
+        ))
     } else {
         Ok(Syntax::Identifier(id))
     }
@@ -451,7 +468,7 @@ mod tests {
     use crate::{
         command::{Selector, SelectorType},
         lexer::Token,
-        parser::{parse, OpLeft, Operation, Syntax},
+        parser::{parse, BlockType, OpLeft, Operation, Syntax},
     };
 
     #[test]
@@ -501,9 +518,7 @@ mod tests {
                 &mut [
                     Token::Identifier("x".into()),
                     Token::Identifier("in".into()),
-                    Token::Integer(0),
-                    Token::Doot,
-                    Token::Integer(10)
+                    Token::Range(Some(0), Some(10))
                 ]
                 .into_iter()
                 .peekable()
@@ -512,6 +527,32 @@ mod tests {
                 OpLeft::Ident("x".into()),
                 Operation::In,
                 Box::new(Syntax::Range(Some(0), Some(10)))
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_for_loop() {
+        // for x in 0..10 {}
+        assert_eq!(
+            parse(
+                &mut [
+                    Token::Identifier("for".into()),
+                    Token::Identifier("x".into()),
+                    Token::Identifier("in".into()),
+                    Token::Range(Some(0), Some(10)),
+                    Token::LSquirrely,
+                    Token::RSquirrely
+                ]
+                .into_iter()
+                .peekable()
+            ),
+            Ok(Syntax::Block(
+                BlockType::For,
+                OpLeft::Ident("x".into()),
+                Operation::In,
+                Box::new(Syntax::Range(Some(0), Some(10))),
+                Box::new(Syntax::Unit)
             ))
         );
     }
