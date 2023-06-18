@@ -180,69 +180,28 @@ fn interpret_if(
             }
         }
         Syntax::Integer(num) => {
-            match op {
-                // x = 1
-                Operation::Equal => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: false,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: Some(*num),
-                        upper: Some(*num),
-                    }]
-                }
-                // x >= 1
-                Operation::RCaretEq => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: false,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: Some(*num),
-                        upper: None,
-                    }]
-                }
-                // x <= 1
-                Operation::LCaretEq => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: false,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: None,
-                        upper: Some(*num),
-                    }]
-                }
-                // x != 1
-                Operation::BangEq => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: true,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: Some(*num),
-                        upper: Some(*num),
-                    }]
-                }
-                // x > 1
-                Operation::RCaret => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: true,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: None,
-                        upper: Some(*num),
-                    }]
-                }
-                // x < 1
-                Operation::LCaret => {
-                    vec![ExecuteOption::ScoreMatches {
-                        invert: true,
-                        target: target_player,
-                        objective: target_objective,
-                        lower: Some(*num),
-                        upper: None,
-                    }]
-                }
+            let (invert, lower, upper): (bool, Option<i32>, Option<i32>) = match op {
+                // x = 1 => if x matches 1
+                Operation::Equal => (false, Some(*num), Some(*num)),
+                // x >= 1 => if x matches 1..
+                Operation::RCaretEq => (false, Some(*num), None),
+                // x <= 1 => if x matches ..1
+                Operation::LCaretEq => (false, None, Some(*num)),
+                // x != 1 => unless x matches 1
+                Operation::BangEq => (true, Some(*num), Some(*num)),
+                // x > 1 => unless x matches ..1
+                Operation::RCaret => (true, None, Some(*num)),
+                // x < 1 => unless x matches 1..
+                Operation::LCaret => (true, Some(*num), None),
                 _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
-            }
+            };
+            vec![ExecuteOption::ScoreMatches {
+                invert,
+                target: target_player,
+                objective: target_objective,
+                lower,
+                upper,
+            }]
         }
         Syntax::Range(left, right) => {
             if op != Operation::In {
@@ -272,17 +231,18 @@ fn interpret_operation(
     syn: &Syntax,
     state: &mut InterRep,
 ) -> Result<Vec<Command>, String> {
+    let target_objective = target.stringify_scoreboard_objective();
+    let target = target.stringify_scoreboard_target()?;
     match (op, syn) {
         // x = y
         (op, Syntax::Identifier(ident)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreOperation {
-                target: target.stringify_scoreboard_target()?,
+                target,
                 target_objective,
                 operation: op,
                 source: format!("%{ident}").into(),
@@ -291,14 +251,13 @@ fn interpret_operation(
         }
         // x = @r.y
         (op, Syntax::DottedSelector(sel, ident)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreOperation {
-                target: target.stringify_scoreboard_target()?,
+                target,
                 target_objective,
                 operation: op,
                 source: format!("{}", sel.stringify()?).into(),
@@ -307,49 +266,45 @@ fn interpret_operation(
         }
         // x = 2
         (Operation::Equal, Syntax::Integer(int)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreSet {
-                target: target.stringify_scoreboard_target()?,
+                target,
                 objective: target_objective,
                 value: *int,
             }])
         }
         // x += 2
         (Operation::AddEq, Syntax::Integer(int)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreAdd {
-                target: target.stringify_scoreboard_target()?,
+                target,
                 objective: target_objective,
                 value: *int,
             }])
         }
         // x -= 2
         (Operation::SubEq, Syntax::Integer(int)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreAdd {
-                target: target.stringify_scoreboard_target()?,
+                target,
                 objective: target_objective,
                 value: -int,
             }])
         }
         // x %= 2
         (op, Syntax::Integer(int)) => {
-            let target_objective = target.stringify_scoreboard_objective();
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
@@ -363,7 +318,7 @@ fn interpret_operation(
                     value: *int,
                 },
                 Command::ScoreOperation {
-                    target: target.stringify_scoreboard_target()?,
+                    target,
                     target_objective,
                     operation: op,
                     source: "%".into(),

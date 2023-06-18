@@ -185,10 +185,7 @@ mod tests {
     fn lex_literals() {
         assert_eq!(
             tokenize("-20.02"),
-            Ok(vec![
-                Token::Tack,
-                Token::Float(20.02),
-            ])
+            Ok(vec![Token::Tack, Token::Float(20.02),])
         );
         assert_eq!(
             tokenize("0-lol -0"),

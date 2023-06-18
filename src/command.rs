@@ -267,9 +267,9 @@ pub enum Command {
         duration: Option<i32>,
         level: Option<i32>,
     },
-    Kill {
-        target: Selector<String>,
-    },
+    // Kill {
+    //     target: Selector<String>,
+    // },
     Function {
         func: RStr,
     },
@@ -294,11 +294,11 @@ pub enum Command {
         options: Vec<ExecuteOption>,
         cmd: Box<Command>,
     },
-    Tag {
-        target: Selector<String>,
-        add: bool,
-        tag: RStr,
-    },
+    // Tag {
+    //     target: Selector<String>,
+    //     add: bool,
+    //     tag: RStr,
+    // },
 }
 
 #[derive(Debug, Clone)]
@@ -375,13 +375,13 @@ impl Command {
                     level.unwrap_or(0)
                 )
             }
-            Self::Kill { target } => format!("kill {target}"),
+            // Self::Kill { target } => format!("kill {target}"),
             Self::Function { func } => format!("function {namespace}:{func}"),
-            Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
-                "add"
-            } else {
-                "remove"
-            }),
+            // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
+            //     "add"
+            // } else {
+            //     "remove"
+            // }),
             Self::ScoreSet {
                 target: player,
                 objective: score,

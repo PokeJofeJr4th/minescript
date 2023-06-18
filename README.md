@@ -1,4 +1,4 @@
-# minescript
+# Minescript
 
 Rust-comipled markup language to create Minecraft datapacks
 
