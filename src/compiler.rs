@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{interpreter::InterRep, nbt, types::prelude::*};
+use crate::{interpreter::InterRep, types::prelude::*};
 
 #[derive(Debug, Clone, Default)]
 pub struct CompiledData {
@@ -10,7 +10,7 @@ pub struct CompiledData {
     pub mcmeta: String,
 }
 
-pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> {
+pub fn compile(src: &InterRep, namespace: &str) -> SResult<CompiledData> {
     let mut compiled = CompiledData {
         mcmeta: nbt!({
             pack: nbt!({
@@ -75,11 +75,7 @@ pub fn compile(src: &InterRep, namespace: &str) -> Result<CompiledData, String> 
 }
 
 #[allow(clippy::too_many_lines)]
-fn compile_items(
-    src: &InterRep,
-    namespace: &str,
-    compiled: &mut CompiledData,
-) -> Result<(), String> {
+fn compile_items(src: &InterRep, namespace: &str, compiled: &mut CompiledData) -> SResult<()> {
     let mut tick_buf = String::new();
     let mut using_base_item_scores = BTreeSet::new();
     for item in &src.items {

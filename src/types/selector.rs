@@ -23,7 +23,7 @@ pub struct Selector<T> {
 }
 
 impl Selector<Syntax> {
-    pub fn stringify(&self) -> Result<Selector<String>, String> {
+    pub fn stringify(&self) -> SResult<Selector<String>> {
         Ok(Selector {
             selector_type: self.selector_type,
             args: self

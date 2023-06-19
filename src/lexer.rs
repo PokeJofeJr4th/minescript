@@ -1,8 +1,8 @@
 use std::iter::Peekable;
 
-use crate::types::prelude::Token;
+use crate::types::{Token, SResult};
 
-macro_rules! possible_eq {
+macro_rules! multi_character_pattern {
     ($chars:ident $just:expr; {$($char:expr => $eq:expr),*}) => {
         match $chars.peek() {
             $(Some($char) => {
@@ -14,7 +14,7 @@ macro_rules! possible_eq {
     };
 }
 
-pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
+pub fn tokenize(source: &str) -> SResult<Vec<Token>> {
     let mut chars = source.chars().peekable();
     let mut token_stream = Vec::new();
     while chars.peek().is_some() {
@@ -33,7 +33,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, String> {
 )]
 fn inner_tokenize<T: Iterator<Item = char>>(
     chars: &mut Peekable<T>,
-) -> Result<Option<Token>, String> {
+) -> SResult<Option<Token>> {
     let Some(char) = chars.next() else {
         return Err("Unexpected end of file".into())
     };
@@ -45,18 +45,18 @@ fn inner_tokenize<T: Iterator<Item = char>>(
         '[' => Token::LSquare,
         ']' => Token::RSquare,
         '@' => Token::At,
-        '=' => possible_eq!(chars Token::Equal; {'>' => Token::FatArrow}),
-        '+' => possible_eq!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus}),
+        '=' => multi_character_pattern!(chars Token::Equal; {'>' => Token::FatArrow}),
+        '+' => multi_character_pattern!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus}),
         '-' => {
-            possible_eq!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow})
+            multi_character_pattern!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow})
         }
-        '*' => possible_eq!(chars Token::Star; {'=' => Token::StarEq}),
-        '/' => possible_eq!(chars Token::Slash; {'=' => Token::SlashEq}),
-        '%' => possible_eq!(chars Token::Percent; {'=' => Token::PercEq}),
-        '!' => possible_eq!(chars Token::Bang; {'=' => Token::BangEq}),
-        '<' => possible_eq!(chars Token::LCaret; {'=' => Token::LCaretEq}),
-        '>' => possible_eq!(chars Token::RCaret; {'=' => Token::RCaretEq}),
-        '.' => possible_eq!(chars Token::Dot; {'.' => Token::Doot}),
+        '*' => multi_character_pattern!(chars Token::Star; {'=' => Token::StarEq}),
+        '/' => multi_character_pattern!(chars Token::Slash; {'=' => Token::SlashEq}),
+        '%' => multi_character_pattern!(chars Token::Percent; {'=' => Token::PercEq}),
+        '!' => multi_character_pattern!(chars Token::Bang; {'=' => Token::BangEq}),
+        '<' => multi_character_pattern!(chars Token::LCaret; {'=' => Token::LCaretEq}),
+        '>' => multi_character_pattern!(chars Token::RCaret; {'=' => Token::RCaretEq}),
+        '.' => multi_character_pattern!(chars Token::Dot; {'.' => Token::Doot}),
         ':' => Token::Colon,
         ';' => Token::SemiColon,
         ',' => Token::Comma,

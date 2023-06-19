@@ -7,10 +7,11 @@ use crate::types::prelude::*;
     clippy::cast_possible_wrap,
     clippy::too_many_lines
 )]
-pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
+pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
         Some(Token::Integer(num)) => Ok(Syntax::Integer(num)),
+        Some(Token::Float(num)) => Ok(Syntax::Float(num)),
         Some(Token::Range(l, r)) => Ok(Syntax::Range(l, r)),
         Some(Token::Doot) => {
             let Some(Token::Integer(num)) = tokens.next() else {
@@ -28,79 +29,61 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
         Some(Token::LSquare) => parse_block(tokens, &Token::RSquare),
         Some(Token::LParen) => parse_block(tokens, &Token::RParen),
         Some(Token::At) => parse_macro(tokens),
-        other => Err(format!(
-            "Unexpected token `{other:?}`; {:?}",
-            tokens.collect::<Vec<_>>()
-        )),
-    };
+        other => Err(format!("Unexpected token `{other:?}`")),
+    }?;
     match &first {
-        Ok(Syntax::BinaryOp(OpLeft::Ident(first), Operation::Colon, second)) => {
+        Syntax::BinaryOp(OpLeft::Ident(first), Operation::Colon, second) => 'm: {
             // println!("Binary Operation");
             if let Syntax::Identifier(second) = &**second {
-                if let Some(op) = get_op(tokens) {
+                let left = OpLeft::Colon(first.clone(), second.clone());
+                let (op, right) = if let Some(op) = get_op(tokens) {
                     // println!("Secondary Operation");
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::Colon(first.clone(), second.clone()),
-                        op,
-                        Box::new(parse(tokens)?),
-                    ));
+                    (op, parse(tokens)?)
                 } else if tokens.peek() == Some(&Token::PlusPlus) {
                     tokens.next();
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::Colon(first.clone(), second.clone()),
-                        Operation::AddEq,
-                        Box::new(Syntax::Integer(1)),
-                    ));
+                    (Operation::AddEq, Syntax::Integer(1))
                 } else if tokens.peek() == Some(&Token::TackTack) {
                     tokens.next();
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::Colon(first.clone(), second.clone()),
-                        Operation::SubEq,
-                        Box::new(Syntax::Integer(1)),
-                    ));
-                }
+                    (Operation::SubEq, Syntax::Integer(1))
+                } else {
+                    break 'm;
+                };
+                return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
             }
         }
-        Ok(Syntax::Selector(sel)) => {
+        Syntax::Selector(sel) => 'm: {
             // println!("Selector");
             if tokens.peek() == Some(&Token::Colon) {
                 tokens.next();
                 let Some(Token::Identifier(ident)) = tokens.next() else {
                     return Err(String::from("Selectors can only be indexed with `:<identifier>`"))
                 };
-                if let Some(op) = get_op(tokens) {
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::SelectorColon(sel.clone(), ident),
-                        op,
-                        Box::new(parse(tokens)?),
-                    ));
+                let left = OpLeft::SelectorColon(sel.clone(), ident);
+                let (op, right) = if let Some(op) = get_op(tokens) {
+                    // println!("Secondary Operation");
+                    (op, parse(tokens)?)
                 } else if tokens.peek() == Some(&Token::PlusPlus) {
                     tokens.next();
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::SelectorColon(sel.clone(), ident),
-                        Operation::AddEq,
-                        Box::new(Syntax::Integer(1)),
-                    ));
+                    (Operation::AddEq, Syntax::Integer(1))
                 } else if tokens.peek() == Some(&Token::TackTack) {
                     tokens.next();
-                    return Ok(Syntax::BinaryOp(
-                        OpLeft::SelectorColon(sel.clone(), ident),
-                        Operation::SubEq,
-                        Box::new(Syntax::Integer(1)),
-                    ));
-                }
+                    (Operation::SubEq, Syntax::Integer(1))
+                } else {
+                    break 'm;
+                };
+                return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
             }
         }
         _ => {}
     }
     // println!("{first:?}");
-    first
+    Ok(first)
 }
 
 fn parse_block<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     closing: &Token,
-) -> Result<Syntax, String> {
+) -> SResult<Syntax> {
     let mut statements_buf = Vec::new();
     if tokens.peek() == Some(closing) {
         tokens.next();
@@ -176,7 +159,7 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
 fn parse_identifier<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     id: RStr,
-) -> Result<Syntax, String> {
+) -> SResult<Syntax> {
     if let Some(op) = get_op(tokens) {
         Ok(Syntax::BinaryOp(
             OpLeft::Ident(id),
@@ -204,50 +187,22 @@ fn parse_identifier<T: Iterator<Item = Token>>(
         Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
     // } else if id == "effect" {
     //     todo!()
-    } else if &*id == "if" {
-        // println!("If Statement");
-        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
-            return Err(String::from("If statement requires a check like `x = 2`"))
-        };
-        // println!("If Block");
-        Ok(Syntax::Block(
-            BlockType::If,
-            left,
-            op,
-            right,
-            Box::new(parse(tokens)?),
-        ))
-    } else if &*id == "do" {
-        if tokens.next() != Some(Token::Identifier("while".into())) {
+    } else if &*id == "if" || &*id == "do" || &*id == "while" || &*id == "for" {
+        if &*id == "do" && tokens.next() != Some(Token::Identifier("while".into())) {
             return Err(String::from("Expected `while` after `do`"));
-        };
+        }
         let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
-            return Err(String::from("Do-while loop requires a check like `x = 2`"))
+            return Err(format!("{id} statement requires a check like `x = 2`"))
+        };
+        let block_type = match &*id {
+            "if" => BlockType::If,
+            "do" => BlockType::DoWhile,
+            "while" => BlockType::While,
+            "for" => BlockType::For,
+            _ => unreachable!(),
         };
         Ok(Syntax::Block(
-            BlockType::DoWhile,
-            left,
-            op,
-            right,
-            Box::new(parse(tokens)?),
-        ))
-    } else if &*id == "while" {
-        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
-            return Err(String::from("While loop requires a check like `x = 2`"))
-        };
-        Ok(Syntax::Block(
-            BlockType::While,
-            left,
-            op,
-            right,
-            Box::new(parse(tokens)?),
-        ))
-    } else if &*id == "for" {
-        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
-            return Err(String::from("For loop requires a check like `x = 2`"))
-        };
-        Ok(Syntax::Block(
-            BlockType::For,
+            block_type,
             left,
             op,
             right,
@@ -258,7 +213,7 @@ fn parse_identifier<T: Iterator<Item = Token>>(
     }
 }
 
-fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Syntax, String> {
+fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
     {
         let Some(Token::Identifier(identifier)) = tokens.next() else {
             return Err("Expected identifier after `@`".to_string())

@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::{get_hash, nbt, types::prelude::*};
+use crate::types::prelude::*;
 
 #[derive(Debug)]
 pub struct Item {
@@ -34,13 +34,13 @@ impl InterRep {
     }
 }
 
-pub fn interpret(src: &Syntax) -> Result<InterRep, String> {
+pub fn interpret(src: &Syntax) -> SResult<InterRep> {
     let mut state = InterRep::new();
     inner_interpret(src, &mut state)?;
     Ok(state)
 }
 
-fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, String> {
+fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> {
     match src {
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
@@ -75,7 +75,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                         } else {
                             Err(format!("`@raw` takes a string or list of strings, not `{syn:?}`"))
                         }
-                    }).collect::<Result<Vec<_>,_>>();
+                    }).collect::<SResult<Vec<Command>>>();
                         }
                         other => {
                             return Err(format!(
@@ -119,7 +119,7 @@ fn interpret_loop(
     right: &Syntax,
     block: &Syntax,
     state: &mut InterRep,
-) -> Result<Vec<Command>, String> {
+) -> SResult<Vec<Command>> {
     assert_ne!(block_type, BlockType::If);
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
@@ -183,7 +183,7 @@ fn interpret_if(
     content: &[Command],
     hash: &str,
     state: &mut InterRep,
-) -> Result<Vec<Command>, String> {
+) -> SResult<Vec<Command>> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
     }
@@ -296,7 +296,7 @@ fn interpret_operation(
     op: Operation,
     syn: &Syntax,
     state: &mut InterRep,
-) -> Result<Vec<Command>, String> {
+) -> SResult<Vec<Command>> {
     let target_objective = target.stringify_scoreboard_objective();
     let target = target.stringify_scoreboard_target()?;
     match (op, syn) {
@@ -397,7 +397,7 @@ fn interpret_operation(
 }
 
 #[allow(clippy::too_many_lines)]
-fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
+fn interpret_item(src: &Syntax, state: &mut InterRep) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
@@ -534,7 +534,7 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> Result<Item, String> {
     }
 }
 
-fn interpret_effect(src: &Syntax) -> Result<Vec<Command>, String> {
+fn interpret_effect(src: &Syntax) -> SResult<Vec<Command>> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };

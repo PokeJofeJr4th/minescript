@@ -176,27 +176,27 @@ impl Display for Operation {
 }
 
 impl TryFrom<&Syntax> for String {
-    type Error = ();
+    type Error = Self;
 
-    fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
+    fn try_from(value: &Syntax) -> SResult<Self> {
         match value {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(Self::from(&**str)),
             Syntax::Integer(num) => Ok(format!("{num}")),
             Syntax::Float(float) => Ok(format!("{float}")),
-            _ => Err(()),
+            _ => Err(format!("Can't get a string from {value:?}")),
         }
     }
 }
 
 impl TryFrom<&Syntax> for RStr {
-    type Error = ();
+    type Error = String;
 
-    fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
+    fn try_from(value: &Syntax) -> SResult<Self> {
         match value {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(str.clone()),
             Syntax::Integer(num) => Ok(format!("{num}").into()),
             Syntax::Float(float) => Ok(format!("{float}").into()),
-            _ => Err(()),
+            _ => Err(format!("Can't get a string from {value:?}")),
         }
     }
 }

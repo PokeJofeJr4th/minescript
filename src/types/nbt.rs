@@ -102,7 +102,7 @@ impl Nbt {
 impl TryFrom<&Syntax> for Nbt {
     type Error = String;
 
-    fn try_from(value: &Syntax) -> Result<Self, Self::Error> {
+    fn try_from(value: &Syntax) -> SResult<Self> {
         match value {
             Syntax::Object(items) => {
                 if items.is_empty() {
@@ -112,7 +112,7 @@ impl TryFrom<&Syntax> for Nbt {
                         items
                             .iter()
                             .map(|(k, v)| Self::try_from(v).map(|nbt| (k.clone(), nbt)))
-                            .collect::<Result<BTreeMap<RStr, Self>, Self::Error>>()?,
+                            .collect::<SResult<BTreeMap<RStr, Self>>>()?,
                     ))
                 }
             }
@@ -120,7 +120,7 @@ impl TryFrom<&Syntax> for Nbt {
                 items
                     .iter()
                     .map(Self::try_from)
-                    .collect::<Result<Vec<Self>, Self::Error>>()?,
+                    .collect::<SResult<Vec<Self>>>()?,
             )),
             Syntax::String(str) => Ok(Self::String(str.clone())),
             Syntax::Integer(num) => Ok(Self::Integer(*num)),
@@ -172,17 +172,17 @@ where
 
 impl TryFrom<Syntax> for Nbt {
     type Error = String;
-    fn try_from(value: Syntax) -> Result<Self, Self::Error> {
+    fn try_from(value: Syntax) -> SResult<Self> {
         match value {
             Syntax::Object(obj) => Ok(Self::Object(
                 obj.into_iter()
                     .map(|(k, v)| Self::try_from(v).map(|v| (k, v)))
-                    .collect::<Result<BTreeMap<RStr, Self>, String>>()?,
+                    .collect::<SResult<BTreeMap<RStr, Self>>>()?,
             )),
             Syntax::Array(arr) => Ok(Self::Array(
                 arr.iter()
                     .map(Self::try_from)
-                    .collect::<Result<Vec<Self>, String>>()?,
+                    .collect::<SResult<Vec<Self>>>()?,
             )),
             Syntax::String(str) | Syntax::Identifier(str) => Ok(Self::String(str)),
             Syntax::Integer(num) => Ok(Self::Integer(num)),

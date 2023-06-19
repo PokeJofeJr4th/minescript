@@ -1,10 +1,9 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
-use core::hash::Hash;
-use std::collections::hash_map::DefaultHasher;
+
 use std::error::Error;
 use std::fs::{self, File};
-use std::hash::Hasher;
+
 use std::io::Write;
 
 use clap::Parser;
@@ -92,10 +91,4 @@ fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> 
     fs::create_dir_all(parent_dir)?;
 
     File::create(filename)
-}
-
-pub fn get_hash<T: Hash>(obj: T) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    obj.hash(&mut hasher);
-    hasher.finish()
 }
