@@ -68,6 +68,16 @@ The object is a pair of curly braces containing a set of key-value pairs. Keys a
 
 The array is a pair of square braces containing a set of syntax elements. These can be any element, but macros often require certain types. Commas or semicolons separating values are optional.
 
+### Function
+
+```
+function my_function [
+    ...
+]
+```
+
+A function expands to a .mcfunction file. You can use quotes around the function name to include slashes, which the compiler translates into folders. Most functions you create will be through macros, but this syntax can still be used to avoid repeating code.
+
 ### Macro
 
 The macro is an `@` sign followed by the name of the macro and a syntax element, most often an object. Macros are the main way code is produced.
@@ -222,8 +232,10 @@ This loop simply compiles to a while loop, but the only syntax currently support
 
 ```
 i = 1
-while i <= 64 {
+do while i <= 64 {
     i++
     @function "give/item"
 }
 ```
+
+> The For Loop doesn't make any guarantees about namespace collisions; If the body of your loop, including function calls and inner loops, has any references to the variable used in the loop, it could disrupt the loop. If you set the variable of the loop to `_`, the compiler will replace it with a value unique to your loop.

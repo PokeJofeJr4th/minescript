@@ -84,8 +84,14 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
         }
         Syntax::Block(block_type, left, op, right, block) => {
             let fn_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
+            // for _ in .. => replace `_` with hash
+            let left = if *block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
+                OpLeft::Ident(silly_hash(block).to_string().into())
+            } else {
+                left.clone()
+            };
             let [goto_fn] = &interpret_if(
-                left,
+                &left,
                 *op,
                 right,
                 &[Command::Function {
@@ -107,7 +113,8 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                     value: start.unwrap_or(0),
                 });
             }
-            if *block_type == BlockType::DoWhile {
+            // don't perform the initial check for do-while or for loops
+            if *block_type == BlockType::DoWhile || *block_type == BlockType::For {
                 body.push(Command::Function {
                     func: fn_name.clone(),
                 });
@@ -115,7 +122,19 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                 body.push(goto_fn.clone());
             }
             state.functions.push((fn_name, body));
-            return Ok(vec![goto_fn.clone()]);
+            return Ok(if *block_type == BlockType::For {
+                // reset the value at the end of a for loop
+                vec![
+                    goto_fn.clone(),
+                    Command::ScoreSet {
+                        target: left.stringify_scoreboard_target()?,
+                        objective: left.stringify_scoreboard_objective(),
+                        value: 0,
+                    },
+                ]
+            } else {
+                vec![goto_fn.clone()]
+            });
         }
         Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
         Syntax::Identifier(_) => todo!(),

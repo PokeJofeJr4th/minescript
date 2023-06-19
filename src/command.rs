@@ -386,7 +386,11 @@ impl Command {
                 target: player,
                 objective: score,
                 value,
-            } => format!("scoreboard players set {player} {score} {value}"),
+            } => if *value == 0 {
+                format!("scoreboard players reset {player} {score}")
+            } else {
+                format!("scoreboard players set {player} {score} {value}")
+            }
             Self::ScoreAdd {
                 target: player,
                 objective: score,
