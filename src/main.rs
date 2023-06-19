@@ -5,17 +5,17 @@ use std::error::Error;
 use std::fs::{self, File};
 use std::hash::Hasher;
 use std::io::Write;
-use std::rc::Rc;
 
 use clap::Parser;
 
-mod command;
 mod compiler;
 mod interpreter;
 mod lexer;
 mod parser;
+mod types;
 
-type RStr = Rc<str>;
+use types::prelude::*;
+
 
 #[derive(Parser)]
 struct Args {
@@ -94,7 +94,7 @@ fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> 
     File::create(filename)
 }
 
-pub fn silly_hash<T: Hash>(obj: T) -> u64 {
+pub fn get_hash<T: Hash>(obj: T) -> u64 {
     let mut hasher = DefaultHasher::new();
     obj.hash(&mut hasher);
     hasher.finish()

@@ -1,10 +1,6 @@
 use std::{collections::BTreeMap, fmt::Display, hash::Hash, iter::Peekable, rc::Rc};
 
-use crate::{
-    command::{Selector, SelectorType},
-    lexer::Token,
-    RStr,
-};
+use crate::{lexer::Token, types::prelude::*};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Syntax {
@@ -481,7 +477,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::{
-        command::{Selector, SelectorType},
+        types::prelude::*,
         lexer::Token,
         parser::{parse, BlockType, OpLeft, Operation, Syntax},
     };

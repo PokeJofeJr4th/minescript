@@ -1,10 +1,9 @@
 use std::{collections::BTreeMap, rc::Rc};
 
 use crate::{
-    command::{Command, ExecuteOption, Nbt, Selector, SelectorType},
-    nbt,
+    get_hash, nbt,
     parser::{BlockType, OpLeft, Operation, Syntax},
-    silly_hash, RStr,
+    types::prelude::*,
 };
 
 #[derive(Debug)]
@@ -78,15 +77,15 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
                 *op,
                 right,
                 &inner_interpret(block, state)?,
-                &format!("{:x}", silly_hash(block)),
+                &format!("{:x}", get_hash(block)),
                 state,
             )
         }
         Syntax::Block(block_type, left, op, right, block) => {
-            let fn_name: RStr = format!("closure/{:x}", silly_hash(block)).into();
+            let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
             // for _ in .. => replace `_` with hash
             let left = if *block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
-                OpLeft::Ident(silly_hash(block).to_string().into())
+                OpLeft::Ident(get_hash(block).to_string().into())
             } else {
                 left.clone()
             };

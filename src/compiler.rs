@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{command::Nbt, interpreter::InterRep, nbt, RStr};
+use crate::{types::prelude::*, interpreter::InterRep, nbt};
 
 #[derive(Debug, Clone, Default)]
 pub struct CompiledData {
