@@ -4,10 +4,15 @@ use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SelectorType {
+    /// self
     S,
+    /// nearest player
     P,
+    /// all entities
     E,
+    /// all players
     A,
+    /// random player
     R,
 }
 

@@ -4,6 +4,7 @@ use super::prelude::*;
 pub enum Command {
     /// A user-made command that passes through the compiler unchanged
     Raw(RStr),
+    /// give a target an effect. Duration defaults to infinite, level defaults to 1
     EffectGive {
         target: Selector<String>,
         effect: RStr,
@@ -13,19 +14,23 @@ pub enum Command {
     // Kill {
     //     target: Selector<String>,
     // },
+    /// call a function
     Function {
         func: RStr,
     },
+    /// set a score to a value
     ScoreSet {
         target: RStr,
         objective: RStr,
         value: i32,
     },
+    /// add to a score
     ScoreAdd {
         target: RStr,
         objective: RStr,
         value: i32,
     },
+    /// perform an operation between two scores
     ScoreOperation {
         target: RStr,
         target_objective: RStr,
@@ -33,6 +38,7 @@ pub enum Command {
         source: RStr,
         source_objective: RStr,
     },
+    /// execute a command with certain options
     Execute {
         options: Vec<ExecuteOption>,
         cmd: Box<Command>,
@@ -46,6 +52,7 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum ExecuteOption {
+    /// compare score to a static range
     ScoreMatches {
         invert: bool,
         target: RStr,
@@ -53,6 +60,7 @@ pub enum ExecuteOption {
         lower: Option<i32>,
         upper: Option<i32>,
     },
+    /// compare score to another score
     ScoreSource {
         invert: bool,
         target: RStr,

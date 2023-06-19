@@ -7,9 +7,12 @@ pub struct Item {
     pub name: RStr,
     pub base: RStr,
     pub nbt: Nbt,
+    /// function that runs when the item is consumed
     pub on_consume: Option<RStr>,
-    pub while_using: Option<RStr>,
+    /// function that runs when the item is used
     pub on_use: Option<RStr>,
+    /// function that runs every tick while the item is being used
+    pub while_using: Option<RStr>,
 }
 
 #[derive(Debug)]
@@ -194,7 +197,7 @@ fn interpret_if(
     let target_player = left.stringify_scoreboard_target()?;
     let target_objective = left.stringify_scoreboard_objective();
     let options = match right {
-        Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::DottedSelector(_, _) => {
+        Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::ColonSelector(_, _) => {
             let (source, source_objective) = match right {
                 Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
                 Syntax::BinaryOp(left, Operation::Colon, right) => match &**right {
@@ -207,7 +210,7 @@ fn interpret_if(
                         ))
                     }
                 },
-                Syntax::DottedSelector(selector, right) => {
+                Syntax::ColonSelector(selector, right) => {
                     (selector.stringify()?.to_string().into(), right.clone())
                 }
                 _ => return Err(format!("Can't compare to `{right:?}`")),
@@ -313,7 +316,7 @@ fn interpret_operation(
             }])
         }
         // x = @r.y
-        (op, Syntax::DottedSelector(sel, ident)) => {
+        (op, Syntax::ColonSelector(sel, ident)) => {
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives

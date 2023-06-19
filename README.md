@@ -160,6 +160,7 @@ The function macro compiles to a command in the form of `function [namespace]:[f
 Note that your datapack's namespace is inserted by the compiler, so you don't need to include it in the macro invocation.
 
 #### Raw
+
 ```
 @raw "kill @r"
 

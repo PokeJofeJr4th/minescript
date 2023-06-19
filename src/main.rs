@@ -17,7 +17,9 @@ mod types;
 
 #[derive(Parser)]
 struct Args {
+    /// path to the source file
     path: String,
+    /// namespace for the finished program
     namespace: String,
 }
 

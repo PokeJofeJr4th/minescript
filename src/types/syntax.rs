@@ -4,19 +4,33 @@ use super::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Syntax {
+    /// A floating piece of text
     Identifier(RStr),
+    /// A macro invocation with the name and body of the macro
     Macro(RStr, Box<Syntax>),
+    /// A list of key-value pairs
     Object(BTreeMap<RStr, Syntax>),
+    /// A list of syntax elements
     Array(Rc<[Syntax]>),
+    /// A function definition with the function name and body
     Function(RStr, Box<Syntax>),
+    /// A selector
     Selector(Selector<Syntax>),
-    DottedSelector(Selector<Syntax>, RStr),
+    /// A selector with a colon and a score name
+    ColonSelector(Selector<Syntax>, RStr),
+    /// A binary operation like x += 2
     BinaryOp(OpLeft, Operation, Box<Syntax>),
+    /// A block of the form `if left op right {content}`
     Block(BlockType, OpLeft, Operation, Box<Syntax>, Box<Syntax>),
+    /// A string literal
     String(RStr),
+    /// An integer literal
     Integer(i32),
+    /// A range literal
     Range(Option<i32>, Option<i32>),
+    /// A float literal
     Float(f32),
+    /// An empty object
     Unit,
 }
 
@@ -43,7 +57,7 @@ impl Hash for Syntax {
             Self::Object(map) => map.hash(state),
             Self::Array(arr) => arr.hash(state),
             Self::Selector(sel) => sel.hash(state),
-            Self::DottedSelector(sel, ident) => {
+            Self::ColonSelector(sel, ident) => {
                 sel.hash(state);
                 ident.hash(state);
             }
@@ -73,9 +87,13 @@ impl Hash for Syntax {
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OpLeft {
+    /// An imaginary player's dummy objective
     Ident(RStr),
+    /// An imaginary player's specified objective
     Colon(RStr, RStr),
+    /// A specified entity's dummy objective
     Selector(Selector<Syntax>),
+    /// A specified entity's specified objective
     SelectorColon(Selector<Syntax>, RStr),
 }
 
@@ -99,20 +117,35 @@ impl OpLeft {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Operation {
+    /// key-value pair
     Colon,
+    /// unused
     Dot,
+    /// check equality or assign value
     Equal,
+    /// less than
     LCaret,
+    /// less than or equal
     LCaretEq,
+    /// greater than
     RCaret,
+    /// greater than or equal
     RCaretEq,
+    /// not equal
     BangEq,
+    /// add and assign
     AddEq,
+    /// subtract and assign
     SubEq,
+    /// multiply and assign
     MulEq,
+    /// divide and assign
     DivEq,
+    /// modulo and assign
     ModEq,
+    /// swap values
     Swap,
+    /// check if in range
     In,
 }
 
