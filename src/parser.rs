@@ -29,6 +29,8 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
         Some(Token::LSquare) => parse_block(tokens, &Token::RSquare),
         Some(Token::LParen) => parse_block(tokens, &Token::RParen),
         Some(Token::At) => parse_macro(tokens),
+        Some(Token::UCaret) => Ok(Syntax::CaretCoord(extract_float(tokens)?)),
+        Some(Token::Woogly) => Ok(Syntax::WooglyCoord(extract_float(tokens)?)),
         other => Err(format!("Unexpected token `{other:?}`")),
     }?;
     match &first {
@@ -78,6 +80,29 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
     }
     // println!("{first:?}");
     Ok(first)
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn extract_float<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<f32> {
+    Ok(match tokens.peek() {
+        Some(Token::Integer(_)) => {
+            let Some(Token::Integer(int)) = tokens.next() else {panic!()};
+            int as f32
+        }
+        Some(Token::Float(_)) => {
+            let Some(Token::Float(float)) = tokens.next() else {panic!()};
+            float
+        }
+        Some(Token::Tack) => {
+            tokens.next();
+            -match tokens.next() {
+                Some(Token::Integer(int)) => int as f32,
+                Some(Token::Float(float)) => float,
+                other => return Err(format!("Expected int or float after `-`; got `{other:?}`")),
+            }
+        }
+        _ => 0.0,
+    })
 }
 
 fn parse_block<T: Iterator<Item = Token>>(
@@ -208,6 +233,32 @@ fn parse_identifier<T: Iterator<Item = Token>>(
             right,
             Box::new(parse(tokens)?),
         ))
+    } else if &*id == "as" || &*id == "at" || &*id == "asat" || &*id == "tp" || &*id == "teleport" {
+        let block_type = match &*id {
+            "as" => {
+                if let Some(Token::Identifier(id)) = tokens.peek() {
+                    if &**id == "at" {
+                        tokens.next();
+                        BlockSelectorType::AsAt
+                    } else {
+                        BlockSelectorType::As
+                    }
+                } else {
+                    BlockSelectorType::As
+                }
+            }
+            "at" => BlockSelectorType::At,
+            "tp" | "teleport" => BlockSelectorType::Tp,
+            _ => unreachable!(),
+        };
+        let Syntax::Selector(sel) = parse(tokens)? else {
+            return Err(format!("{id} requires a selector afterwards"))
+        };
+        Ok(Syntax::BlockSelector(
+            block_type,
+            sel,
+            Box::new(parse(tokens)?),
+        ))
     } else {
         Ok(Syntax::Identifier(id))
     }
@@ -251,101 +302,5 @@ fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<S
             }
             _ => Ok(Syntax::Macro(identifier, Box::new(parse(tokens)?))),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-
-    use crate::{
-        parser::{parse, BlockType, OpLeft, Operation, Syntax},
-        types::prelude::*,
-    };
-
-    #[test]
-    fn parse_literals() {
-        // -20
-        assert_eq!(
-            parse(&mut [Token::Tack, Token::Integer(20)].into_iter().peekable()),
-            Ok(Syntax::Integer(-20))
-        );
-    }
-
-    #[test]
-    fn parse_score_op() {
-        // @a:x += 2
-        assert_eq!(
-            parse(
-                &mut [
-                    Token::At,
-                    Token::Identifier("a".into()),
-                    Token::Colon,
-                    Token::Identifier("x".into()),
-                    Token::PlusEq,
-                    Token::Integer(2)
-                ]
-                .into_iter()
-                .peekable()
-            ),
-            Ok(Syntax::BinaryOp(
-                OpLeft::SelectorColon(
-                    Selector {
-                        selector_type: SelectorType::A,
-                        args: BTreeMap::new()
-                    },
-                    "x".into()
-                ),
-                Operation::AddEq,
-                Box::new(Syntax::Integer(2))
-            ))
-        );
-    }
-
-    #[test]
-    fn parse_in_range() {
-        // x in 0..10
-        assert_eq!(
-            parse(
-                &mut [
-                    Token::Identifier("x".into()),
-                    Token::Identifier("in".into()),
-                    Token::Range(Some(0), Some(10))
-                ]
-                .into_iter()
-                .peekable()
-            ),
-            Ok(Syntax::BinaryOp(
-                OpLeft::Ident("x".into()),
-                Operation::In,
-                Box::new(Syntax::Range(Some(0), Some(10)))
-            ))
-        );
-    }
-
-    #[test]
-    fn parse_for_loop() {
-        // for x in 0..10 {}
-        assert_eq!(
-            parse(
-                &mut [
-                    Token::Identifier("for".into()),
-                    Token::Identifier("x".into()),
-                    Token::Identifier("in".into()),
-                    Token::Range(Some(0), Some(10)),
-                    Token::LSquirrely,
-                    Token::RSquirrely
-                ]
-                .into_iter()
-                .peekable()
-            ),
-            Ok(Syntax::Block(
-                BlockType::For,
-                OpLeft::Ident("x".into()),
-                Operation::In,
-                Box::new(Syntax::Range(Some(0), Some(10))),
-                Box::new(Syntax::Unit)
-            ))
-        );
     }
 }

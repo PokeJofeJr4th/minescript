@@ -189,7 +189,7 @@ x = @r:some_objective
 The possible forms of the left side include `variable_name`, `variable_name.objective_name`, and `selector.objective_name`. The right side can have any of those forms or be an integer.
 Internally, minescript uses scoreboard objectives for variables. These examples compile to the following commands:
 
-```
+```mcfunction
 scoreboard players set %x dummy 10
 scoreboard objectives add %x dummy 1
 scoreboard players set % dummy 2
@@ -253,3 +253,39 @@ do while i <= 64 {
 ```
 
 > The For Loop doesn't make any guarantees about namespace collisions; If the body of your loop, including function calls and inner loops, has any references to the variable used in the loop, it could disrupt the loop. If you set the variable of the loop to `_`, the compiler will replace it with a value unique to your loop.
+
+### As and At
+
+```
+as @r {
+    ...
+}
+
+as at @p {
+    ...
+}
+```
+
+These operations aim to replicate the feeling of the `execute` command. `as` redefines the `@s` to be the specified entity, and `at` runs the function at the location of the specified entity. Since these are often used together, a convenient form is provided that makes sure the following command is run both `at` and `as` the specified entity.
+
+```
+as @r if @s.count >= 3 {
+    @function "give/my_item"
+}
+```
+
+Because of the way functions are compiled, the above example will compile to the following simple command:
+
+```mcfunction
+execute as @r if score @s count matches 3.. run function namespace:give/my_item
+```
+
+### Teleport
+
+```
+tp @s (~ ~10 ~)
+tp @s (^1 ^2 ^1)
+tp @s (~, 255 ~)
+```
+
+Teleports the selected entity to the specified coordinates. Internally, the compiler expects an array of three coordinates. It can't differentiate between `~255` and `~ 255`, so commas or semicolons are recommended.

@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use crate::types::{Token, SResult};
+use crate::types::{SResult, Token};
 
 macro_rules! multi_character_pattern {
     ($chars:ident $just:expr; {$($char:expr => $eq:expr),*}) => {
@@ -31,9 +31,7 @@ pub fn tokenize(source: &str) -> SResult<Vec<Token>> {
     clippy::cast_possible_wrap,
     clippy::too_many_lines
 )]
-fn inner_tokenize<T: Iterator<Item = char>>(
-    chars: &mut Peekable<T>,
-) -> SResult<Option<Token>> {
+fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<Option<Token>> {
     let Some(char) = chars.next() else {
         return Err("Unexpected end of file".into())
     };
@@ -46,7 +44,9 @@ fn inner_tokenize<T: Iterator<Item = char>>(
         ']' => Token::RSquare,
         '@' => Token::At,
         '=' => multi_character_pattern!(chars Token::Equal; {'>' => Token::FatArrow}),
-        '+' => multi_character_pattern!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus}),
+        '+' => {
+            multi_character_pattern!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus})
+        }
         '-' => {
             multi_character_pattern!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow})
         }
@@ -147,46 +147,4 @@ fn inner_tokenize<T: Iterator<Item = char>>(
             return Err(format!("Unexpected character: `{char}`"));
         }
     }))
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::lexer::{tokenize, Token};
-
-    #[test]
-    fn lex_literals() {
-        assert_eq!(
-            tokenize("-20.02"),
-            Ok(vec![Token::Tack, Token::Float(20.02),])
-        );
-        assert_eq!(
-            tokenize("0-lol -0"),
-            Ok(vec![
-                Token::Integer(0),
-                Token::Tack,
-                Token::Identifier(String::from("lol").into()),
-                Token::Tack,
-                Token::Integer(0)
-            ])
-        );
-    }
-
-    #[test]
-    fn lex_for_loop() {
-        assert_eq!(tokenize("1..10"), Ok(vec![Token::Range(Some(1), Some(10))]));
-        assert_eq!(
-            tokenize("for x in 1..10 {@function \"tick\"}"),
-            Ok(vec![
-                Token::Identifier("for".into()),
-                Token::Identifier("x".into()),
-                Token::Identifier("in".into()),
-                Token::Range(Some(1), Some(10)),
-                Token::LSquirrely,
-                Token::At,
-                Token::Identifier("function".into()),
-                Token::String("tick".into()),
-                Token::RSquirrely
-            ])
-        );
-    }
 }

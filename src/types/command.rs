@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use super::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     /// A user-made command that passes through the compiler unchanged
     Raw(RStr),
@@ -15,9 +17,7 @@ pub enum Command {
     //     target: Selector<String>,
     // },
     /// call a function
-    Function {
-        func: RStr,
-    },
+    Function { func: RStr },
     /// set a score to a value
     ScoreSet {
         target: RStr,
@@ -48,9 +48,13 @@ pub enum Command {
     //     add: bool,
     //     tag: RStr,
     // },
+    Teleport {
+        target: Selector<String>,
+        destination: Coordinate,
+    },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExecuteOption {
     /// compare score to a static range
     ScoreMatches {
@@ -69,6 +73,10 @@ pub enum ExecuteOption {
         source: RStr,
         source_objective: RStr,
     },
+    /// change who `@s` is
+    As { selector: Selector<String> },
+    /// change where the command executes
+    At { selector: Selector<String> },
 }
 
 impl ExecuteOption {
@@ -107,6 +115,8 @@ impl ExecuteOption {
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
                 if *invert { "unless" } else { "if" }
             ),
+            Self::As { selector } => format!("as {selector}"),
+            Self::At { selector } => format!("at {selector}"),
         }
     }
 }
@@ -163,6 +173,34 @@ impl Command {
                 }
                 format!("execute {options_buf}run {}", cmd.stringify(namespace))
             },
+            Self::Teleport { target, destination } => format!("tp {target} {destination}")
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Coordinate {
+    /// coordinate given with xyz coordinates; booleans are for `~ ~ ~`
+    Linear(bool, f32, bool, f32, bool, f32),
+    /// coordinates given by angle; `^ ^ ^`
+    Angular(f32, f32, f32),
+}
+
+impl Display for Coordinate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Linear(a, af, b, bf, c, cf) => {
+                write!(
+                    f,
+                    "{}{af} {}{bf} {}{cf}",
+                    if a { "~" } else { "" },
+                    if b { "~" } else { "" },
+                    if c { "~" } else { "" }
+                )
+            }
+            Self::Angular(a, b, c) => {
+                write!(f, "^{a} ^{b} ^{c}")
+            }
         }
     }
 }

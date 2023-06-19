@@ -22,6 +22,39 @@ pub struct Selector<T> {
     pub args: BTreeMap<RStr, T>,
 }
 
+impl<T> Selector<T> {
+    pub const fn s() -> Self {
+        Self {
+            selector_type: SelectorType::S,
+            args: BTreeMap::new(),
+        }
+    }
+    pub const fn p() -> Self {
+        Self {
+            selector_type: SelectorType::P,
+            args: BTreeMap::new(),
+        }
+    }
+    pub const fn e() -> Self {
+        Self {
+            selector_type: SelectorType::E,
+            args: BTreeMap::new(),
+        }
+    }
+    pub const fn a() -> Self {
+        Self {
+            selector_type: SelectorType::A,
+            args: BTreeMap::new(),
+        }
+    }
+    pub const fn r() -> Self {
+        Self {
+            selector_type: SelectorType::R,
+            args: BTreeMap::new(),
+        }
+    }
+}
+
 impl Selector<Syntax> {
     pub fn stringify(&self) -> SResult<Selector<String>> {
         Ok(Selector {

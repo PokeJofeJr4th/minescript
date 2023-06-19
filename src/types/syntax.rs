@@ -22,12 +22,18 @@ pub enum Syntax {
     BinaryOp(OpLeft, Operation, Box<Syntax>),
     /// A block of the form `if left op right {content}`
     Block(BlockType, OpLeft, Operation, Box<Syntax>, Box<Syntax>),
+    /// A block of the form `as @s {content}`
+    BlockSelector(BlockSelectorType, Selector<Syntax>, Box<Syntax>),
     /// A string literal
     String(RStr),
     /// An integer literal
     Integer(i32),
     /// A range literal
     Range(Option<i32>, Option<i32>),
+    /// A coordinate starting with ~
+    WooglyCoord(f32),
+    /// A coordinate starting with ^
+    CaretCoord(f32),
     /// A float literal
     Float(f32),
     /// An empty object
@@ -40,6 +46,14 @@ pub enum BlockType {
     For,
     DoWhile,
     While,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BlockSelectorType {
+    As,
+    At,
+    AsAt,
+    Tp,
 }
 
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them
@@ -73,13 +87,20 @@ impl Hash for Syntax {
                 right.hash(state);
                 content.hash(state);
             }
+            Self::BlockSelector(block_selector_type, selector, content) => {
+                block_selector_type.hash(state);
+                selector.hash(state);
+                content.hash(state);
+            }
             Self::Integer(int) => int.hash(state),
             Self::Range(left, right) => {
                 left.hash(state);
                 right.hash(state);
             }
             // allow float to hash. NaNs are non-deterministic
-            Self::Float(float) => unsafe { &*(float as *const f32).cast::<u32>() }.hash(state),
+            Self::Float(float) | Self::WooglyCoord(float) | Self::CaretCoord(float) => {
+                unsafe { &*(float as *const f32).cast::<u32>() }.hash(state);
+            }
             Self::Unit => {}
         }
     }

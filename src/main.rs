@@ -1,5 +1,5 @@
 #![warn(clippy::nursery, clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::module_name_repetitions, clippy::cast_precision_loss)]
 
 use std::error::Error;
 use std::fs::{self, File};
@@ -13,6 +13,9 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod types;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Parser)]
 struct Args {

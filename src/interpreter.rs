@@ -40,7 +40,7 @@ pub fn interpret(src: &Syntax) -> SResult<InterRep> {
     Ok(state)
 }
 
-fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> {
+pub fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> {
     match src {
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
@@ -105,11 +105,89 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> 
             return interpret_loop(*block_type, left, *op, right, block, state)
         }
         Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
-        Syntax::Identifier(_) => todo!(),
+        Syntax::BlockSelector(BlockSelectorType::Tp, selector, body) => {
+            return interpret_teleport(selector, body)
+        }
+        Syntax::BlockSelector(block_type, selector, body) => {
+            return interpret_block_selector(*block_type, selector, body, state)
+        }
+        // Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(Vec::new())
+}
+
+fn interpret_block_selector(
+    block_type: BlockSelectorType,
+    selector: &Selector<Syntax>,
+    body: &Syntax,
+    state: &mut InterRep,
+) -> SResult<Vec<Command>> {
+    let mut res_buf = Vec::new();
+    if block_type == BlockSelectorType::As || block_type == BlockSelectorType::AsAt {
+        res_buf.push(ExecuteOption::As {
+            selector: selector.stringify()?,
+        });
+    }
+    if block_type == BlockSelectorType::At {
+        res_buf.push(ExecuteOption::At {
+            selector: selector.stringify()?,
+        });
+    } else if block_type == BlockSelectorType::AsAt {
+        res_buf.push(ExecuteOption::At {
+            selector: Selector::s(),
+        });
+    }
+    let inner = inner_interpret(body, state)?;
+    let cmd = if let [cmd] = &inner[..] {
+        cmd.clone()
+    } else {
+        let func_name: RStr = format!("closure/{:x}", get_hash(body)).into();
+        state.functions.push((func_name.clone(), inner));
+        Command::Function { func: func_name }
+    };
+    Ok(vec![Command::Execute {
+        options: res_buf,
+        cmd: Box::new(cmd),
+    }])
+}
+
+fn interpret_teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
+    let Syntax::Array(arr) = body else {
+        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
+    };
+    let [a, b, c] = &arr[..] else {
+        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
+    };
+    let destination =
+        if let (Syntax::CaretCoord(a), Syntax::CaretCoord(b), Syntax::CaretCoord(c)) = (a, b, c) {
+            Coordinate::Angular(*a, *b, *c)
+        } else {
+            let (a, af) = match a {
+                Syntax::WooglyCoord(float) => (true, *float),
+                Syntax::Integer(int) => (false, *int as f32),
+                Syntax::Float(float) => (false, *float),
+                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{a:?}`")),
+            };
+            let (b, bf) = match b {
+                Syntax::WooglyCoord(float) => (true, *float),
+                Syntax::Integer(int) => (false, *int as f32),
+                Syntax::Float(float) => (false, *float),
+                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{b:?}`")),
+            };
+            let (c, cf) = match c {
+                Syntax::WooglyCoord(float) => (true, *float),
+                Syntax::Integer(int) => (false, *int as f32),
+                Syntax::Float(float) => (false, *float),
+                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{c:?}`")),
+            };
+            Coordinate::Linear(a, af, b, bf, c, cf)
+        };
+    Ok(vec![Command::Teleport {
+        target: selector.stringify()?,
+        destination,
+    }])
 }
 
 fn interpret_loop(
