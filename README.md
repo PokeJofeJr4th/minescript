@@ -62,11 +62,11 @@ Any string of ASCII alphanumeric characters, plus `_`, is considered an identifi
 
 ### Object
 
-The object is a pair of curly braces containing a set of key-value pairs. Keys are identifiers and Values can be any type of syntax element, but macros will often require certain types. The comma or semicolon between a value and the following key is optional.
+The object is a pair of curly braces, square braces, or parentheses containing a set of key-value pairs. Keys are identifiers and Values can be any type of syntax element, but macros will often require certain types. The comma or semicolon between a value and the following key is optional.
 
 ### Array
 
-The array is a pair of square braces containing a set of syntax elements. These can be any element, but macros often require certain types. Commas or semicolons separating values are optional.
+The array is a pair of curly braces, square braces, or parentheses containing a set of syntax elements. These can be any element, but macros often require certain types. Commas or semicolons separating values are optional.
 
 ### Function
 

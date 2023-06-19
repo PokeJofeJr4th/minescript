@@ -24,55 +24,9 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
             _ => Err(String::from("Expected a number or float after `-`")),
         },
         Some(Token::Identifier(id)) => parse_identifier(tokens, id),
-        Some(Token::LSquirrely) => {
-            let mut statements_buf = Vec::new();
-            match tokens.peek() {
-                Some(Token::RSquirrely) => {
-                    tokens.next();
-                    return Ok(Syntax::Unit);
-                }
-                _ => statements_buf.push(parse(tokens)?),
-            }
-            while let Some(tok) = tokens.peek() {
-                if tok == &Token::RSquirrely {
-                    tokens.next();
-                    break;
-                } else if tok == &Token::Comma || tok == &Token::SemiColon {
-                    tokens.next();
-                } else {
-                    // println!("Squirrely Object");
-                    statements_buf.push(parse(tokens)?);
-                }
-            }
-            statements_buf
-                .iter()
-                .map(|syn| match syn {
-                    Syntax::BinaryOp(OpLeft::Ident(k), Operation::Colon, v) => {
-                        Some((k.clone(), *(*v).clone()))
-                    }
-                    _ => None,
-                })
-                .collect::<Option<BTreeMap<_, _>>>()
-                .map_or_else(
-                    || Ok(Syntax::Array(statements_buf.into())),
-                    |props| Ok(Syntax::Object(props)),
-                )
-        }
-        Some(Token::LSquare) => {
-            let mut statements_buf = Vec::new();
-            while let Some(tok) = tokens.peek() {
-                if tok == &Token::RSquare {
-                    tokens.next();
-                    break;
-                } else if tok == &Token::Comma || tok == &Token::SemiColon {
-                    tokens.next();
-                } else {
-                    // println!("Square Object");
-                    statements_buf.push(parse(tokens)?);
-                }
-            }
-            Ok(Syntax::Array(statements_buf.into()))
-        }
+        Some(Token::LSquirrely) => parse_block(tokens, &Token::RSquirrely),
+        Some(Token::LSquare) => parse_block(tokens, &Token::RSquare),
+        Some(Token::LParen) => parse_block(tokens, &Token::RParen),
         Some(Token::At) => parse_macro(tokens),
         other => Err(format!(
             "Unexpected token `{other:?}`; {:?}",
@@ -141,6 +95,43 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Result<Synt
     }
     // println!("{first:?}");
     first
+}
+
+fn parse_block<T: Iterator<Item = Token>>(
+    tokens: &mut Peekable<T>,
+    closing: &Token,
+) -> Result<Syntax, String> {
+    let mut statements_buf = Vec::new();
+    if tokens.peek() == Some(closing) {
+        tokens.next();
+        return Ok(Syntax::Unit);
+    }
+    statements_buf.push(parse(tokens)?);
+
+    while let Some(tok) = tokens.peek() {
+        if tok == closing {
+            tokens.next();
+            break;
+        } else if tok == &Token::Comma || tok == &Token::SemiColon {
+            tokens.next();
+        } else {
+            // println!("Squirrely Object");
+            statements_buf.push(parse(tokens)?);
+        }
+    }
+    statements_buf
+        .iter()
+        .map(|syn| match syn {
+            Syntax::BinaryOp(OpLeft::Ident(k), Operation::Colon, v) => {
+                Some((k.clone(), *(*v).clone()))
+            }
+            _ => None,
+        })
+        .collect::<Option<BTreeMap<_, _>>>()
+        .map_or_else(
+            || Ok(Syntax::Array(statements_buf.into())),
+            |props| Ok(Syntax::Object(props)),
+        )
 }
 
 fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operation> {
