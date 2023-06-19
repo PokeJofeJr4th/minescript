@@ -48,6 +48,7 @@ pub enum Command {
     //     add: bool,
     //     tag: RStr,
     // },
+    /// teleport the selected entity(ies) to the destination
     Teleport {
         target: Selector<String>,
         destination: Coordinate,
@@ -55,7 +56,64 @@ pub enum Command {
 }
 
 impl Command {
-    /// create an Execute command that runs the specified other command.
+    /// Convert the command to a string within the given namespace
+    pub fn stringify(&self, namespace: &str) -> String {
+        match self {
+            Self::Raw (cmd) => cmd.replace("<NAMESPACE>", namespace),
+            Self::EffectGive {
+                target,
+                effect,
+                duration,
+                level,
+            } => {
+                format!(
+                    "effect give {target} {effect} {} {}",
+                    duration.map_or_else(|| String::from("infinite"), |num| format!("{num}")),
+                    level.unwrap_or(0)
+                )
+            }
+            // Self::Kill { target } => format!("kill {target}"),
+            Self::Function { func } => format!("function {namespace}:{func}"),
+            // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
+            //     "add"
+            // } else {
+            //     "remove"
+            // }),
+            Self::ScoreSet {
+                target: player,
+                objective: score,
+                value,
+            } => if *value == 0 {
+                format!("scoreboard players reset {player} {score}")
+            } else {
+                format!("scoreboard players set {player} {score} {value}")
+            }
+            Self::ScoreAdd {
+                target: player,
+                objective: score,
+                value,
+            } => format!("scoreboard players add {player} {score} {value}"),
+            Self::ScoreOperation {
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            } => format!("scoreboard players operation {target} {target_objective} {operation} {source} {source_objective}"),
+            Self::Execute { options, cmd } => {
+                let mut options_buf = String::new();
+                for option in options {
+                    options_buf.push_str(&option.stringify(namespace));
+                    options_buf.push(' ');
+                }
+                format!("execute {options_buf}run {}", cmd.stringify(namespace))
+            },
+            Self::Teleport { target, destination } => format!("tp {target} {destination}")
+        }
+    }
+
+    /// Create an Execute command that runs the specified other command.
+    ///
     /// If the other command is an execute, it combines them into one.
     /// If there are no execute subcommands, it returns the given command.
     pub fn execute(mut options: Vec<ExecuteOption>, cmd: Self) -> Self {
@@ -144,63 +202,6 @@ impl ExecuteOption {
             ),
             Self::As { selector } => format!("as {selector}"),
             Self::At { selector } => format!("at {selector}"),
-        }
-    }
-}
-
-impl Command {
-    pub fn stringify(&self, namespace: &str) -> String {
-        match self {
-            Self::Raw (cmd) => cmd.replace("<NAMESPACE>", namespace),
-            Self::EffectGive {
-                target,
-                effect,
-                duration,
-                level,
-            } => {
-                format!(
-                    "effect give {target} {effect} {} {}",
-                    duration.map_or_else(|| String::from("infinite"), |num| format!("{num}")),
-                    level.unwrap_or(0)
-                )
-            }
-            // Self::Kill { target } => format!("kill {target}"),
-            Self::Function { func } => format!("function {namespace}:{func}"),
-            // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
-            //     "add"
-            // } else {
-            //     "remove"
-            // }),
-            Self::ScoreSet {
-                target: player,
-                objective: score,
-                value,
-            } => if *value == 0 {
-                format!("scoreboard players reset {player} {score}")
-            } else {
-                format!("scoreboard players set {player} {score} {value}")
-            }
-            Self::ScoreAdd {
-                target: player,
-                objective: score,
-                value,
-            } => format!("scoreboard players add {player} {score} {value}"),
-            Self::ScoreOperation {
-                target,
-                target_objective,
-                operation,
-                source,
-                source_objective,
-            } => format!("scoreboard players operation {target} {target_objective} {operation} {source} {source_objective}"),
-            Self::Execute { options, cmd } => {
-                let mut options_buf = String::new();
-                for option in options {
-                    options_buf.push_str(&option.stringify(namespace));
-                    options_buf.push(' ');
-                }
-                format!("execute {options_buf}run {}", cmd.stringify(namespace))
-            },
-            Self::Teleport { target, destination } => format!("tp {target} {destination}")
         }
     }
 }

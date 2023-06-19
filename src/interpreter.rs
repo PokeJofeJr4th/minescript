@@ -40,7 +40,7 @@ pub fn interpret(src: &Syntax) -> SResult<InterRep> {
     Ok(state)
 }
 
-pub fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> {
+fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> {
     match src {
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
@@ -116,6 +116,12 @@ pub fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Comman
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(Vec::new())
+}
+
+/// This function allows a test to expose `inner_interpret` without interacting with `InterRep`
+#[cfg(test)]
+pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
+    inner_interpret(src, &mut InterRep::new())
 }
 
 fn interpret_block_selector(
