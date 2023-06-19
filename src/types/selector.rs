@@ -1,7 +1,5 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::parser::Syntax;
-
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -36,34 +34,30 @@ impl Selector<Syntax> {
 impl<T: Display> Display for Selector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.args.is_empty() {
-            write!(
-                f,
-                "@{}",
-                match self.selector_type {
-                    SelectorType::S => 's',
-                    SelectorType::P => 'p',
-                    SelectorType::E => 'e',
-                    SelectorType::A => 'a',
-                    SelectorType::R => 'r',
-                },
-            )
+            self.selector_type.fmt(f)
         } else {
-            write!(
-                f,
-                "@{}",
-                match self.selector_type {
-                    SelectorType::S => 's',
-                    SelectorType::P => 'p',
-                    SelectorType::E => 'e',
-                    SelectorType::A => 'a',
-                    SelectorType::R => 'r',
-                }
-            )?;
+            write!(f, "{}", self.selector_type)?;
             let mut args_buf = f.debug_list();
             for (k, v) in &self.args {
                 args_buf.entry(&format_args!("{k}={v}"));
             }
             args_buf.finish()
         }
+    }
+}
+
+impl Display for SelectorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "@{}",
+            match self {
+                Self::S => 's',
+                Self::P => 'p',
+                Self::E => 'e',
+                Self::A => 'a',
+                Self::R => 'r',
+            }
+        )
     }
 }

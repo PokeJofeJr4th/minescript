@@ -2,26 +2,22 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use super::prelude::*;
 
-use crate::{
-    parser::Syntax,
-};
-
 #[macro_export]
 macro_rules! nbt {
     ({$($key:ident: $value:expr),*}) => {{
-        let mut tree: std::collections::BTreeMap<$crate::types::prelude::RStr, $crate::types::prelude::Nbt> = std::collections::BTreeMap::new();
+        let mut tree: std::collections::BTreeMap<$crate::types::RStr, $crate::types::Nbt> = std::collections::BTreeMap::new();
         $(
             tree.insert(stringify!($key).into(), nbt!($value));
         )*
-        $crate::types::prelude::Nbt::Object(tree)
+        $crate::types::Nbt::Object(tree)
     }};
 
     ([$($value:expr),*]) => {{
-        $crate::types::prelude::Nbt::Array(vec![$(nbt!($value)),*])
+        $crate::types::Nbt::Array(vec![$(nbt!($value)),*])
     }};
 
     ($obj:expr) => {
-        $crate::types::prelude::Nbt::from($obj)
+        $crate::types::Nbt::from($obj)
     }
 }
 
@@ -195,4 +191,3 @@ impl TryFrom<Syntax> for Nbt {
         }
     }
 }
-

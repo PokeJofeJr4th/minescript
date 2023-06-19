@@ -1,5 +1,3 @@
-use crate::parser::Operation;
-
 use super::prelude::*;
 
 #[derive(Debug, Clone)]

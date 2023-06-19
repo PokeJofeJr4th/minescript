@@ -1,10 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::{
-    get_hash, nbt,
-    parser::{BlockType, OpLeft, Operation, Syntax},
-    types::prelude::*,
-};
+use crate::{get_hash, nbt, types::prelude::*};
 
 #[derive(Debug)]
 pub struct Item {
