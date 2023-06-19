@@ -15,8 +15,6 @@ mod lexer;
 mod parser;
 mod types;
 
-use types::prelude::*;
-
 #[derive(Parser)]
 struct Args {
     path: String,

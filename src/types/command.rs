@@ -2,6 +2,8 @@ use super::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    /// A user-made command that passes through the compiler unchanged
+    Raw(RStr),
     EffectGive {
         target: Selector<String>,
         effect: RStr,
@@ -104,6 +106,7 @@ impl ExecuteOption {
 impl Command {
     pub fn stringify(&self, namespace: &str) -> String {
         match self {
+            Self::Raw (cmd) => cmd.replace("<NAMESPACE>", namespace),
             Self::EffectGive {
                 target,
                 effect,

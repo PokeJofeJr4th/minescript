@@ -159,6 +159,19 @@ The function macro compiles to a command in the form of `function [namespace]:[f
 
 Note that your datapack's namespace is inserted by the compiler, so you don't need to include it in the macro invocation.
 
+#### Raw
+```
+@raw "kill @r"
+
+@raw [
+    "give @s diamond 64"
+    "tp @s ~ ~10 ~"
+    "function <NAMESPACE>:give/goodberry"
+]
+```
+
+The raw macro takes in a string or list of strings and passes the input through the compiler nearly unchanged, replacing any occurrence of `<NAMESPACE>` with your project's name. It can be used to get any effect that minescript doesn't support internally.
+
 ### Variables
 
 Variables and assignments allow more complex control flow to be implemented. Here are some examples:

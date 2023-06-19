@@ -46,23 +46,44 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             }
             return Ok(commands_buf);
         }
-        Syntax::Macro(name, properties) => match name.as_ref() {
-            "item" => {
-                // can't borrow state as mutable more than once at a time
-                let item = interpret_item(properties, state)?;
-                state.items.push(item);
+        Syntax::Macro(name, properties) => {
+            match name.as_ref() {
+                "item" => {
+                    // can't borrow state as mutable more than once at a time
+                    let item = interpret_item(properties, state)?;
+                    state.items.push(item);
+                }
+                "effect" => {
+                    return interpret_effect(properties);
+                }
+                "function" => {
+                    return Ok(vec![Command::Function {
+                        func: Rc::<str>::try_from(&**properties)
+                            .map_err(|_| String::from("Function macro should have a string"))?,
+                    }])
+                }
+                "raw" => {
+                    match &**properties {
+                        Syntax::String(cmd) => return Ok(vec![Command::Raw(cmd.clone())]),
+                        Syntax::Array(arr) => {
+                            return arr.iter().map(|syn| {
+                        if let Syntax::String(cmd) = syn {
+                            Ok(Command::Raw(cmd.clone()))
+                        } else {
+                            Err(format!("`@raw` takes a string or list of strings, not `{syn:?}`"))
+                        }
+                    }).collect::<Result<Vec<_>,_>>();
+                        }
+                        other => {
+                            return Err(format!(
+                                "`@raw` takes a string or list of strings, not `{other:?}`"
+                            ))
+                        }
+                    }
+                }
+                other => return Err(format!("Unexpected macro invocation `{other}`")),
             }
-            "effect" => {
-                return interpret_effect(properties);
-            }
-            "function" => {
-                return Ok(vec![Command::Function {
-                    func: Rc::<str>::try_from(&**properties)
-                        .map_err(|_| String::from("Function macro should have a string"))?,
-                }])
-            }
-            other => return Err(format!("Unexpected macro invocation `{other}`")),
-        },
+        }
         Syntax::Function(func, content) => {
             let inner = inner_interpret(content, state)?;
             state.functions.push((func.clone(), inner));
@@ -78,58 +99,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
             )
         }
         Syntax::Block(block_type, left, op, right, block) => {
-            let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
-            // for _ in .. => replace `_` with hash
-            let left = if *block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
-                OpLeft::Ident(get_hash(block).to_string().into())
-            } else {
-                left.clone()
-            };
-            let [goto_fn] = &interpret_if(
-                &left,
-                *op,
-                right,
-                &[Command::Function {
-                    func: fn_name.clone(),
-                }],
-                "",
-                state,
-            )?[..] else {
-                return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
-            };
-            let mut body = inner_interpret(block, state)?;
-            if *block_type == BlockType::For {
-                let &Syntax::Range(start, _) = &**right else {
-                    return Err(format!("Expected a range in for loop; got `{right:?}`"))
-                };
-                body.push(Command::ScoreAdd {
-                    target: left.stringify_scoreboard_target()?,
-                    objective: left.stringify_scoreboard_objective(),
-                    value: start.unwrap_or(0),
-                });
-            }
-            // don't perform the initial check for do-while or for loops
-            if *block_type == BlockType::DoWhile || *block_type == BlockType::For {
-                body.push(Command::Function {
-                    func: fn_name.clone(),
-                });
-            } else {
-                body.push(goto_fn.clone());
-            }
-            state.functions.push((fn_name, body));
-            return Ok(if *block_type == BlockType::For {
-                // reset the value at the end of a for loop
-                vec![
-                    goto_fn.clone(),
-                    Command::ScoreSet {
-                        target: left.stringify_scoreboard_target()?,
-                        objective: left.stringify_scoreboard_objective(),
-                        value: 0,
-                    },
-                ]
-            } else {
-                vec![goto_fn.clone()]
-            });
+            return interpret_loop(*block_type, left, *op, right, block, state)
         }
         Syntax::BinaryOp(target, op, syn) => return interpret_operation(target, *op, syn, state),
         Syntax::Identifier(_) => todo!(),
@@ -137,6 +107,69 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> Result<Vec<Command>, S
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(Vec::new())
+}
+
+fn interpret_loop(
+    block_type: BlockType,
+    left: &OpLeft,
+    op: Operation,
+    right: &Syntax,
+    block: &Syntax,
+    state: &mut InterRep,
+) -> Result<Vec<Command>, String> {
+    assert_ne!(block_type, BlockType::If);
+    let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
+    // for _ in .. => replace `_` with hash
+    let left = if block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
+        OpLeft::Ident(get_hash(block).to_string().into())
+    } else {
+        left.clone()
+    };
+    let [goto_fn] = &interpret_if(
+            &left,
+            op,
+            right,
+            &[Command::Function {
+                func: fn_name.clone(),
+            }],
+            "",
+            state,
+        )?[..] else {
+            return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
+        };
+    let mut body = inner_interpret(block, state)?;
+    if block_type == BlockType::For {
+        let &Syntax::Range(start, _) = right else {
+                return Err(format!("Expected a range in for loop; got `{right:?}`"))
+            };
+        body.push(Command::ScoreAdd {
+            target: left.stringify_scoreboard_target()?,
+            objective: left.stringify_scoreboard_objective(),
+            value: start.unwrap_or(0),
+        });
+    }
+    // don't perform the initial check for do-while or for loops
+    if block_type == BlockType::DoWhile || block_type == BlockType::For {
+        body.push(Command::Function {
+            func: fn_name.clone(),
+        });
+    } else {
+        body.push(goto_fn.clone());
+    }
+    state.functions.push((fn_name, body));
+    Ok(if block_type == BlockType::For {
+        // reset the value at the end of a for loop
+        vec![
+            goto_fn.clone(),
+            Command::ScoreSet {
+                target: left.stringify_scoreboard_target()?,
+                objective: left.stringify_scoreboard_objective(),
+                value: 0,
+            },
+        ]
+    } else {
+        vec![goto_fn.clone()]
+    })
 }
 
 #[allow(clippy::too_many_lines)]
