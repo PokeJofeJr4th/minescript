@@ -54,7 +54,34 @@ pub enum Command {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl Command {
+    /// create an Execute command that runs the specified other command.
+    /// If the other command is an execute, it combines them into one.
+    /// If there are no execute subcommands, it returns the given command.
+    pub fn execute(mut options: Vec<ExecuteOption>, cmd: Self) -> Self {
+        match cmd {
+            Self::Execute {
+                options: inner_options,
+                cmd,
+            } => {
+                options.extend(inner_options);
+                Self::Execute { options, cmd }
+            }
+            _ => {
+                if options.is_empty() {
+                    cmd
+                } else {
+                    Self::Execute {
+                        options,
+                        cmd: Box::new(cmd),
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecuteOption {
     /// compare score to a static range
     ScoreMatches {

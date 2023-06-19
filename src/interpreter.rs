@@ -147,10 +147,7 @@ fn interpret_block_selector(
         state.functions.push((func_name.clone(), inner));
         Command::Function { func: func_name }
     };
-    Ok(vec![Command::Execute {
-        options: res_buf,
-        cmd: Box::new(cmd),
-    }])
+    Ok(vec![Command::execute(res_buf, cmd)])
 }
 
 fn interpret_teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
@@ -363,10 +360,7 @@ fn interpret_if(
         }
         _ => return Err(format!("Can't end an if statement with {right:?}")),
     };
-    Ok(vec![Command::Execute {
-        options,
-        cmd: Box::new(cmd),
-    }])
+    Ok(vec![Command::execute(options, cmd)])
 }
 
 fn interpret_operation(
