@@ -109,6 +109,9 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> 
         Syntax::BlockSelector(BlockSelectorType::Tp, selector, body) => {
             return interpret_teleport(selector, body)
         }
+        Syntax::BlockSelector(BlockSelectorType::Damage, selector, body) => {
+            return interpret_damage(selector, body)
+        }
         Syntax::BlockSelector(block_type, selector, body) => {
             return interpret_block_selector(*block_type, selector, body, state)
         }
@@ -125,12 +128,57 @@ pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
     inner_interpret(src, &mut InterRep::new())
 }
 
+fn interpret_damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
+    let mut amount = 1;
+    let mut damage_type: RStr = "generic".into();
+    let mut attacker: Selector<Syntax> = Selector::s();
+    if let Syntax::Object(obj) = properties {
+        for (k, v) in obj {
+            match &**k {
+                "amount" => match v {
+                    Syntax::Integer(int) => amount = *int,
+                    other => {
+                        return Err(format!(
+                            "Expected a number for damage amount; got `{other:?}`"
+                        ))
+                    }
+                },
+                "damage_type" | "type" | "source" => match String::try_from(v) {
+                    Ok(str) => damage_type = str.into(),
+                    Err(_) => {
+                        return Err(format!("Expected a string for damage type; got `{v:?}`"))
+                    }
+                },
+                "attacker" | "from" | "by" => {
+                    let Syntax::Selector(sel) = v else {
+                        return Err(format!("Damage macro attacker should be selector; got `{v:?}`"))
+                    };
+                    attacker = sel.clone();
+                }
+                other => return Err(format!("Invalid key for damage macro: `{other}`")),
+            }
+        }
+    } else if let Syntax::Integer(int) = properties {
+        amount = *int;
+    } else {
+        return Err(format!(
+            "Damage macro expected an object or integer; got `{properties:?}`"
+        ));
+    };
+    Ok(vec![Command::Damage {
+        target: selector.stringify()?,
+        amount,
+        damage_type,
+        attacker: attacker.stringify()?,
+    }])
+}
+
 fn interpret_sound(properties: &Syntax) -> SResult<Vec<Command>> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Sound macro expects an object, not {properties:?}"))
     };
     let mut sound: Option<RStr> = None;
-    let mut pos = Coordinate::Linear(true, 0.0, true, 0.0, true, 0.0);
+    let mut pos = Coordinate::here();
     let mut source: RStr = "master".into();
     let mut target: Selector<Syntax> = Selector::e();
     let mut volume = 1.0f32;

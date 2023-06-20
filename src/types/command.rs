@@ -62,6 +62,12 @@ pub enum Command {
         pitch: f32,
         min_volume: f32,
     },
+    Damage {
+        target: Selector<String>,
+        amount: i32,
+        damage_type: RStr,
+        attacker: Selector<String>,
+    },
 }
 
 impl Command {
@@ -118,7 +124,8 @@ impl Command {
                 format!("execute {options_buf}run {}", cmd.stringify(namespace))
             },
             Self::Teleport { target, destination } => format!("tp {target} {destination}"),
-            Self::Sound { sound, source, target, pos, volume, pitch, min_volume } => format!("playsound {sound} {source} {target} {pos} {volume} {pitch} {min_volume}")
+            Self::Sound { sound, source, target, pos, volume, pitch, min_volume } => format!("playsound {sound} {source} {target} {pos} {volume} {pitch} {min_volume}"),
+            Self::Damage { target, amount, damage_type, attacker } => format!("damage {target} {amount} {damage_type} by {attacker}")
         }
     }
 
@@ -222,6 +229,12 @@ pub enum Coordinate {
     Linear(bool, f32, bool, f32, bool, f32),
     /// coordinates given by angle; `^ ^ ^`
     Angular(f32, f32, f32),
+}
+
+impl Coordinate {
+    pub const fn here() -> Self {
+        Self::Linear(true, 0.0, true, 0.0, true, 0.0)
+    }
 }
 
 impl TryFrom<&Syntax> for Coordinate {
