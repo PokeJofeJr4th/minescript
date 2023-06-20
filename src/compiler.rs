@@ -14,7 +14,7 @@ pub fn compile(src: &InterRep, namespace: &str) -> SResult<CompiledData> {
     let mut compiled = CompiledData {
         mcmeta: nbt!({
             pack: nbt!({
-              pack_format: 11,
+              pack_format: 15,
               description: format!("{namespace}, made with MineScript")
             })
         })
