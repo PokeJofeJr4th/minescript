@@ -53,6 +53,15 @@ pub enum Command {
         target: Selector<String>,
         destination: Coordinate,
     },
+    Sound {
+        sound: RStr,
+        source: RStr,
+        target: Selector<String>,
+        pos: Coordinate,
+        volume: f32,
+        pitch: f32,
+        min_volume: f32,
+    },
 }
 
 impl Command {
@@ -108,7 +117,8 @@ impl Command {
                 }
                 format!("execute {options_buf}run {}", cmd.stringify(namespace))
             },
-            Self::Teleport { target, destination } => format!("tp {target} {destination}")
+            Self::Teleport { target, destination } => format!("tp {target} {destination}"),
+            Self::Sound { sound, source, target, pos, volume, pitch, min_volume } => format!("playsound {sound} {source} {target} {pos} {volume} {pitch} {min_volume}")
         }
     }
 
@@ -212,6 +222,45 @@ pub enum Coordinate {
     Linear(bool, f32, bool, f32, bool, f32),
     /// coordinates given by angle; `^ ^ ^`
     Angular(f32, f32, f32),
+}
+
+impl TryFrom<&Syntax> for Coordinate {
+    type Error = String;
+
+    fn try_from(body: &Syntax) -> SResult<Self> {
+        let Syntax::Array(arr) = body else {
+        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
+    };
+        let [a, b, c] = &arr[..] else {
+        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
+    };
+        Ok(
+            if let (Syntax::CaretCoord(a), Syntax::CaretCoord(b), Syntax::CaretCoord(c)) = (a, b, c)
+            {
+                Self::Angular(*a, *b, *c)
+            } else {
+                let (a, af) = match a {
+                    Syntax::WooglyCoord(float) => (true, *float),
+                    Syntax::Integer(int) => (false, *int as f32),
+                    Syntax::Float(float) => (false, *float),
+                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{a:?}`")),
+                };
+                let (b, bf) = match b {
+                    Syntax::WooglyCoord(float) => (true, *float),
+                    Syntax::Integer(int) => (false, *int as f32),
+                    Syntax::Float(float) => (false, *float),
+                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{b:?}`")),
+                };
+                let (c, cf) = match c {
+                    Syntax::WooglyCoord(float) => (true, *float),
+                    Syntax::Integer(int) => (false, *int as f32),
+                    Syntax::Float(float) => (false, *float),
+                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{c:?}`")),
+                };
+                Self::Linear(a, af, b, bf, c, cf)
+            },
+        )
+    }
 }
 
 impl Display for Coordinate {

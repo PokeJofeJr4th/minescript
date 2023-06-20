@@ -84,6 +84,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> 
                         }
                     }
                 }
+                "sound" | "playsound" => return interpret_sound(properties),
                 other => return Err(format!("Unexpected macro invocation `{other}`")),
             }
         }
@@ -124,6 +125,78 @@ pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
     inner_interpret(src, &mut InterRep::new())
 }
 
+fn interpret_sound(properties: &Syntax) -> SResult<Vec<Command>> {
+    let Syntax::Object(obj) = properties else {
+        return Err(format!("Sound macro expects an object, not {properties:?}"))
+    };
+    let mut sound: Option<RStr> = None;
+    let mut pos = Coordinate::Linear(true, 0.0, true, 0.0, true, 0.0);
+    let mut source: RStr = "master".into();
+    let mut target: Selector<Syntax> = Selector::e();
+    let mut volume = 1.0f32;
+    let mut pitch = 1.0f32;
+    let mut min_volume = 0.0f32;
+    for (k, v) in obj {
+        match &**k {
+            "sound" => match RStr::try_from(v) {
+                Ok(str) => sound = Some(str),
+                Err(_) => {
+                    return Err(format!(
+                        "Expected a string or identifier for sound; got `{v:?}`"
+                    ))
+                }
+            },
+            "pos" | "posititon" | "location" => pos = Coordinate::try_from(v)?,
+            "source" => match RStr::try_from(v) {
+                Ok(str) => source = str,
+                Err(_) => {
+                    return Err(format!(
+                        "Expected a string or identifier for sound source; got `{v:?}`"
+                    ))
+                }
+            },
+            "target" => {
+                let Syntax::Selector(selector) = v else {
+                    return Err(format!("Expected a selector for sound target; got `{v:?}`"))
+                };
+                target = selector.clone();
+            }
+            "volume" => match v {
+                Syntax::Integer(int) => volume = *int as f32,
+                Syntax::Float(float) => volume = *float,
+                other => return Err(format!("Expected float or int for volume; got `{other:?}`")),
+            },
+            "pitch" => match v {
+                Syntax::Integer(int) => pitch = *int as f32,
+                Syntax::Float(float) => pitch = *float,
+                other => return Err(format!("Expected float or int for pitch; got `{other:?}`")),
+            },
+            "minvolume" | "min volume" | "min-volume" | "min_volume" => match v {
+                Syntax::Integer(int) => min_volume = *int as f32,
+                Syntax::Float(float) => min_volume = *float,
+                other => {
+                    return Err(format!(
+                        "Expected float or int for min volume; got `{other:?}`"
+                    ))
+                }
+            },
+            other => return Err(format!("Invalid key for Sound macro: `{other}`")),
+        }
+    }
+    let Some(sound) = sound else {
+                    return Err(String::from("Sound macro must specify the sound to play"))
+                };
+    Ok(vec![Command::Sound {
+        sound,
+        source,
+        target: target.stringify()?,
+        pos,
+        volume,
+        pitch,
+        min_volume,
+    }])
+}
+
 fn interpret_block_selector(
     block_type: BlockSelectorType,
     selector: &Selector<Syntax>,
@@ -157,39 +230,9 @@ fn interpret_block_selector(
 }
 
 fn interpret_teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
-    let Syntax::Array(arr) = body else {
-        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
-    };
-    let [a, b, c] = &arr[..] else {
-        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
-    };
-    let destination =
-        if let (Syntax::CaretCoord(a), Syntax::CaretCoord(b), Syntax::CaretCoord(c)) = (a, b, c) {
-            Coordinate::Angular(*a, *b, *c)
-        } else {
-            let (a, af) = match a {
-                Syntax::WooglyCoord(float) => (true, *float),
-                Syntax::Integer(int) => (false, *int as f32),
-                Syntax::Float(float) => (false, *float),
-                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{a:?}`")),
-            };
-            let (b, bf) = match b {
-                Syntax::WooglyCoord(float) => (true, *float),
-                Syntax::Integer(int) => (false, *int as f32),
-                Syntax::Float(float) => (false, *float),
-                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{b:?}`")),
-            };
-            let (c, cf) = match c {
-                Syntax::WooglyCoord(float) => (true, *float),
-                Syntax::Integer(int) => (false, *int as f32),
-                Syntax::Float(float) => (false, *float),
-                _ => return Err(format!("Tp requires a list of 3 coordinates; got `{c:?}`")),
-            };
-            Coordinate::Linear(a, af, b, bf, c, cf)
-        };
     Ok(vec![Command::Teleport {
         target: selector.stringify()?,
-        destination,
+        destination: Coordinate::try_from(body)?,
     }])
 }
 
