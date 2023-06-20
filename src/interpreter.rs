@@ -130,7 +130,7 @@ pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
 
 fn interpret_damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
     let mut amount = 1;
-    let mut damage_type: RStr = "generic".into();
+    let mut damage_type: RStr = "entity-attack".into();
     let mut attacker: Selector<Syntax> = Selector::s();
     if let Syntax::Object(obj) = properties {
         for (k, v) in obj {
@@ -219,7 +219,7 @@ fn interpret_sound(properties: &Syntax) -> SResult<Vec<Command>> {
                 Syntax::Float(float) => pitch = *float,
                 other => return Err(format!("Expected float or int for pitch; got `{other:?}`")),
             },
-            "minvolume" | "min volume" | "min-volume" | "min_volume" => match v {
+            "minvolume" | "min_volume" => match v {
                 Syntax::Integer(int) => min_volume = *int as f32,
                 Syntax::Float(float) => min_volume = *float,
                 other => {
@@ -734,58 +734,60 @@ fn interpret_item(src: &Syntax, state: &mut InterRep) -> SResult<Item> {
 }
 
 fn interpret_effect(src: &Syntax) -> SResult<Vec<Command>> {
-    let Syntax::Object(src) = src else {
-        return Err(format!("Expected an object for item macro; got `{src:?}`"))
-    };
     let mut selector: Option<Selector<String>> = None;
     let mut effect = None;
     let mut duration = None;
-    let mut level = None;
-
-    for (prop, value) in src.iter() {
-        match prop.as_ref() {
-            "selector" => match value {
-                Syntax::Selector(sel) => {
-                    selector = Some(sel.stringify()?);
-                }
-                other => {
-                    return Err(format!(
-                        "Unexpected element: `{other:?}`; expected a selector"
-                    ))
-                }
-            },
-            "effect" => {
-                let Ok(eff) = Rc::<str>::try_from(value) else {
-                    return Err(String::from("Potion effect must be a string"))
-                };
-                effect = Some(eff);
-            }
-            "duration" => match value {
-                Syntax::Identifier(str) | Syntax::String(str) => {
-                    if *str != "infinite".into() {
-                        return Err(format!(
-                            "Potion duration should be an integer or infinite, not `{str}`"
-                        ));
+    let mut level = 1;
+    if let Syntax::Object(src) = src {
+        for (prop, value) in src.iter() {
+            match prop.as_ref() {
+                "selector" => match value {
+                    Syntax::Selector(sel) => {
+                        selector = Some(sel.stringify()?);
                     }
+                    other => {
+                        return Err(format!(
+                            "Unexpected element: `{other:?}`; expected a selector"
+                        ))
+                    }
+                },
+                "effect" => {
+                    let Ok(eff) = Rc::<str>::try_from(value) else {
+                        return Err(String::from("Potion effect must be a string"))
+                    };
+                    effect = Some(eff);
                 }
-                Syntax::Integer(num) => duration = Some(*num),
-                other => {
-                    return Err(format!(
-                        "Potion duration should be an integer or infinite, not `{other:?}`"
-                    ))
-                }
-            },
-            "level" => match value {
-                Syntax::Integer(num) => level = Some(*num),
-                other => {
-                    return Err(format!(
-                        "Potion level should be an integer, not `{other:?}`"
-                    ))
-                }
-            },
-            other => return Err(format!("Unexpected potion property: `{other}`")),
+                "duration" => match value {
+                    Syntax::Identifier(str) | Syntax::String(str) => {
+                        if *str != "infinite".into() {
+                            return Err(format!(
+                                "Potion duration should be an integer or infinite, not `{str}`"
+                            ));
+                        }
+                    }
+                    Syntax::Integer(num) => duration = Some(*num),
+                    other => {
+                        return Err(format!(
+                            "Potion duration should be an integer or infinite, not `{other:?}`"
+                        ))
+                    }
+                },
+                "level" => match value {
+                    Syntax::Integer(num) => level = *num,
+                    other => {
+                        return Err(format!(
+                            "Potion level should be an integer, not `{other:?}`"
+                        ))
+                    }
+                },
+                other => return Err(format!("Unexpected potion property: `{other}`")),
+            }
         }
-    }
+    } else if let Ok(str) = RStr::try_from(src) {
+        effect = Some(str);
+    } else {
+        return Err(format!("Expected an object for item macro; got `{src:?}`"));
+    };
 
     let Some(effect) = effect else {
         return Err(String::from("Effect must include the effect id; {... effect: \"...\"}"))

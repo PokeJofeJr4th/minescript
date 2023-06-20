@@ -11,7 +11,7 @@ pub enum Command {
         target: Selector<String>,
         effect: RStr,
         duration: Option<i32>,
-        level: Option<i32>,
+        level: i32,
     },
     // Kill {
     //     target: Selector<String>,
@@ -82,9 +82,8 @@ impl Command {
                 level,
             } => {
                 format!(
-                    "effect give {target} {effect} {} {}",
-                    duration.map_or_else(|| String::from("infinite"), |num| format!("{num}")),
-                    level.unwrap_or(0)
+                    "effect give {target} {effect} {} {level}",
+                    duration.map_or_else(|| String::from("infinite"), |num| format!("{num}"))
                 )
             }
             // Self::Kill { target } => format!("kill {target}"),
