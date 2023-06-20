@@ -26,4 +26,31 @@ pub mod prelude {
         obj.hash(&mut hasher);
         hasher.finish()
     }
+
+    /// Given a float, find the fraction with the closest value with a denominator less than a certain amount
+    pub fn farey_approximation(target: f32, max_denominator: i32) -> (i32, i32) {
+        let mut a = (0, 1);
+        let mut b = (1, 1);
+
+        while b.1 <= max_denominator {
+            let mediant_numerator = a.0 + b.0;
+            let mediant_denominator = a.1 + b.1;
+
+            let mediant_value = mediant_numerator as f32 / mediant_denominator as f32;
+
+            if (mediant_value - target).abs() < f32::EPSILON {
+                return (mediant_numerator, mediant_denominator);
+            } else if mediant_value < target {
+                a = (mediant_numerator, mediant_denominator);
+            } else {
+                b = (mediant_numerator, mediant_denominator);
+            }
+        }
+
+        if (target - a.0 as f32 / a.1 as f32).abs() < (target - b.0 as f32 / b.1 as f32).abs() {
+            a
+        } else {
+            b
+        }
+    }
 }
