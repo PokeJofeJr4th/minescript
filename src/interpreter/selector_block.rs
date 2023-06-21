@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{inner_interpret, InterRepr};
@@ -9,12 +10,13 @@ pub(super) fn block(
     selector: &Selector<Syntax>,
     body: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     match block_type {
         SBT::Tp => teleport(selector, body),
         SBT::Damage => damage(selector, body),
         SBT::TellRaw => tellraw(selector, body),
-        block_type => selector_block(block_type, selector, body, state),
+        block_type => selector_block(block_type, selector, body, state, path),
     }
 }
 
@@ -151,6 +153,7 @@ fn selector_block(
     selector: &Selector<Syntax>,
     body: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
     if block_type == SBT::As || block_type == SBT::AsAt {
@@ -167,7 +170,7 @@ fn selector_block(
             selector: Selector::s(),
         });
     }
-    let inner = inner_interpret(body, state)?;
+    let inner = inner_interpret(body, state, path)?;
     let cmd = if let [cmd] = &inner[..] {
         cmd.clone()
     } else {

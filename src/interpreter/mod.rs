@@ -7,25 +7,25 @@ mod macros;
 mod operation;
 mod selector_block;
 
-pub fn interpret(src: &Syntax, import_context: &Path) -> SResult<InterRepr> {
-    let mut state = InterRepr::from_path(import_context);
-    inner_interpret(src, &mut state)?;
+pub fn interpret(src: &Syntax, path: &Path) -> SResult<InterRepr> {
+    let mut state = InterRepr::new();
+    inner_interpret(src, &mut state, path)?;
     Ok(state)
 }
 
-fn inner_interpret(src: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>> {
+fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Vec<Command>> {
     match src {
         // []
         Syntax::Array(statements) => {
             let mut commands_buf = Vec::new();
             for statement in statements.iter() {
-                commands_buf.extend(inner_interpret(statement, state)?);
+                commands_buf.extend(inner_interpret(statement, state, path)?);
             }
             return Ok(commands_buf);
         }
         // function x {}
         Syntax::Function(func, content) => {
-            let inner = inner_interpret(content, state)?;
+            let inner = inner_interpret(content, state, path)?;
             state.functions.push((func.clone(), inner));
         }
         // if x=1 {}
@@ -34,22 +34,22 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>>
                 left,
                 *op,
                 right,
-                &inner_interpret(block, state)?,
+                &inner_interpret(block, state, path)?,
                 &format!("{:x}", get_hash(block)),
                 state,
             )
         }
         // for _ in 1..10 {}
         Syntax::Block(block_type, left, op, right, block) => {
-            return block::block(*block_type, left, *op, right, block, state)
+            return block::block(*block_type, left, *op, right, block, state, path)
         }
         // @function x
-        Syntax::Macro(name, properties) => return macros::macros(name, properties, state),
+        Syntax::Macro(name, properties) => return macros::macros(name, properties, state, path),
         // x += 1
         Syntax::BinaryOp(target, op, syn) => return operation::operation(target, *op, syn, state),
         // tp @s (~ ~10 ~)
         Syntax::SelectorBlock(block_type, selector, body) => {
-            return selector_block::block(*block_type, selector, body, state)
+            return selector_block::block(*block_type, selector, body, state, path)
         }
         // Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
@@ -63,5 +63,5 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>>
 /// It should not be used for any real application, since the side effects on the state are vital to the project's function
 #[cfg(test)]
 pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
-    inner_interpret(src, &mut InterRepr::new())
+    inner_interpret(src, &mut InterRepr::new(), Path::new(""))
 }

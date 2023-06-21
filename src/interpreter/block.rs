@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
@@ -8,6 +10,7 @@ pub(super) fn block(
     right: &Syntax,
     block: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     assert_ne!(block_type, BlockType::If);
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
@@ -29,7 +32,7 @@ pub(super) fn block(
         )?[..] else {
             return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
         };
-    let mut body = inner_interpret(block, state)?;
+    let mut body = inner_interpret(block, state, path)?;
     if block_type == BlockType::For {
         let &Syntax::Range(start, _) = right else {
                 return Err(format!("Expected a range in for loop; got `{right:?}`"))

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs, path::Path};
 
 use super::{inner_interpret, InterRepr, Item};
 use crate::{lexer::tokenize, parser::parse, types::prelude::*};
@@ -7,24 +7,25 @@ pub(super) fn macros(
     name: &str,
     properties: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     match name {
         "import" => {
             let Syntax::String(str) = properties else {
                 return Err(format!("Import macro expects a string, not `{properties:?}`"))
             };
-            let text = state
-                .import(str)
+            let new_path = path.join(str.as_ref());
+            let text = fs::read_to_string(&new_path)
                 .map_err(|err| format!("Error opening {str}: {err}"))?;
             let tokens = tokenize(&format!("[{text}]"))
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
             let syntax = parse(&mut tokens.into_iter().peekable())
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
-            return inner_interpret(&syntax, state);
+            return inner_interpret(&syntax, state, &new_path);
         }
         "item" => {
             // can't borrow state as mutable more than once at a time
-            let item = item(properties, state)?;
+            let item = item(properties, state, path)?;
             state.items.push(item);
         }
         "effect" => {
@@ -137,7 +138,7 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn item(src: &Syntax, state: &mut InterRepr) -> SResult<Item> {
+fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
@@ -176,32 +177,32 @@ fn item(src: &Syntax, state: &mut InterRepr) -> SResult<Item> {
             "on_consume" => match value {
                 Syntax::String(str) => item.on_consume = Some(str.clone()),
                 Syntax::Function(name, body) => {
-                    let new_body = inner_interpret(body, state)?;
+                    let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_consume = Some(name.clone());
                 }
                 other => {
-                    on_consume_buf = inner_interpret(other, state)?;
+                    on_consume_buf = inner_interpret(other, state, path)?;
                 }
             },
             "on_use" => match value {
                 Syntax::String(str) => item.on_use = Some(str.clone()),
                 Syntax::Function(name, body) => {
-                    let new_body = inner_interpret(body, state)?;
+                    let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_use = Some(name.clone());
                 }
-                other => on_use_buf = inner_interpret(other, state)?,
+                other => on_use_buf = inner_interpret(other, state, path)?,
             },
             "while_using" => match value {
                 Syntax::String(str) => item.while_using = Some(str.clone()),
                 Syntax::Function(name, body) => {
-                    let new_body = inner_interpret(body, state)?;
+                    let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.while_using = Some(name.clone());
                 }
                 other => {
-                    while_using_buf = inner_interpret(other, state)?;
+                    while_using_buf = inner_interpret(other, state, path)?;
                 }
             },
             "recipe" => {
