@@ -8,14 +8,50 @@ pub(super) fn operation(
     syn: &Syntax,
     state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
-    let target_objective = target.stringify_scoreboard_objective();
-    let target = target.stringify_scoreboard_target()?;
+    let target_objective = target.stringify_scoreboard_objective()?;
+    let target_name = target.stringify_scoreboard_target()?;
     if !state.objectives.contains_key(&target_objective) {
         state
             .objectives
             .insert(target_objective.clone(), "dummy".into());
     }
     match (op, syn) {
+        (_, Syntax::BinaryOp(OpLeft::Selector(sel), Operation::DoubleColon, syn)) => {
+            let Syntax::Identifier(ident) = &**syn else {
+                return Err(format!(
+                    "A selector can only be `::` indexed with `lvl` or `xp`, not `{syn:?}`"
+                ));
+            };
+            let ident = &**ident;
+            let levels = if ident == "lvl" || ident == "level" {
+                true
+            } else if ident == "xp" || ident == "experience" {
+                false
+            } else {
+                return Err(format!(
+                    "A selector can only be `::` indexed with `lvl` or `xp`, not `{ident}`"
+                ));
+            };
+            // get experience into variable
+            let mut vec = vec![Command::Execute {
+                options: vec![ExecuteOption::StoreScore {
+                    target: "%".into(),
+                    objective: "dummy".into(),
+                }],
+                cmd: Box::new(Command::XpGet {
+                    target: sel.stringify()?,
+                    levels,
+                }),
+            }];
+            // operate on the variable
+            vec.extend(operation(
+                target,
+                op,
+                &Syntax::Identifier("".into()),
+                state,
+            )?);
+            Ok(vec)
+        }
         // x = y
         (op, Syntax::Identifier(ident)) => {
             if !state.objectives.contains_key(&target_objective) {
@@ -24,7 +60,7 @@ pub(super) fn operation(
                     .insert(target_objective.clone(), "dummy".into());
             }
             Ok(vec![Command::ScoreOperation {
-                target,
+                target: target_name,
                 target_objective,
                 operation: op,
                 source: format!("%{ident}").into(),
@@ -33,7 +69,7 @@ pub(super) fn operation(
         }
         // x = @r.y
         (op, Syntax::ColonSelector(sel, ident)) => Ok(vec![Command::ScoreOperation {
-            target,
+            target: target_name,
             target_objective,
             operation: op,
             source: format!("{}", sel.stringify()?).into(),
@@ -41,7 +77,7 @@ pub(super) fn operation(
         }]),
         // x *= 0
         (Operation::MulEq, Syntax::Integer(0)) => Ok(vec![Command::ScoreSet {
-            target,
+            target: target_name,
             objective: target_objective,
             value: 0,
         }]),
@@ -51,7 +87,7 @@ pub(super) fn operation(
         }
         // x = 2
         (Operation::Equal, Syntax::Integer(int)) => Ok(vec![Command::ScoreSet {
-            target,
+            target: target_name,
             objective: target_objective,
             value: *int,
         }]),
@@ -60,21 +96,21 @@ pub(super) fn operation(
         | (Operation::AddEq | Operation::SubEq, Syntax::Integer(0)) => Ok(Vec::new()),
         // x += 2
         (Operation::AddEq, Syntax::Integer(int)) => Ok(vec![Command::ScoreAdd {
-            target,
+            target: target_name,
             objective: target_objective,
             value: *int,
         }]),
         // x -= 2
         (Operation::SubEq, Syntax::Integer(int)) => Ok(vec![Command::ScoreAdd {
-            target,
+            target: target_name,
             objective: target_objective,
             value: -int,
         }]),
         // x *= 2 => x += x
         (Operation::MulEq, Syntax::Integer(2)) => Ok(vec![Command::ScoreOperation {
-            source: target.clone(),
+            source: target_name.clone(),
             source_objective: target_objective.clone(),
-            target,
+            target: target_name,
             target_objective,
             operation: Operation::MulEq,
         }]),
@@ -88,7 +124,7 @@ pub(super) fn operation(
                     value: *int,
                 },
                 Command::ScoreOperation {
-                    target,
+                    target: target_name,
                     target_objective,
                     operation: op,
                     source: "%".into(),
@@ -112,7 +148,7 @@ pub(super) fn operation(
                     value: approx.0,
                 },
                 Command::ScoreOperation {
-                    target: target.clone(),
+                    target: target_name.clone(),
                     target_objective: target_objective.clone(),
                     operation: Operation::MulEq,
                     source: "%".into(),
@@ -124,7 +160,7 @@ pub(super) fn operation(
                     value: approx.1,
                 },
                 Command::ScoreOperation {
-                    target,
+                    target: target_name,
                     target_objective,
                     operation: Operation::DivEq,
                     source: "%".into(),
@@ -133,5 +169,38 @@ pub(super) fn operation(
             ])
         }
         _ => Err(format!("Unsupported operation: {target:?} {op} {syn:?}")),
+    }
+}
+
+pub(super) fn double_colon(
+    sel: &Selector<Syntax>,
+    ident: &str,
+    op: Operation,
+    right: &Syntax,
+) -> SResult<Vec<Command>> {
+    let levels = if ident == "lvl" || ident == "level" {
+        true
+    } else if ident == "xp" || ident == "experience" {
+        false
+    } else {
+        return Err(format!(
+            "A selector can only be `::` indexed with `lvl` or `xp`, not `{ident}`"
+        ));
+    };
+    match (op, right) {
+        (Operation::AddEq | Operation::SubEq, Syntax::Integer(int)) => {
+            let amount = if op == Operation::AddEq { *int } else { -int };
+            Ok(vec![Command::XpAdd {
+                target: sel.stringify()?,
+                amount,
+                levels,
+            }])
+        }
+        (Operation::Equal, Syntax::Integer(amount)) => Ok(vec![Command::XpSet {
+            target: sel.stringify()?,
+            amount: *amount,
+            levels,
+        }]),
+        _ => Err(format!("Can't operate on XP with `{op}` `{right:?}`")),
     }
 }

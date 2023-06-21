@@ -45,6 +45,10 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         }
         // @function x
         Syntax::Macro(name, properties) => return macros::macros(name, properties, state, path),
+        // @s::xp += 1
+        Syntax::BinaryOp(OpLeft::SelectorDoubleColon(sel, ident), op, right) => {
+            return operation::double_colon(sel, ident, *op, right)
+        }
         // x += 1
         Syntax::BinaryOp(target, op, syn) => return operation::operation(target, *op, syn, state),
         // tp @s (~ ~10 ~)

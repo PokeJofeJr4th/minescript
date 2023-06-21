@@ -33,34 +33,19 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
         Some(Token::Woogly) => Ok(Syntax::WooglyCoord(extract_float(tokens)?)),
         other => Err(format!("Unexpected token `{other:?}`")),
     }?;
-    match &first {
-        Syntax::BinaryOp(OpLeft::Ident(first), Operation::Colon, second) => 'm: {
-            // println!("Binary Operation");
-            if let Syntax::Identifier(second) = &**second {
-                let left = OpLeft::Colon(first.clone(), second.clone());
-                let (op, right) = if let Some(op) = get_op(tokens) {
-                    // println!("Secondary Operation");
-                    (op, parse(tokens)?)
-                } else if tokens.peek() == Some(&Token::PlusPlus) {
-                    tokens.next();
-                    (Operation::AddEq, Syntax::Integer(1))
-                } else if tokens.peek() == Some(&Token::TackTack) {
-                    tokens.next();
-                    (Operation::SubEq, Syntax::Integer(1))
-                } else {
-                    break 'm;
-                };
-                return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
-            }
-        }
-        Syntax::Selector(sel) => 'm: {
+    if let Syntax::Selector(sel) = &first {
+        'm: {
             // println!("Selector");
-            if tokens.peek() == Some(&Token::Colon) {
-                tokens.next();
+            if tokens.peek() == Some(&Token::Colon) || tokens.peek() == Some(&Token::DoubleColon) {
+                let tok = tokens.next();
                 let Some(Token::Identifier(ident)) = tokens.next() else {
-                    return Err(String::from("Selectors can only be indexed with `:<identifier>`"))
+                    return Err(String::from("Selectors can only be indexed with `:<identifier>` or `::<identifier>`"))
                 };
-                let left = OpLeft::SelectorColon(sel.clone(), ident);
+                let left = match tok {
+                    Some(Token::Colon) => OpLeft::SelectorColon(sel.clone(), ident),
+                    Some(Token::DoubleColon) => OpLeft::SelectorDoubleColon(sel.clone(), ident),
+                    _ => unreachable!(),
+                };
                 let (op, right) = if let Some(op) = get_op(tokens) {
                     // println!("Secondary Operation");
                     (op, parse(tokens)?)
@@ -71,12 +56,12 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
                     tokens.next();
                     (Operation::SubEq, Syntax::Integer(1))
                 } else {
+                    // don't return anything if it's not an increment
                     break 'm;
                 };
                 return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
             }
         }
-        _ => {}
     }
     // println!("{first:?}");
     Ok(first)
@@ -145,6 +130,7 @@ fn parse_block<T: Iterator<Item = Token>>(
 fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operation> {
     let val = match tokens.peek() {
         Some(Token::Colon) => Some(Operation::Colon),
+        Some(Token::DoubleColon) => Some(Operation::DoubleColon),
         Some(Token::Equal) => Some(Operation::Equal),
         Some(Token::LCaretEq) => Some(Operation::LCaretEq),
         Some(Token::RCaretEq) => Some(Operation::RCaretEq),
@@ -165,10 +151,7 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
         Some(Token::RCaret) => {
             tokens.next();
             match tokens.peek() {
-                Some(Token::LCaret) => {
-                    tokens.next();
-                    Some(Operation::Swap)
-                }
+                Some(Token::LCaret) => Some(Operation::Swap),
                 _ => Some(Operation::RCaret),
             }
         }

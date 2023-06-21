@@ -38,6 +38,21 @@ mod lexer {
             ])
         );
     }
+
+    #[test]
+    fn get_xp() {
+        assert_eq!(
+            tokenize("@s::level += 1"),
+            Ok(vec![
+                Token::At,
+                Token::Identifier("s".into()),
+                Token::DoubleColon,
+                Token::Identifier("level".into()),
+                Token::PlusEq,
+                Token::Integer(1)
+            ])
+        );
+    }
 }
 
 mod parser {
@@ -202,6 +217,29 @@ mod parser {
             ))
         );
     }
+
+    #[test]
+    fn xp_op() {
+        assert_eq!(
+            parse(
+                &mut [
+                    Token::At,
+                    Token::Identifier("s".into()),
+                    Token::DoubleColon,
+                    Token::Identifier("level".into()),
+                    Token::PlusEq,
+                    Token::Integer(1)
+                ]
+                .into_iter()
+                .peekable()
+            ),
+            Ok(Syntax::BinaryOp(
+                OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
+                Operation::AddEq,
+                Box::new(Syntax::Integer(1))
+            ))
+        );
+    }
 }
 
 mod interpreter {
@@ -316,6 +354,52 @@ mod interpreter {
                 .to_json()
                 .into()
             )])
+        );
+    }
+
+    #[test]
+    fn xp_ops() {
+        assert_eq!(
+            test_interpret(&Syntax::BinaryOp(
+                OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
+                Operation::AddEq,
+                Box::new(Syntax::Integer(2))
+            )),
+            Ok(vec![Command::XpAdd {
+                target: Selector::s(),
+                amount: 2,
+                levels: true
+            }])
+        );
+        assert_eq!(
+            test_interpret(&Syntax::BinaryOp(
+                OpLeft::Ident("x".into()),
+                Operation::MulEq,
+                Box::new(Syntax::BinaryOp(
+                    OpLeft::Selector(Selector::s()),
+                    Operation::DoubleColon,
+                    Box::new(Syntax::Identifier("lvl".into()))
+                ))
+            )),
+            Ok(vec![
+                Command::Execute {
+                    options: vec![ExecuteOption::StoreScore {
+                        target: "%".into(),
+                        objective: "dummy".into()
+                    }],
+                    cmd: Box::new(Command::XpGet {
+                        target: Selector::s(),
+                        levels: true
+                    })
+                },
+                Command::ScoreOperation {
+                    target: "%x".into(),
+                    target_objective: "dummy".into(),
+                    operation: Operation::MulEq,
+                    source: "%".into(),
+                    source_objective: "dummy".into()
+                }
+            ])
         );
     }
 }

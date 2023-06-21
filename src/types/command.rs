@@ -40,6 +40,20 @@ pub enum Command {
         source: RStr,
         source_objective: RStr,
     },
+    XpAdd {
+        target: Selector<String>,
+        amount: i32,
+        levels: bool,
+    },
+    XpSet {
+        target: Selector<String>,
+        amount: i32,
+        levels: bool,
+    },
+    XpGet {
+        target: Selector<String>,
+        levels: bool,
+    },
     /// execute a command with certain options
     Execute {
         options: Vec<ExecuteOption>,
@@ -127,7 +141,10 @@ impl Command {
             },
             Self::Teleport { target, destination } => format!("tp {target} {destination}"),
             Self::Sound { sound, source, target, pos, volume, pitch, min_volume } => format!("playsound {sound} {source} {target} {pos} {volume} {pitch} {min_volume}"),
-            Self::Damage { target, amount, damage_type, attacker } => format!("damage {target} {amount} {damage_type} by {attacker}")
+            Self::Damage { target, amount, damage_type, attacker } => format!("damage {target} {amount} {damage_type} by {attacker}"),
+            Self::XpAdd { target, amount, levels } => format!("xp add {target} {amount} {}", if *levels { "levels" } else {"points"}),
+            Self::XpSet { target, amount, levels } => format!("xp set {target} {amount} {}", if *levels { "levels"} else {"points"}),
+            Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"})
         }
     }
 
@@ -177,11 +194,13 @@ pub enum ExecuteOption {
         source: RStr,
         source_objective: RStr,
     },
+    /// store a result in a score
+    StoreScore { target: RStr, objective: RStr },
     /// change who `@s` is
     As { selector: Selector<String> },
     /// change where the command executes
     At { selector: Selector<String> },
-    /// If a block matches a value
+    /// Block matches id or tag
     Block {
         invert: bool,
         pos: Coordinate,
@@ -225,6 +244,9 @@ impl ExecuteOption {
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
                 if *invert { "unless" } else { "if" }
             ),
+            Self::StoreScore { target, objective } => {
+                format!("store result score {target} {objective}")
+            }
             Self::Block { invert, pos, value } => format!(
                 "{} block {pos} {value}",
                 if *invert { "unless" } else { "if" }

@@ -39,7 +39,7 @@ pub(super) fn block(
             };
         body.push(Command::ScoreAdd {
             target: left.stringify_scoreboard_target()?,
-            objective: left.stringify_scoreboard_objective(),
+            objective: left.stringify_scoreboard_objective()?,
             value: start.unwrap_or(0),
         });
     }
@@ -58,7 +58,7 @@ pub(super) fn block(
             goto_fn.clone(),
             Command::ScoreSet {
                 target: left.stringify_scoreboard_target()?,
-                objective: left.stringify_scoreboard_objective(),
+                objective: left.stringify_scoreboard_objective()?,
                 value: 0,
             },
         ]
@@ -87,7 +87,7 @@ pub(super) fn interpret_if(
         Command::Function { func: func_name }
     };
     let target_player = left.stringify_scoreboard_target()?;
-    let target_objective = left.stringify_scoreboard_objective();
+    let target_objective = left.stringify_scoreboard_objective()?;
     let options = match right {
         Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::ColonSelector(_, _) => {
             let (source, source_objective) = match right {

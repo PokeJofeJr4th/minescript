@@ -59,7 +59,7 @@ pub enum SelectorBlockType {
 }
 
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for Syntax {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // using the discriminant means that multiple enum variants can have the same hash body and still hash differently
@@ -118,22 +118,30 @@ pub enum OpLeft {
     Selector(Selector<Syntax>),
     /// A specified entity's specified objective
     SelectorColon(Selector<Syntax>, RStr),
+    /// A specified entity's special property
+    SelectorDoubleColon(Selector<Syntax>, RStr),
 }
 
 impl OpLeft {
-    pub fn stringify_scoreboard_target(&self) -> Result<RStr, String> {
+    pub fn stringify_scoreboard_target(&self) -> SResult<RStr> {
         match self {
             Self::Ident(id) | Self::Colon(id, _) => Ok(format!("%{id}").into()),
             Self::Selector(selector) | Self::SelectorColon(selector, _) => {
                 Ok(format!("{}", selector.stringify()?).into())
             }
+            Self::SelectorDoubleColon(_, _) => Err(format!(
+                "{self:?} isn't a score. This is a compiler error. Please notify the developers"
+            )),
         }
     }
 
-    pub fn stringify_scoreboard_objective(&self) -> RStr {
+    pub fn stringify_scoreboard_objective(&self) -> SResult<RStr> {
         match self {
-            Self::Ident(_) | Self::Selector(_) => "dummy".into(),
-            Self::Colon(_, score) | Self::SelectorColon(_, score) => score.clone(),
+            Self::Ident(_) | Self::Selector(_) => Ok("dummy".into()),
+            Self::Colon(_, score) | Self::SelectorColon(_, score) => Ok(score.clone()),
+            Self::SelectorDoubleColon(_, _) => Err(format!(
+                "{self:?} isn't a score. This is a compiler error. Please notify the developers"
+            )),
         }
     }
 }
@@ -142,6 +150,8 @@ impl OpLeft {
 pub enum Operation {
     /// key-value pair
     Colon,
+    /// xp levels and points
+    DoubleColon,
     /// unused
     Dot,
     /// check equality or assign value
@@ -179,6 +189,7 @@ impl Display for Operation {
             "{}",
             match self {
                 Self::Colon => ":",
+                Self::DoubleColon => "::",
                 Self::Dot => ".",
                 Self::Equal => "=",
                 Self::LCaretEq => "<=",
