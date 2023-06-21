@@ -23,7 +23,7 @@ pub enum Syntax {
     /// A block of the form `if left op right {content}`
     Block(BlockType, OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     /// A block of the form `as @s {content}`
-    BlockSelector(BlockSelectorType, Selector<Syntax>, Box<Syntax>),
+    SelectorBlock(SelectorBlockType, Selector<Syntax>, Box<Syntax>),
     /// A string literal
     String(RStr),
     /// An integer literal
@@ -49,7 +49,7 @@ pub enum BlockType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BlockSelectorType {
+pub enum SelectorBlockType {
     As,
     At,
     AsAt,
@@ -89,7 +89,7 @@ impl Hash for Syntax {
                 right.hash(state);
                 content.hash(state);
             }
-            Self::BlockSelector(block_selector_type, selector, content) => {
+            Self::SelectorBlock(block_selector_type, selector, content) => {
                 block_selector_type.hash(state);
                 selector.hash(state);
                 content.hash(state);

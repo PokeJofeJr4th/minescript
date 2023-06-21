@@ -239,22 +239,22 @@ fn parse_identifier<T: Iterator<Item = Token>>(
                 if let Some(Token::Identifier(id)) = tokens.peek() {
                     if &**id == "at" {
                         tokens.next();
-                        BlockSelectorType::AsAt
+                        SelectorBlockType::AsAt
                     } else {
-                        BlockSelectorType::As
+                        SelectorBlockType::As
                     }
                 } else {
-                    BlockSelectorType::As
+                    SelectorBlockType::As
                 }
             }
-            "at" => BlockSelectorType::At,
-            "tp" | "teleport" => BlockSelectorType::Tp,
+            "at" => SelectorBlockType::At,
+            "tp" | "teleport" => SelectorBlockType::Tp,
             _ => unreachable!(),
         };
         let Syntax::Selector(sel) = parse(tokens)? else {
             return Err(format!("{id} requires a selector afterwards"))
         };
-        Ok(Syntax::BlockSelector(
+        Ok(Syntax::SelectorBlock(
             block_type,
             sel,
             Box::new(parse(tokens)?),

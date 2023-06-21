@@ -192,8 +192,8 @@ mod parser {
                 .into_iter()
                 .peekable()
             ),
-            Ok(Syntax::BlockSelector(
-                BlockSelectorType::As,
+            Ok(Syntax::SelectorBlock(
+                SelectorBlockType::As,
                 Selector {
                     selector_type: SelectorType::S,
                     args: BTreeMap::new()
@@ -225,11 +225,11 @@ mod interpreter {
     #[test]
     fn tp_s_up() {
         assert_eq!(
-            test_interpret(&Syntax::BlockSelector(
-                BlockSelectorType::AsAt,
+            test_interpret(&Syntax::SelectorBlock(
+                SelectorBlockType::AsAt,
                 Selector::r(),
-                Box::new(Syntax::BlockSelector(
-                    BlockSelectorType::Tp,
+                Box::new(Syntax::SelectorBlock(
+                    SelectorBlockType::Tp,
                     Selector::s(),
                     Box::new(Syntax::Array(Rc::from([
                         Syntax::WooglyCoord(0.0),
@@ -258,8 +258,8 @@ mod interpreter {
     #[test]
     fn as_s_if_score() {
         assert_eq!(
-            test_interpret(&Syntax::BlockSelector(
-                BlockSelectorType::As,
+            test_interpret(&Syntax::SelectorBlock(
+                SelectorBlockType::As,
                 Selector::r(),
                 Box::new(Syntax::Block(
                     BlockType::If,
@@ -296,8 +296,8 @@ mod interpreter {
     fn tellraw() {
         // tellraw @a [{\"text\":\"hello world\",\"italic\":true},{\"text\":\"plain\"}]
         assert_eq!(
-            test_interpret(&Syntax::BlockSelector(
-                BlockSelectorType::TellRaw,
+            test_interpret(&Syntax::SelectorBlock(
+                SelectorBlockType::TellRaw,
                 Selector::a(),
                 Box::new(Syntax::Array(Rc::from([
                     Syntax::Array(Rc::from([

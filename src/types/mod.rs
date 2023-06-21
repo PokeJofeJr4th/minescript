@@ -14,7 +14,7 @@ pub mod prelude {
     pub use super::command::{Command, Coordinate, ExecuteOption};
     pub use super::nbt::Nbt;
     pub use super::selector::{Selector, SelectorType};
-    pub use super::syntax::{BlockSelectorType, BlockType, OpLeft, Operation, Syntax};
+    pub use super::syntax::{SelectorBlockType, BlockType, OpLeft, Operation, Syntax};
     pub use super::token::Token;
     pub use crate::nbt;
 
