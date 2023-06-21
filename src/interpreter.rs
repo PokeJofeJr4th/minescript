@@ -141,67 +141,77 @@ fn interpret_tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResul
     };
 
     for item in arr.iter() {
-        nbt_buf.push(match item {
-            // a given object
-            Syntax::Object(_) => Nbt::try_from(item)?,
-            // a string
-            Syntax::String(str) => nbt!({ text: str }),
-            // dummy score value
-            Syntax::Identifier(ident) => nbt!({ score: nbt!({name: format!("%{ident}"), objective: "dummy"}) }),
-            // named score
-            Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
-                let Syntax::Identifier(objective) = &**syn else {
-                    return Err(format!("Expected score identifier, not `{syn:?}`"))
-                };
-                nbt!({ score: nbt!({name: format!("%{ident}"), objective: objective}) })
-            }
-            // named selector score
-            Syntax::ColonSelector(sel, objective) => {
-                nbt!({ score: nbt!({name: sel.stringify()?.to_string(), objective: objective}) })
-            }
-            // entity name
-            Syntax::Selector(sel) => nbt!({selector: sel.stringify()?.to_string()}),
-            // a list of modifiers
-            Syntax::Array(arr) => {
-                let mut nbt_buf = BTreeMap::new();
-                for item in arr.iter() {
-                    match item {
-                        Syntax::Identifier(ident) => match &**ident {
-                            "bold" => {
-                                nbt_buf.insert("bold".into(), Nbt::TRUE);
-                            }
-                            "italic" => {
-                                nbt_buf.insert("italic".into(), Nbt::TRUE);
-                            }
-                            "underlined" | "underline" => {
-                                nbt_buf.insert("underlined".into(), Nbt::TRUE);
-                            }
-                            "strikethrough" => {
-                                nbt_buf.insert("strikethrough".into(), Nbt::TRUE);
-                            }
-                            "obfuscated" | "obfuscate" => {
-                                nbt_buf.insert("obfuscated".into(), Nbt::TRUE);
-                            }
-                            other => {
-                                return Err(format!("Unsupported tellraw component: `{other}`"))
-                            }
-                        },
-                        Syntax::String(str) => {
-                            nbt_buf.insert("text".into(), Nbt::from(str));
-                        }
-                        other => return Err(format!("Unsupported tellraw component: `{other:?}`")),
-                    }
-                }
-                Nbt::Object(nbt_buf)
-            }
-            other => return Err(format!("Unsupported tellraw component: `{other:?}`")),
-        });
+        nbt_buf.push(tellraw_component(item)?);
     }
 
     Ok(vec![Command::TellRaw(
         selector.stringify()?,
         Nbt::Array(nbt_buf).to_json().into(),
     )])
+}
+
+fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
+    match src {
+        // a given object
+        Syntax::Object(_) => Nbt::try_from(src),
+        // a string
+        Syntax::String(str) => Ok(nbt!({ text: str })),
+        // dummy score value
+        Syntax::Identifier(ident) => Ok(nbt!({
+            score: nbt!({name: format!("%{ident}"), objective: "dummy"})
+        })),
+        // named score
+        Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
+            let Syntax::Identifier(objective) = &**syn else {
+            return Err(format!("Expected score identifier, not `{syn:?}`"))
+        };
+            Ok(nbt!({
+                score: nbt!({name: format!("%{ident}"), objective: objective})
+            }))
+        }
+        // named selector score
+        Syntax::ColonSelector(sel, objective) => Ok(nbt!({
+            score: nbt!({name: sel.stringify()?.to_string(), objective: objective})
+        })),
+        // entity name
+        Syntax::Selector(sel) => Ok(nbt!({selector: sel.stringify()?.to_string()})),
+        // a list of modifiers
+        Syntax::Array(arr) => {
+            let mut nbt_buf = BTreeMap::new();
+            let mut base = BTreeMap::new();
+            for item in arr.iter() {
+                match item {
+                    Syntax::Identifier(ident) => match &**ident {
+                        "bold" => {
+                            nbt_buf.insert("bold".into(), Nbt::TRUE);
+                        }
+                        "italic" => {
+                            nbt_buf.insert("italic".into(), Nbt::TRUE);
+                        }
+                        "underlined" | "underline" => {
+                            nbt_buf.insert("underlined".into(), Nbt::TRUE);
+                        }
+                        "strikethrough" => {
+                            nbt_buf.insert("strikethrough".into(), Nbt::TRUE);
+                        }
+                        "obfuscated" | "obfuscate" => {
+                            nbt_buf.insert("obfuscated".into(), Nbt::TRUE);
+                        }
+                        other => return Err(format!("Unsupported tellraw component: `{other}`")),
+                    },
+                    // key-value pair
+                    Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
+                        let content = String::try_from(&**syn)?;
+                        nbt_buf.insert(ident.clone(), content.into());
+                    }
+                    other => base = tellraw_component(other)?.get_obj()?.clone(),
+                }
+            }
+            base.extend(nbt_buf);
+            Ok(Nbt::Object(base))
+        }
+        other => Err(format!("Unsupported tellraw component: `{other:?}`")),
+    }
 }
 
 fn interpret_damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {

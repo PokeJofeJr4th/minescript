@@ -103,6 +103,13 @@ impl Nbt {
             Self::Unit => String::from("{}"),
         }
     }
+
+    pub fn get_obj(&self) -> SResult<&BTreeMap<RStr, Self>> {
+        match self {
+            Self::Object(obj) => Ok(obj),
+            _ => Err(format!("Expected an object; got `{self:?}`")),
+        }
+    }
 }
 
 impl TryFrom<&Syntax> for Nbt {
