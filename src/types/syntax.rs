@@ -55,6 +55,7 @@ pub enum BlockSelectorType {
     AsAt,
     Tp,
     Damage,
+    TellRaw,
 }
 
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them

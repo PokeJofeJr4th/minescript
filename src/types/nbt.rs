@@ -28,6 +28,7 @@ pub enum Nbt {
     String(RStr),
     Integer(i32),
     Float(f32),
+    Boolean(bool),
     Unit,
 }
 
@@ -57,12 +58,16 @@ impl Display for Nbt {
             Self::String(str) => write!(f, "\"{str}\""),
             Self::Integer(num) => write!(f, "{num}"),
             Self::Float(float) => write!(f, "{float}"),
+            Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Unit => write!(f, "{{}}"),
         }
     }
 }
 
 impl Nbt {
+    pub const TRUE: Self = Self::Boolean(true);
+    // const FALSE: Self = Self::Boolean(false);
+
     pub fn to_json(&self) -> String {
         match self {
             Self::Object(obj) => {
@@ -94,6 +99,7 @@ impl Nbt {
             Self::String(str) => format!("{str:?}"),
             Self::Integer(num) => format!("{num}"),
             Self::Float(float) => format!("{float}"),
+            Self::Boolean(bool) => format!("{bool}"),
             Self::Unit => String::from("{}"),
         }
     }
@@ -149,6 +155,12 @@ impl From<RStr> for Nbt {
     }
 }
 
+impl From<&RStr> for Nbt {
+    fn from(value: &RStr) -> Self {
+        Self::String(value.clone())
+    }
+}
+
 impl From<i32> for Nbt {
     fn from(value: i32) -> Self {
         Self::Integer(value)
@@ -158,6 +170,12 @@ impl From<i32> for Nbt {
 impl From<f32> for Nbt {
     fn from(value: f32) -> Self {
         Self::Float(value)
+    }
+}
+
+impl From<bool> for Nbt {
+    fn from(value: bool) -> Self {
+        Self::Boolean(value)
     }
 }
 

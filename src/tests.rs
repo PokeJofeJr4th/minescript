@@ -291,6 +291,33 @@ mod interpreter {
             }])
         );
     }
+
+    #[test]
+    fn tellraw() {
+        // tellraw @a [{\"text\":\"hello world\",\"italic\":true},{\"text\":\"plain\"}]
+        assert_eq!(
+            test_interpret(&Syntax::BlockSelector(
+                BlockSelectorType::TellRaw,
+                Selector::a(),
+                Box::new(Syntax::Array(Rc::from([
+                    Syntax::Array(Rc::from([
+                        Syntax::String("hello world".into()),
+                        Syntax::Identifier("italic".into())
+                    ])),
+                    Syntax::String("plain".into())
+                ])))
+            )),
+            Ok(vec![Command::TellRaw(
+                Selector::a(),
+                nbt!([
+                    nbt!({text: "hello world", italic: true}),
+                    nbt!({text: "plain"})
+                ])
+                .to_json()
+                .into()
+            )])
+        );
+    }
 }
 
 mod types {

@@ -6,6 +6,8 @@ use super::prelude::*;
 pub enum Command {
     /// A user-made command that passes through the compiler unchanged
     Raw(RStr),
+    /// A tellraw command
+    TellRaw(Selector<String>, RStr),
     /// give a target an effect. Duration defaults to infinite, level defaults to 1
     EffectGive {
         target: Selector<String>,
@@ -75,6 +77,7 @@ impl Command {
     pub fn stringify(&self, namespace: &str) -> String {
         match self {
             Self::Raw (cmd) => cmd.replace("<NAMESPACE>", namespace),
+            Self::TellRaw(sel, raw) => format!("tellraw {sel} {raw}"),
             Self::EffectGive {
                 target,
                 effect,

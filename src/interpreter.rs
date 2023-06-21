@@ -112,6 +112,9 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> 
         Syntax::BlockSelector(BlockSelectorType::Damage, selector, body) => {
             return interpret_damage(selector, body)
         }
+        Syntax::BlockSelector(BlockSelectorType::TellRaw, selector, body) => {
+            return interpret_tellraw(selector, body)
+        }
         Syntax::BlockSelector(block_type, selector, body) => {
             return interpret_block_selector(*block_type, selector, body, state)
         }
@@ -126,6 +129,79 @@ fn inner_interpret(src: &Syntax, state: &mut InterRep) -> SResult<Vec<Command>> 
 #[cfg(test)]
 pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
     inner_interpret(src, &mut InterRep::new())
+}
+
+fn interpret_tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
+    let mut nbt_buf: Vec<Nbt> = Vec::new();
+
+    let arr = if let Syntax::Array(arr) = properties {
+        arr.clone()
+    } else {
+        Rc::from([properties.clone()])
+    };
+
+    for item in arr.iter() {
+        nbt_buf.push(match item {
+            // a given object
+            Syntax::Object(_) => Nbt::try_from(item)?,
+            // a string
+            Syntax::String(str) => nbt!({ text: str }),
+            // dummy score value
+            Syntax::Identifier(ident) => nbt!({ score: nbt!({name: ident, objective: "dummy"}) }),
+            // named score
+            Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
+                let Syntax::Identifier(objective) = &**syn else {
+                    return Err(format!("Expected score identifier, not `{syn:?}`"))
+                };
+                nbt!({ score: nbt!({name: ident, objective: objective}) })
+            }
+            // named selector score
+            Syntax::ColonSelector(sel, objective) => {
+                nbt!({ score: nbt!({name: sel.stringify()?.to_string(), objective: objective}) })
+            }
+            // entity name
+            Syntax::Selector(sel) => nbt!({selector: sel.stringify()?.to_string()}),
+            // a list of modifiers
+            Syntax::Array(arr) => {
+                let mut nbt_buf = BTreeMap::new();
+                for item in arr.iter() {
+                    match item {
+                        Syntax::Identifier(ident) => match &**ident {
+                            "bold" => {
+                                nbt_buf.insert("bold".into(), Nbt::TRUE);
+                            }
+                            "italic" => {
+                                nbt_buf.insert("italic".into(), Nbt::TRUE);
+                            }
+                            "underlined" | "underline" => {
+                                nbt_buf.insert("underlined".into(), Nbt::TRUE);
+                            }
+                            "strikethrough" => {
+                                nbt_buf.insert("strikethrough".into(), Nbt::TRUE);
+                            }
+                            "obfuscated" | "obfuscate" => {
+                                nbt_buf.insert("obfuscated".into(), Nbt::TRUE);
+                            }
+                            other => {
+                                return Err(format!("Unsupported tellraw component: `{other}`"))
+                            }
+                        },
+                        Syntax::String(str) => {
+                            nbt_buf.insert("text".into(), Nbt::from(str));
+                        }
+                        other => return Err(format!("Unsupported tellraw component: `{other:?}`")),
+                    }
+                }
+                Nbt::Object(nbt_buf)
+            }
+            other => return Err(format!("Unsupported tellraw component: `{other:?}`")),
+        });
+    }
+
+    Ok(vec![Command::TellRaw(
+        selector.stringify()?,
+        Nbt::Array(nbt_buf).to_json().into(),
+    )])
 }
 
 fn interpret_damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
