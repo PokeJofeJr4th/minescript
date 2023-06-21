@@ -45,7 +45,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             nbt!({
               criteria: nbt!{{
                 requirement: nbt!{{
-                  trigger: "minecraft:recipe_unlocked",
+                  trigger: "minecraft:recipe_crafted",
                   conditions: nbt!{{
                     recipe: format!("{namespace}:{name}")
                   }}
@@ -59,7 +59,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         );
         compiled.functions.insert(
           format!("craft/{name}").into(),
-          format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\nrecipe take @s {namespace}:{name}\n{give}", 
+          format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
           give=compiled.functions.get::<RStr>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
         );
     }
