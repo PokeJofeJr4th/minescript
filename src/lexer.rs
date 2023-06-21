@@ -57,7 +57,7 @@ fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<
         '<' => multi_character_pattern!(chars Token::LCaret; {'=' => Token::LCaretEq}),
         '>' => multi_character_pattern!(chars Token::RCaret; {'=' => Token::RCaretEq}),
         '.' => multi_character_pattern!(chars Token::Dot; {'.' => Token::Doot}),
-        ':' => Token::Colon,
+        ':' => multi_character_pattern!(chars Token::Colon; {':' => Token::DoubleColon}),
         ';' => Token::SemiColon,
         ',' => Token::Comma,
         '^' => Token::UCaret,

@@ -34,6 +34,7 @@ pub enum Token {
     RCaret,
     RCaretEq,
     Colon,
+    DoubleColon,
     SemiColon,
     Comma,
     Dot,

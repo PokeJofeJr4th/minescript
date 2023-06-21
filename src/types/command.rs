@@ -158,7 +158,7 @@ impl Command {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExecuteOption {
     /// compare score to a static range
     ScoreMatches {
@@ -181,6 +181,12 @@ pub enum ExecuteOption {
     As { selector: Selector<String> },
     /// change where the command executes
     At { selector: Selector<String> },
+    /// If a block matches a value
+    Block {
+        invert: bool,
+        pos: Coordinate,
+        value: RStr,
+    },
 }
 
 impl ExecuteOption {
@@ -217,6 +223,10 @@ impl ExecuteOption {
                 source_objective,
             } => format!(
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
+                if *invert { "unless" } else { "if" }
+            ),
+            Self::Block { invert, pos, value } => format!(
+                "{} block {pos} {value}",
                 if *invert { "unless" } else { "if" }
             ),
             Self::As { selector } => format!("as {selector}"),

@@ -3,11 +3,25 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::types::prelude::*;
 
 pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
+    // @raycast {
+    //   entity
+    //   max time
+    //   amount
+    //   callback
+    // }
+    // summon marker
+    // tp marker @s
+    // loop {
+    //   timer++
+    //   if timer > max return?
+    //   if block #air tp ^ ^ ^{amount}
+    //   if block #air loop
+    // }
     let mut compiled = CompiledRepr {
         mcmeta: nbt!({
             pack: nbt!({
-              pack_format: 15,
-              description: format!("{namespace}, made with MineScript")
+                pack_format: 15,
+                description: format!("{namespace}, made with MineScript")
             })
         })
         .to_json(),
