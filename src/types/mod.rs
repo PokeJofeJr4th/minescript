@@ -14,7 +14,7 @@ pub mod prelude {
 
     pub use super::command::{Command, Coordinate, ExecuteOption};
     pub use super::nbt::Nbt;
-    pub use super::repr::{CompiledRepr, IntermediateRepr, Item};
+    pub use super::repr::{CompiledRepr, InterRepr, Item};
     pub use super::selector::{Selector, SelectorType};
     pub use super::syntax::{BlockType, OpLeft, Operation, SelectorBlockType, Syntax};
     pub use super::token::Token;
@@ -44,7 +44,6 @@ pub mod prelude {
             // println!("{a:?} < {mediant_value} < {b:?}");
 
             if (mediant_value - target).abs() < f32::EPSILON {
-                println!("Returning early");
                 return simplify_fraction((mediant_numerator, mediant_denominator));
             } else if mediant_value < target {
                 a = (mediant_numerator, mediant_denominator);

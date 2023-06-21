@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs::{self, File};
 
 use std::io::Write;
+use std::path::PathBuf;
 
 use clap::Parser;
 
@@ -27,12 +28,16 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let file = format!("[{}]", fs::read_to_string(args.path)?);
+    let path = PathBuf::from(args.path);
+    let file = format!("[{}]", fs::read_to_string(&path)?);
     let tokens = lexer::tokenize(&file)?;
     println!("{tokens:?}");
     let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
     println!("{syntax:?}");
-    let state = interpreter::interpret(&syntax)?;
+    let folder = path
+        .parent()
+        .ok_or_else(|| String::from("Bad source path"))?;
+    let state = interpreter::interpret(&syntax, folder)?;
     println!("{state:#?}");
     let compiled = compiler::compile(&state, &args.namespace)?;
     println!("{compiled:#?}");

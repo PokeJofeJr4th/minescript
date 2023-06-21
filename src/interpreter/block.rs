@@ -1,4 +1,4 @@
-use super::{inner_interpret, IntermediateRepr};
+use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
 pub(super) fn block(
@@ -7,7 +7,7 @@ pub(super) fn block(
     op: Operation,
     right: &Syntax,
     block: &Syntax,
-    state: &mut IntermediateRepr,
+    state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     assert_ne!(block_type, BlockType::If);
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
@@ -71,7 +71,7 @@ pub(super) fn interpret_if(
     right: &Syntax,
     content: &[Command],
     hash: &str,
-    state: &mut IntermediateRepr,
+    state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));

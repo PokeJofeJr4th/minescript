@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::types::prelude::*;
 
 mod block;
@@ -5,13 +7,13 @@ mod macros;
 mod operation;
 mod selector_block;
 
-pub fn interpret(src: &Syntax) -> SResult<IntermediateRepr> {
-    let mut state = IntermediateRepr::new();
+pub fn interpret(src: &Syntax, import_context: &Path) -> SResult<InterRepr> {
+    let mut state = InterRepr::from_path(import_context);
     inner_interpret(src, &mut state)?;
     Ok(state)
 }
 
-fn inner_interpret(src: &Syntax, state: &mut IntermediateRepr) -> SResult<Vec<Command>> {
+fn inner_interpret(src: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>> {
     match src {
         // []
         Syntax::Array(statements) => {
@@ -56,8 +58,10 @@ fn inner_interpret(src: &Syntax, state: &mut IntermediateRepr) -> SResult<Vec<Co
     Ok(Vec::new())
 }
 
-/// This function allows a test to expose `inner_interpret` without interacting with `InterRep`
+/// This function allows a test to expose `inner_interpret` without interacting with `IntermediateRepr`
+///
+/// It should not be used for any real application, since the side effects on the state are vital to the project's function
 #[cfg(test)]
 pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
-    inner_interpret(src, &mut IntermediateRepr::new())
+    inner_interpret(src, &mut InterRepr::new())
 }

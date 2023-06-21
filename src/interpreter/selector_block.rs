@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use super::{inner_interpret, IntermediateRepr};
+use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 use crate::types::SelectorBlockType as SBT;
 
@@ -8,7 +8,7 @@ pub(super) fn block(
     block_type: SBT,
     selector: &Selector<Syntax>,
     body: &Syntax,
-    state: &mut IntermediateRepr,
+    state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     match block_type {
         SBT::Tp => teleport(selector, body),
@@ -150,7 +150,7 @@ fn selector_block(
     block_type: SBT,
     selector: &Selector<Syntax>,
     body: &Syntax,
-    state: &mut IntermediateRepr,
+    state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
     if block_type == SBT::As || block_type == SBT::AsAt {

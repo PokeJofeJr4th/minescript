@@ -1,14 +1,27 @@
 use std::collections::BTreeMap;
 
-use super::{inner_interpret, IntermediateRepr, Item};
-use crate::types::prelude::*;
+use super::{inner_interpret, InterRepr, Item};
+use crate::{lexer::tokenize, parser::parse, types::prelude::*};
 
 pub(super) fn macros(
     name: &str,
     properties: &Syntax,
-    state: &mut IntermediateRepr,
+    state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     match name {
+        "import" => {
+            let Syntax::String(str) = properties else {
+                return Err(format!("Import macro expects a string, not `{properties:?}`"))
+            };
+            let text = state
+                .import(str)
+                .map_err(|err| format!("Error opening {str}: {err}"))?;
+            let tokens = tokenize(&format!("[{text}]"))
+                .map_err(|err| format!("Error parsing {str}: {err}"))?;
+            let syntax = parse(&mut tokens.into_iter().peekable())
+                .map_err(|err| format!("Error parsing {str}: {err}"))?;
+            return inner_interpret(&syntax, state);
+        }
         "item" => {
             // can't borrow state as mutable more than once at a time
             let item = item(properties, state)?;
@@ -124,7 +137,7 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn item(src: &Syntax, state: &mut IntermediateRepr) -> SResult<Item> {
+fn item(src: &Syntax, state: &mut InterRepr) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
