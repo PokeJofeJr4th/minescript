@@ -147,13 +147,13 @@ fn interpret_tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResul
             // a string
             Syntax::String(str) => nbt!({ text: str }),
             // dummy score value
-            Syntax::Identifier(ident) => nbt!({ score: nbt!({name: ident, objective: "dummy"}) }),
+            Syntax::Identifier(ident) => nbt!({ score: nbt!({name: format!("%{ident}"), objective: "dummy"}) }),
             // named score
             Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
                 let Syntax::Identifier(objective) = &**syn else {
                     return Err(format!("Expected score identifier, not `{syn:?}`"))
                 };
-                nbt!({ score: nbt!({name: ident, objective: objective}) })
+                nbt!({ score: nbt!({name: format!("%{ident}"), objective: objective}) })
             }
             // named selector score
             Syntax::ColonSelector(sel, objective) => {
