@@ -1,4 +1,4 @@
-use super::InterRep;
+use super::IntermediateRepr;
 use crate::types::prelude::*;
 
 #[allow(clippy::too_many_lines)]
@@ -6,7 +6,7 @@ pub(super) fn operation(
     target: &OpLeft,
     op: Operation,
     syn: &Syntax,
-    state: &mut InterRep,
+    state: &mut IntermediateRepr,
 ) -> SResult<Vec<Command>> {
     let target_objective = target.stringify_scoreboard_objective();
     let target = target.stringify_scoreboard_target()?;

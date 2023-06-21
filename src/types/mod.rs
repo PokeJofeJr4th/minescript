@@ -1,5 +1,6 @@
 mod command;
 mod nbt;
+mod repr;
 mod selector;
 mod syntax;
 mod token;
@@ -13,8 +14,9 @@ pub mod prelude {
 
     pub use super::command::{Command, Coordinate, ExecuteOption};
     pub use super::nbt::Nbt;
+    pub use super::repr::{CompiledRepr, IntermediateRepr, Item};
     pub use super::selector::{Selector, SelectorType};
-    pub use super::syntax::{SelectorBlockType, BlockType, OpLeft, Operation, Syntax};
+    pub use super::syntax::{BlockType, OpLeft, Operation, SelectorBlockType, Syntax};
     pub use super::token::Token;
     pub use crate::nbt;
 

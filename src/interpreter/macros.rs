@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use super::{inner_interpret, InterRep, Item};
+use super::{inner_interpret, IntermediateRepr, Item};
 use crate::types::prelude::*;
 
 pub(super) fn macros(
     name: &str,
     properties: &Syntax,
-    state: &mut InterRep,
+    state: &mut IntermediateRepr,
 ) -> SResult<Vec<Command>> {
     match name {
         "item" => {
@@ -124,7 +124,7 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn item(src: &Syntax, state: &mut InterRep) -> SResult<Item> {
+fn item(src: &Syntax, state: &mut IntermediateRepr) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };

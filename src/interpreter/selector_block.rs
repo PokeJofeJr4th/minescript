@@ -1,12 +1,24 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use super::{inner_interpret, InterRep};
+use super::{inner_interpret, IntermediateRepr};
 use crate::types::prelude::*;
+use crate::types::SelectorBlockType as SBT;
 
-pub(super) fn tellraw(
+pub(super) fn block(
+    block_type: SBT,
     selector: &Selector<Syntax>,
-    properties: &Syntax,
+    body: &Syntax,
+    state: &mut IntermediateRepr,
 ) -> SResult<Vec<Command>> {
+    match block_type {
+        SBT::Tp => teleport(selector, body),
+        SBT::Damage => damage(selector, body),
+        SBT::TellRaw => tellraw(selector, body),
+        block_type => selector_block(block_type, selector, body, state),
+    }
+}
+
+fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
     let mut nbt_buf: Vec<Nbt> = Vec::new();
 
     let arr = if let Syntax::Array(arr) = properties {
@@ -89,10 +101,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
     }
 }
 
-pub(super) fn damage(
-    selector: &Selector<Syntax>,
-    properties: &Syntax,
-) -> SResult<Vec<Command>> {
+fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
     let mut amount = 1;
     let mut damage_type: RStr = "entity-attack".into();
     let mut attacker: Selector<Syntax> = Selector::s();
@@ -137,23 +146,23 @@ pub(super) fn damage(
     }])
 }
 
-pub(super) fn selector_block(
-    block_type: SelectorBlockType,
+fn selector_block(
+    block_type: SBT,
     selector: &Selector<Syntax>,
     body: &Syntax,
-    state: &mut InterRep,
+    state: &mut IntermediateRepr,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
-    if block_type == SelectorBlockType::As || block_type == SelectorBlockType::AsAt {
+    if block_type == SBT::As || block_type == SBT::AsAt {
         res_buf.push(ExecuteOption::As {
             selector: selector.stringify()?,
         });
     }
-    if block_type == SelectorBlockType::At {
+    if block_type == SBT::At {
         res_buf.push(ExecuteOption::At {
             selector: selector.stringify()?,
         });
-    } else if block_type == SelectorBlockType::AsAt {
+    } else if block_type == SBT::AsAt {
         res_buf.push(ExecuteOption::At {
             selector: Selector::s(),
         });
@@ -169,10 +178,7 @@ pub(super) fn selector_block(
     Ok(vec![Command::execute(res_buf, cmd)])
 }
 
-pub(super) fn teleport(
-    selector: &Selector<Syntax>,
-    body: &Syntax,
-) -> SResult<Vec<Command>> {
+fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
     Ok(vec![Command::Teleport {
         target: selector.stringify()?,
         destination: Coordinate::try_from(body)?,
