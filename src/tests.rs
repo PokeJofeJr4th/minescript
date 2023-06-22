@@ -299,14 +299,21 @@ mod interpreter {
             test_interpret(&Syntax::SelectorBlock(
                 SelectorBlockType::As,
                 Selector::r(),
-                Box::new(Syntax::Block(
-                    BlockType::If,
-                    OpLeft::SelectorColon(Selector::s(), "count".into()),
-                    Operation::RCaretEq,
-                    Box::new(Syntax::Integer(3)),
-                    Box::new(Syntax::Macro(
-                        "function".into(),
-                        Box::new(Syntax::String("give/my_item".into()))
+                Box::new(Syntax::Macro(
+                    "on".into(),
+                    Box::new(Syntax::BinaryOp(
+                        OpLeft::Ident("owner".into()),
+                        Operation::Colon,
+                        Box::new(Syntax::Block(
+                            BlockType::If,
+                            OpLeft::SelectorColon(Selector::s(), "count".into()),
+                            Operation::RCaretEq,
+                            Box::new(Syntax::Integer(3)),
+                            Box::new(Syntax::Macro(
+                                "function".into(),
+                                Box::new(Syntax::String("give/my_item".into()))
+                            ))
+                        ))
                     ))
                 ))
             )),
@@ -314,6 +321,9 @@ mod interpreter {
                 options: vec![
                     ExecuteOption::As {
                         selector: Selector::r()
+                    },
+                    ExecuteOption::On {
+                        ident: "owner".into()
                     },
                     ExecuteOption::ScoreMatches {
                         invert: false,

@@ -206,6 +206,8 @@ pub enum ExecuteOption {
         pos: Coordinate,
         value: RStr,
     },
+    /// Change `@s` to an entity with a certain relationship to current `@s`
+    On { ident: RStr },
 }
 
 impl ExecuteOption {
@@ -253,6 +255,7 @@ impl ExecuteOption {
             ),
             Self::As { selector } => format!("as {selector}"),
             Self::At { selector } => format!("at {selector}"),
+            Self::On { ident } => format!("on {ident}"),
         }
     }
 }
