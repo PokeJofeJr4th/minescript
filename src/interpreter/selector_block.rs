@@ -161,14 +161,18 @@ fn selector_block(
             selector: selector.stringify()?,
         });
     }
-    if block_type == SBT::At {
-        res_buf.push(ExecuteOption::At {
+    match block_type {
+        SBT::At => res_buf.push(ExecuteOption::At {
             selector: selector.stringify()?,
-        });
-    } else if block_type == SBT::AsAt {
-        res_buf.push(ExecuteOption::At {
+        }),
+        SBT::AsAt => res_buf.push(ExecuteOption::At {
             selector: Selector::s(),
-        });
+        }),
+        SBT::IfEntity => res_buf.push(ExecuteOption::IfEntity {
+            selector: selector.stringify()?,
+        }),
+        SBT::FacingEntity => res_buf.push(ExecuteOption::FacingEntity { selector: selector.stringify()? }),
+        _ => {}
     }
     let inner = inner_interpret(body, state, path)?;
     let cmd = if let [cmd] = &inner[..] {

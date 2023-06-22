@@ -55,6 +55,10 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         Syntax::SelectorBlock(block_type, selector, body) => {
             return selector_block::block(*block_type, selector, body, state, path)
         }
+        // on owner {...}
+        Syntax::IdentBlock(block_type, ident, body) => {
+            return block::ident_block(*block_type, ident.clone(), body, state, path)
+        }
         // Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),

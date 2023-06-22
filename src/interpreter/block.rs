@@ -179,3 +179,51 @@ pub(super) fn interpret_if(
     };
     Ok(vec![Command::execute(options, cmd)])
 }
+
+pub(super) fn ident_block(
+    block_type: IdentBlockType,
+    ident: RStr,
+    body: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+) -> SResult<Vec<Command>> {
+    if block_type == IdentBlockType::On
+        && !matches!(
+            &*ident,
+            "attacker"
+                | "controller"
+                | "leasher"
+                | "origin"
+                | "owner"
+                | "passengers"
+                | "target"
+                | "vehicle"
+        )
+    {
+        return Err(format!("Invalid `on` identifier: {ident}"));
+    }
+
+    let content = inner_interpret(body, state, path)?;
+    let cmd: Command = if let [cmd] = &content[..] {
+        cmd.clone()
+    } else {
+        let func_name: RStr = format!("closure/{}", get_hash(body)).into();
+        state.functions.push((func_name.clone(), content));
+        Command::Function { func: func_name }
+    };
+
+    match block_type {
+        IdentBlockType::On => Ok(vec![Command::execute(
+            vec![ExecuteOption::On { ident }],
+            cmd,
+        )]),
+        IdentBlockType::Summon => Ok(vec![Command::execute(
+            vec![ExecuteOption::Summon { ident }],
+            cmd,
+        )]),
+        IdentBlockType::Anchored => Ok(vec![Command::execute(
+            vec![ExecuteOption::Anchored { ident }],
+            cmd,
+        )]),
+    }
+}

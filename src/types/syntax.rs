@@ -24,6 +24,8 @@ pub enum Syntax {
     Block(BlockType, OpLeft, Operation, Box<Syntax>, Box<Syntax>),
     /// A block of the form `as @s {content}`
     SelectorBlock(SelectorBlockType, Selector<Syntax>, Box<Syntax>),
+    /// A block of the form `summon sheep {...}`
+    IdentBlock(IdentBlockType, RStr, Box<Syntax>),
     /// A string literal
     String(RStr),
     /// An integer literal
@@ -56,6 +58,16 @@ pub enum SelectorBlockType {
     Tp,
     Damage,
     TellRaw,
+    IfEntity,
+    FacingEntity,
+    Rotated,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IdentBlockType {
+    On,
+    Summon,
+    Anchored,
 }
 
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them
@@ -92,6 +104,11 @@ impl Hash for Syntax {
             Self::SelectorBlock(block_selector_type, selector, content) => {
                 block_selector_type.hash(state);
                 selector.hash(state);
+                content.hash(state);
+            }
+            Self::IdentBlock(block_type, ident, content) => {
+                block_type.hash(state);
+                ident.hash(state);
                 content.hash(state);
             }
             Self::Integer(int) => int.hash(state),

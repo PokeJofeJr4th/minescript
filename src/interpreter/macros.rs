@@ -37,33 +37,6 @@ pub(super) fn macros(
             let item = item(properties, state, path)?;
             state.items.push(item);
         }
-        "on" => {
-            let Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, right) = properties else {
-                return Err(format!("On macro expects `identifier`:{{...}}; got `{properties:?}`"))
-            };
-            if !matches!(
-                &**ident,
-                "attacker"
-                    | "controller"
-                    | "leasher"
-                    | "origin"
-                    | "owner"
-                    | "passengers"
-                    | "target"
-                    | "vehicle"
-            ) {
-                return Err(format!("Invalid On macro identifier: {ident}"));
-            }
-            let [cmd] = &inner_interpret(right, state, path)?[..] else {
-                return Err(format!("Internal compiler error; please report to the devs. {}{}", file!(), line!()))
-            };
-            return Ok(vec![Command::execute(
-                vec![ExecuteOption::On {
-                    ident: ident.clone(),
-                }],
-                cmd.clone(),
-            )]);
-        }
         "raw" => match properties {
             Syntax::String(cmd) => return Ok(vec![Command::Raw(cmd.clone())]),
             Syntax::Array(arr) => {

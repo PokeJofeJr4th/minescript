@@ -164,10 +164,12 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
     val
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_identifier<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     id: RStr,
 ) -> SResult<Syntax> {
+    let id_ref = id.as_ref();
     if let Some(op) = get_op(tokens) {
         Ok(Syntax::BinaryOp(
             OpLeft::Ident(id),
@@ -188,36 +190,63 @@ fn parse_identifier<T: Iterator<Item = Token>>(
             Operation::SubEq,
             Box::new(Syntax::Integer(1)),
         ))
-    } else if &*id == "function" {
+    } else if id_ref == "function" {
         let Some(Token::Identifier(func) | Token::String(func)) = tokens.next() else {
                 return Err(String::from("Expected identifier after function"))
             };
         Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
     // } else if id == "effect" {
     //     todo!()
-    } else if &*id == "if" || &*id == "do" || &*id == "while" || &*id == "for" {
-        if &*id == "do" && tokens.next() != Some(Token::Identifier("while".into())) {
+    } else if matches!(id_ref, "if" | "do" | "while" | "for") {
+        if id_ref == "do" && tokens.next() != Some(Token::Identifier("while".into())) {
             return Err(String::from("Expected `while` after `do`"));
         }
-        let Syntax::BinaryOp(left, op, right) = parse(tokens)? else {
-            return Err(format!("{id} statement requires a check like `x = 2`"))
-        };
-        let block_type = match &*id {
-            "if" => BlockType::If,
-            "do" => BlockType::DoWhile,
-            "while" => BlockType::While,
-            "for" => BlockType::For,
+        match (parse(tokens)?, id_ref) {
+            (Syntax::BinaryOp(left, op, right), _) => {
+                let block_type = match id_ref {
+                    "if" => BlockType::If,
+                    "do" => BlockType::DoWhile,
+                    "while" => BlockType::While,
+                    "for" => BlockType::For,
+                    _ => unreachable!(),
+                };
+                Ok(Syntax::Block(
+                    block_type,
+                    left,
+                    op,
+                    right,
+                    Box::new(parse(tokens)?),
+                ))
+            }
+            // if @s {...}
+            (Syntax::Selector(sel), "if") => Ok(Syntax::SelectorBlock(
+                SelectorBlockType::IfEntity,
+                sel,
+                Box::new(parse(tokens)?),
+            )),
+            _ => return Err(format!("{id} statement requires a check like `x = 2`")),
+        }
+    } else if matches!(id_ref, "summon" | "on" | "anchored") {
+        let block_type = match id_ref {
+            "summon" => IdentBlockType::Summon,
+            "on" => IdentBlockType::On,
+            "anchored" => IdentBlockType::Anchored,
             _ => unreachable!(),
         };
-        Ok(Syntax::Block(
+        let Some(Token::Identifier(ident)) = tokens.next() else {
+            return Err(format!("`{id}` requires an identifier next"))
+        };
+        Ok(Syntax::IdentBlock(
             block_type,
-            left,
-            op,
-            right,
+            ident,
             Box::new(parse(tokens)?),
         ))
-    } else if &*id == "as" || &*id == "at" || &*id == "asat" || &*id == "tp" || &*id == "teleport" {
-        let block_type = match &*id {
+    } else if matches!(
+        id_ref,
+        "as" | "at" | "asat" | "tp" | "teleport" | "facing" | "rotated"
+    ) {
+        // as @s {...}
+        let block_type = match id_ref {
             "as" => {
                 if let Some(Token::Identifier(id)) = tokens.peek() {
                     if &**id == "at" {
@@ -230,8 +259,11 @@ fn parse_identifier<T: Iterator<Item = Token>>(
                     SelectorBlockType::As
                 }
             }
+            "asat" => SelectorBlockType::AsAt,
             "at" => SelectorBlockType::At,
             "tp" | "teleport" => SelectorBlockType::Tp,
+            "facing" => SelectorBlockType::FacingEntity,
+            "rotated" => SelectorBlockType::Rotated,
             _ => unreachable!(),
         };
         let Syntax::Selector(sel) = parse(tokens)? else {

@@ -194,12 +194,18 @@ pub enum ExecuteOption {
         source: RStr,
         source_objective: RStr,
     },
+    /// if an entity exists
+    IfEntity { selector: Selector<String> },
     /// store a result in a score
     StoreScore { target: RStr, objective: RStr },
     /// change who `@s` is
     As { selector: Selector<String> },
     /// change where the command executes
     At { selector: Selector<String> },
+    /// anchored eyes|feet
+    Anchored { ident: RStr },
+    /// facing an entity
+    FacingEntity { selector: Selector<String> },
     /// Block matches id or tag
     Block {
         invert: bool,
@@ -208,6 +214,8 @@ pub enum ExecuteOption {
     },
     /// Change `@s` to an entity with a certain relationship to current `@s`
     On { ident: RStr },
+    /// summon an entity of type `ident` and set it to `@s`
+    Summon { ident: RStr },
 }
 
 impl ExecuteOption {
@@ -246,6 +254,7 @@ impl ExecuteOption {
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
                 if *invert { "unless" } else { "if" }
             ),
+            Self::IfEntity { selector } => format!("if entity {selector}"),
             Self::StoreScore { target, objective } => {
                 format!("store result score {target} {objective}")
             }
@@ -255,7 +264,10 @@ impl ExecuteOption {
             ),
             Self::As { selector } => format!("as {selector}"),
             Self::At { selector } => format!("at {selector}"),
+            Self::FacingEntity { selector } => format!("facing {selector}"),
+            Self::Anchored { ident } => format!("anchored {ident}"),
             Self::On { ident } => format!("on {ident}"),
+            Self::Summon { ident } => format!("summon {ident}"),
         }
     }
 }
