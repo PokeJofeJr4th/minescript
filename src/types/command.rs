@@ -195,7 +195,10 @@ pub enum ExecuteOption {
         source_objective: RStr,
     },
     /// if an entity exists
-    IfEntity { selector: Selector<String> },
+    Entity {
+        invert: bool,
+        selector: Selector<String>,
+    },
     /// store a result in a score
     StoreScore { target: RStr, objective: RStr },
     /// change who `@s` is
@@ -254,7 +257,10 @@ impl ExecuteOption {
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
                 if *invert { "unless" } else { "if" }
             ),
-            Self::IfEntity { selector } => format!("if entity {selector}"),
+            Self::Entity { invert, selector } => format!(
+                "{} entity {selector}",
+                if *invert { "unless" } else { "if" }
+            ),
             Self::StoreScore { target, objective } => {
                 format!("store result score {target} {objective}")
             }

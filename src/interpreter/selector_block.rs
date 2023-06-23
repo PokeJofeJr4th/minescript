@@ -168,10 +168,17 @@ fn selector_block(
         SBT::AsAt => res_buf.push(ExecuteOption::At {
             selector: Selector::s(),
         }),
-        SBT::IfEntity => res_buf.push(ExecuteOption::IfEntity {
+        SBT::IfEntity => res_buf.push(ExecuteOption::Entity {
+            invert: false,
             selector: selector.stringify()?,
         }),
-        SBT::FacingEntity => res_buf.push(ExecuteOption::FacingEntity { selector: selector.stringify()? }),
+        SBT::UnlessEntity => res_buf.push(ExecuteOption::Entity {
+            invert: true,
+            selector: selector.stringify()?,
+        }),
+        SBT::FacingEntity => res_buf.push(ExecuteOption::FacingEntity {
+            selector: selector.stringify()?,
+        }),
         _ => {}
     }
     let inner = inner_interpret(body, state, path)?;

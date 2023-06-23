@@ -236,6 +236,12 @@ fn parse_identifier<T: Iterator<Item = Token>>(
                 sel,
                 Box::new(parse(tokens)?),
             )),
+            // unless @s {...}
+            (Syntax::Selector(sel), "unless") => Ok(Syntax::SelectorBlock(
+                SelectorBlockType::UnlessEntity,
+                sel,
+                Box::new(parse(tokens)?),
+            )),
             _ => return Err(format!("{id} statement requires a check like `x = 2`")),
         }
     } else if matches!(id_ref, "summon" | "on" | "anchored") {

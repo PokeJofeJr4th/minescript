@@ -62,6 +62,7 @@ pub enum SelectorBlockType {
     Damage,
     TellRaw,
     IfEntity,
+    UnlessEntity,
     FacingEntity,
     Rotated,
 }
