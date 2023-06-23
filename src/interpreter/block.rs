@@ -3,6 +3,8 @@ use std::path::Path;
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
+/// # Panics
+/// If `block_type` is If or Unless. Use `interpret_if` for these cases
 pub(super) fn block(
     block_type: BlockType,
     left: &OpLeft,
@@ -12,7 +14,11 @@ pub(super) fn block(
     state: &mut InterRepr,
     path: &Path,
 ) -> SResult<Vec<Command>> {
-    assert_ne!(block_type, BlockType::If);
+    let invert = match block_type {
+        BlockType::For | BlockType::DoWhile | BlockType::While => false,
+        BlockType::DoUntil | BlockType::Until => true,
+        BlockType::If | BlockType::Unless => unreachable!(),
+    };
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
     let left = if block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
@@ -21,6 +27,7 @@ pub(super) fn block(
         left.clone()
     };
     let [goto_fn] = &interpret_if(
+        invert,
             &left,
             op,
             right,
@@ -69,6 +76,7 @@ pub(super) fn block(
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn interpret_if(
+    invert: bool,
     left: &OpLeft,
     op: Operation,
     right: &Syntax,
@@ -115,7 +123,7 @@ pub(super) fn interpret_if(
                 | Operation::RCaretEq
                 | Operation::RCaret => {
                     vec![ExecuteOption::ScoreSource {
-                        invert: false,
+                        invert,
                         target: target_player,
                         target_objective,
                         operation: op,
@@ -126,7 +134,7 @@ pub(super) fn interpret_if(
                 // x != var
                 Operation::BangEq => {
                     vec![ExecuteOption::ScoreSource {
-                        invert: true,
+                        invert: !invert,
                         target: target_player,
                         target_objective,
                         operation: Operation::Equal,
@@ -140,17 +148,17 @@ pub(super) fn interpret_if(
         Syntax::Integer(num) => {
             let (invert, lower, upper): (bool, Option<i32>, Option<i32>) = match op {
                 // x = 1 => if x matches 1
-                Operation::Equal => (false, Some(*num), Some(*num)),
+                Operation::Equal => (invert, Some(*num), Some(*num)),
                 // x >= 1 => if x matches 1..
-                Operation::RCaretEq => (false, Some(*num), None),
+                Operation::RCaretEq => (invert, Some(*num), None),
                 // x <= 1 => if x matches ..1
-                Operation::LCaretEq => (false, None, Some(*num)),
+                Operation::LCaretEq => (invert, None, Some(*num)),
                 // x != 1 => unless x matches 1
-                Operation::BangEq => (true, Some(*num), Some(*num)),
+                Operation::BangEq => (!invert, Some(*num), Some(*num)),
                 // x > 1 => unless x matches ..1
-                Operation::RCaret => (true, None, Some(*num)),
+                Operation::RCaret => (!invert, None, Some(*num)),
                 // x < 1 => unless x matches 1..
-                Operation::LCaret => (true, Some(*num), None),
+                Operation::LCaret => (!invert, Some(*num), None),
                 _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
             };
             vec![ExecuteOption::ScoreMatches {
@@ -168,7 +176,7 @@ pub(super) fn interpret_if(
                 ));
             };
             vec![ExecuteOption::ScoreMatches {
-                invert: false,
+                invert,
                 target: target_player,
                 objective: target_objective,
                 lower: *left,

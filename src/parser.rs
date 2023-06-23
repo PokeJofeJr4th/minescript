@@ -197,16 +197,28 @@ fn parse_identifier<T: Iterator<Item = Token>>(
         Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
     // } else if id == "effect" {
     //     todo!()
-    } else if matches!(id_ref, "if" | "do" | "while" | "for") {
-        if id_ref == "do" && tokens.next() != Some(Token::Identifier("while".into())) {
-            return Err(String::from("Expected `while` after `do`"));
-        }
+    } else if matches!(id_ref, "if" | "unless" | "do" | "while" | "until" | "for") {
+        let id_ref = if id_ref == "do" {
+            match tokens.next() {
+                Some(Token::Identifier(ident)) => match &*ident {
+                    "while" => "do while",
+                    "until" => "do until",
+                    _ => return Err(String::from("Expected `while` or `until` after `do`")),
+                },
+                _ => return Err(String::from("Expected `while` or `until` after `do`")),
+            }
+        } else {
+            id_ref
+        };
         match (parse(tokens)?, id_ref) {
             (Syntax::BinaryOp(left, op, right), _) => {
                 let block_type = match id_ref {
                     "if" => BlockType::If,
-                    "do" => BlockType::DoWhile,
+                    "unlesss" => BlockType::Unless,
                     "while" => BlockType::While,
+                    "do while" => BlockType::DoWhile,
+                    "until" => BlockType::Until,
+                    "do until" => BlockType::DoUntil,
                     "for" => BlockType::For,
                     _ => unreachable!(),
                 };

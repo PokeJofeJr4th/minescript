@@ -31,6 +31,19 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         // if x=1 {}
         Syntax::Block(BlockType::If, left, op, right, block) => {
             return block::interpret_if(
+                false,
+                left,
+                *op,
+                right,
+                &inner_interpret(block, state, path)?,
+                &format!("{:x}", get_hash(block)),
+                state,
+            )
+        }
+        // unless x=1 {}
+        Syntax::Block(BlockType::Unless, left, op, right, block) => {
+            return block::interpret_if(
+                true,
                 left,
                 *op,
                 right,

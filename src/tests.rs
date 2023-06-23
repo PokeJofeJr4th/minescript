@@ -240,6 +240,38 @@ mod parser {
             ))
         );
     }
+
+    #[test]
+    fn do_until() {
+        assert_eq!(
+            parse(
+                &mut [
+                    Token::Identifier("do".into()),
+                    Token::Identifier("until".into()),
+                    Token::Identifier("x".into()),
+                    Token::Equal,
+                    Token::Integer(10),
+                    Token::LSquirrely,
+                    Token::Identifier("x".into()),
+                    Token::PlusPlus,
+                    Token::RSquirrely
+                ]
+                .into_iter()
+                .peekable()
+            ),
+            Ok(Syntax::Block(
+                BlockType::DoUntil,
+                OpLeft::Ident("x".into()),
+                Operation::Equal,
+                Box::new(Syntax::Integer(10)),
+                Box::new(Syntax::Array(Rc::from([Syntax::BinaryOp(
+                    OpLeft::Ident("x".into()),
+                    Operation::AddEq,
+                    Box::new(Syntax::Integer(1))
+                )])))
+            ))
+        );
+    }
 }
 
 mod interpreter {

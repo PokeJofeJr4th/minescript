@@ -45,9 +45,12 @@ pub enum Syntax {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockType {
     If,
+    Unless,
     For,
     DoWhile,
     While,
+    DoUntil,
+    Until,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -4,18 +4,17 @@ use crate::types::prelude::*;
 
 pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     // @raycast {
-    //   entity
-    //   max time
+    //   max
     //   amount
     //   callback
     // }
-    // summon marker
-    // tp marker @s
-    // loop {
-    //   timer++
-    //   if timer > max return?
-    //   if block #air tp ^ ^ ^{amount}
-    //   if block #air loop
+    // summon marker {
+    //   for timer in 0..max {
+    //     tp @s (^ ^ ^{amount});
+    //     unless block #air timer = max;
+    //   }
+    //   at @s {callback}
+    //   kill @s
     // }
     let mut compiled = CompiledRepr {
         mcmeta: nbt!({
