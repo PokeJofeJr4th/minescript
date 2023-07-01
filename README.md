@@ -36,4 +36,8 @@ To compile to a Minecraft datapack, run the following command:
 `minescript src.txt <namespace>`
 where namespace is the name of your datapack. Minescript will create a folder ready to be dropped into the datapacks folder of your minecraft world!
 
+## Contributing
+
+Contributions to the Minescript project are welcome. Please provide as much reproducibility information as you can for issues. Pull requests should be well-documented unless they are small. Hate speech, harassment, etc. are not tolerated.
+
 To learn more about the language, check out the [wiki](https://github.com/PokeJofeJr4th/minescript/wiki)
