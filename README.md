@@ -1,6 +1,6 @@
 # Minescript
 
-Rust-compiled markup language to create Minecraft datapacks
+Minescript is a powerful language with a Rust transpiler that turns it into a Minecraft datapack. It simplifies many of minecraft commands' roughest edges, like control flow, variables, and interoperability between commands, advancements, and recipes.
 
 ## Usage
 
