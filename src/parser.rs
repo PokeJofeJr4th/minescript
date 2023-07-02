@@ -2,11 +2,7 @@ use std::{collections::BTreeMap, iter::Peekable};
 
 use crate::types::prelude::*;
 
-#[allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_wrap,
-    clippy::too_many_lines
-)]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
 pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
