@@ -15,6 +15,7 @@ pub struct Item {
     pub while_using: Vec<Command>,
 }
 
+/// intermediate representation of most items and functions
 #[derive(Debug)]
 pub struct InterRepr {
     pub items: Vec<Item>,
@@ -38,10 +39,29 @@ impl InterRepr {
     }
 }
 
+/// finished representation containing all of the data that should go into the file structure
 #[derive(Debug, Clone, Default)]
 pub struct CompiledRepr {
     pub functions: BTreeMap<RStr, String>,
     pub advancements: BTreeMap<RStr, String>,
     pub recipes: BTreeMap<RStr, String>,
     pub mcmeta: String,
+}
+
+impl CompiledRepr {
+    /// writes the .mcmeta file
+    pub fn new(namespace: &str) -> Self {
+        Self {
+            mcmeta: nbt!({
+                pack: nbt!({
+                    pack_format: 15,
+                    description: format!("{namespace}, made with MineScript")
+                })
+            })
+            .to_json(),
+            functions: BTreeMap::new(),
+            advancements: BTreeMap::new(),
+            recipes: BTreeMap::new(),
+        }
+    }
 }

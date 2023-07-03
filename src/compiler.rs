@@ -16,16 +16,8 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     //   at @s {callback}
     //   kill @s
     // }
-    let mut compiled = CompiledRepr {
-        mcmeta: nbt!({
-            pack: nbt!({
-                pack_format: 15,
-                description: format!("{namespace}, made with MineScript")
-            })
-        })
-        .to_json(),
-        ..Default::default()
-    };
+
+    let mut compiled = CompiledRepr::new(namespace);
 
     let mut load = format!("say {namespace}, a datapack created with MineScript");
     // add all the scoreboard objectives
@@ -138,13 +130,15 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
               })
             })
             .to_json();
+            let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
+            for cmd in item.on_consume {
+                consume_fn.push('\n');
+                consume_fn.push_str(&cmd.stringify(namespace));
+            }
             compiled
                 .advancements
                 .insert(format!("consume/{ident}").into(), advancement_content);
-            compiled.functions.insert(
-                on_consume,
-                format!("advancement revoke @s only {namespace}:consume/{ident}"),
-            );
+            compiled.functions.insert(on_consume, consume_fn);
         }
 
         // make the use function
@@ -205,13 +199,15 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
               })
             })
             .to_json();
+            let mut fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
+            for cmd in item.while_using {
+                fn_content.push('\n');
+                fn_content.push_str(&cmd.stringify(namespace));
+            }
             compiled
                 .advancements
                 .insert(format!("use/{ident}").into(), advancement_content);
-            compiled.functions.insert(
-                while_using,
-                format!("advancement revoke @s only {namespace}:use/{ident}"),
-            );
+            compiled.functions.insert(while_using, fn_content);
         }
     }
     for base_score in using_base_item_scores {
