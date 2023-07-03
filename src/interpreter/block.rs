@@ -31,7 +31,7 @@ pub(super) fn block(
             &left,
             op,
             right,
-            &[Command::Function {
+            vec![Command::Function {
                 func: fn_name.clone(),
             }],
             "",
@@ -80,20 +80,13 @@ pub(super) fn interpret_if(
     left: &OpLeft,
     op: Operation,
     right: &Syntax,
-    content: &[Command],
+    content: Vec<Command>,
     hash: &str,
     state: &mut InterRepr,
 ) -> SResult<Vec<Command>> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
     }
-    let cmd: Command = if let [cmd] = content {
-        cmd.clone()
-    } else {
-        let func_name: RStr = format!("closure/{hash}").into();
-        state.functions.push((func_name.clone(), content.to_vec()));
-        Command::Function { func: func_name }
-    };
     let target_player = left.stringify_scoreboard_target()?;
     let target_objective = left.stringify_scoreboard_objective()?;
     let options = match right {
@@ -185,7 +178,7 @@ pub(super) fn interpret_if(
         }
         _ => return Err(format!("Can't end an if statement with {right:?}")),
     };
-    Ok(vec![Command::execute(options, cmd)])
+    Ok(vec![Command::execute(options, content, hash, state)])
 }
 
 pub(super) fn ident_block(
@@ -212,26 +205,25 @@ pub(super) fn ident_block(
     }
 
     let content = inner_interpret(body, state, path)?;
-    let cmd: Command = if let [cmd] = &content[..] {
-        cmd.clone()
-    } else {
-        let func_name: RStr = format!("closure/{}", get_hash(body)).into();
-        state.functions.push((func_name.clone(), content));
-        Command::Function { func: func_name }
-    };
 
     match block_type {
         IdentBlockType::On => Ok(vec![Command::execute(
             vec![ExecuteOption::On { ident }],
-            cmd,
+            content,
+            get_hash(body),
+            state,
         )]),
         IdentBlockType::Summon => Ok(vec![Command::execute(
             vec![ExecuteOption::Summon { ident }],
-            cmd,
+            content,
+            get_hash(body),
+            state,
         )]),
         IdentBlockType::Anchored => Ok(vec![Command::execute(
             vec![ExecuteOption::Anchored { ident }],
-            cmd,
+            content,
+            get_hash(body),
+            state,
         )]),
     }
 }

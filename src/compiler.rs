@@ -28,6 +28,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     };
 
     let mut load = format!("say {namespace}, a datapack created with MineScript");
+    // add all the scoreboard objectives
     for (objective, trigger) in &src.objectives {
         load.push('\n');
         load.push_str("scoreboard objectives add ");
@@ -37,6 +38,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     }
     compiled.functions.insert("load".into(), load);
     compile_items(src, namespace, &mut compiled)?;
+    // put all the functions in
     for (name, statements) in &src.functions {
         let name: RStr = name.to_lowercase().replace(' ', "_").into();
         let mut fn_buf = String::new();
@@ -51,6 +53,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             }
         }
     }
+    // make all the recipes
     for (name, content) in &src.recipes {
         let name: RStr = name.to_lowercase().replace(' ', "_").into();
         compiled.recipes.insert(name.clone(), content.clone());
@@ -61,7 +64,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
                 requirement: nbt!{{
                   trigger: "minecraft:recipe_crafted",
                   conditions: nbt!{{
-                    recipe: format!("{namespace}:{name}")
+                    recipe_id: format!("{namespace}:{name}")
                   }}
                 }}
               }},
@@ -103,6 +106,7 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
             }),
         );
 
+        // make the give function
         compiled.functions.insert(
             format!("give/{ident}").into(),
             format!(
@@ -112,6 +116,7 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
             ),
         );
 
+        // make the consume function
         if let Some(on_consume) = &item.on_consume {
             let on_consume = on_consume.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({
@@ -141,11 +146,13 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
                 format!("advancement revoke @s only {namespace}:consume/{ident}"),
             );
         }
+
+        // make the use function
         if let Some(on_use) = &item.on_use {
             let on_use = on_use.to_lowercase().replace(' ', "_");
             let using_base = format!("use_{}", item.base);
             let holding_item = format!("holding_{ident}");
-            tick_buf.push_str(&format!("execute as @a[tag={holding_item},scores={{{using_base}=1}}] run function {namespace}:{on_use}\n"));
+            tick_buf.push_str(&format!("execute as @a[tag={holding_item},scores={{{using_base}=1}}] at @s run function {namespace}:{on_use}\n"));
             tick_buf.push_str(&format!(
                 "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
                 item.base,
@@ -153,6 +160,8 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
             ));
             using_base_item_scores.insert(using_base);
         }
+
+        // make the while_using function
         if let Some(while_using) = &item.while_using {
             let while_using = while_using.to_lowercase().replace(' ', "_").into();
             let advancement_content = nbt!({

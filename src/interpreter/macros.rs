@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs, path::Path, rc::Rc};
+use std::{collections::BTreeMap, fs, path::Path};
 
 use super::{inner_interpret, InterRepr, Item};
 use crate::{lexer::tokenize, parser::parse, types::prelude::*};
@@ -59,7 +59,6 @@ pub(super) fn macros(
             }
         },
         "raycast" => {
-            unimplemented!("Raycasting is not yet available");
             return raycast(properties, state, path);
         }
         "sound" | "playsound" => return sound(properties),
@@ -76,7 +75,7 @@ fn effect(src: &Syntax) -> SResult<Vec<Command>> {
     if let Syntax::Object(src) = src {
         for (prop, value) in src.iter() {
             match prop.as_ref() {
-                "selector" => match value {
+                "selector" | "target" => match value {
                     Syntax::Selector(sel) => {
                         selector = Some(sel.stringify()?);
                     }
@@ -348,14 +347,14 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
     }])
 }
 
+#[allow(clippy::too_many_lines)]
 fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Vec<Command>> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Raycast macro expects an object, not {properties:?}"))
     };
     let mut max = 0;
     let mut step = 0.0;
-    let mut callback_buf = Vec::new();
-    let mut callback = None;
+    let mut callback = Vec::new();
     for (k, v) in obj {
         match &**k {
             "max" => {
@@ -374,34 +373,97 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
                 }
             }
             "callback" | "hit" => match v {
-                Syntax::String(str) => callback = Some(str.clone()),
+                Syntax::String(str) => callback = vec![Command::Function { func: str.clone() }],
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
-                    callback = Some(name.clone());
+                    callback = vec![Command::Function { func: name.clone() }];
                 }
-                other => callback_buf = inner_interpret(other, state, path)?,
+                other => callback = inner_interpret(other, state, path)?,
             },
             other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
         }
     }
     let hash = get_hash(properties);
 
-    if !callback_buf.is_empty() {
-        let func_name: RStr = format!("closure/callback_{hash:x}").into();
-        state.functions.push((func_name.clone(), callback_buf));
-        callback = Some(func_name);
-    }
-
-    let Some(callback) = callback else {
-        return Err(String::from("Raycast macro must specify a callback function"))
+    if callback.is_empty() {
+        return Err(String::from("Raycast requires a callback function"));
     };
 
-    let closure_name: Rc<str> = format!("closure/{hash:x}").into();
+    let closure_name: RStr = format!("closure/{hash:x}").into();
+    let loop_name: RStr = format!("closure/loop_{hash:x}").into();
 
-    todo!("gotta get this thingy going");
+    let closure_fn = vec![
+        Command::Raw("execute at @s rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
+        // scoreboard players reset %timer dummy
+        Command::ScoreSet {
+            target: "%timer".into(),
+            objective: "dummy".into(),
+            value: 0,
+        },
+        // at @s function loop
+        Command::Execute {
+            options: vec![ExecuteOption::At {
+                selector: Selector::s(),
+            }],
+            cmd: Box::new(Command::Function {
+                func: loop_name.clone(),
+            }),
+        },
+        // at @s {callback}
+        Command::execute(
+            vec![ExecuteOption::At {
+                selector: Selector::s(),
+            }],
+            callback,
+            format!("callback_{hash:x}"),
+            state,
+        ),
+        // kill @s
+        Command::Kill {
+            target: Selector::s(),
+        },
+    ];
+    state.functions.push((closure_name.clone(), closure_fn));
 
-    state.functions.push((closure_name.clone(), vec![]));
+    let loop_fn = vec![
+        // tp @s ^ ^ ^1
+        Command::Teleport {
+            target: Selector::s(),
+            destination: Coordinate::Angular(0.0, 0.0, step),
+        },
+        Command::Raw("particle minecraft:campfire_signal_smoke".into()),
+        // timer ++
+        Command::ScoreAdd {
+            target: "%timer".into(),
+            objective: "dummy".into(),
+            value: 1,
+        },
+        // execute unless %timer < max at @s if block ~ ~ ~ air run loop
+        Command::Execute {
+            options: vec![
+                ExecuteOption::ScoreMatches {
+                    invert: false,
+                    target: "%timer".into(),
+                    objective: "dummy".into(),
+                    lower: None,
+                    upper: Some(max),
+                },
+                ExecuteOption::At {
+                    selector: Selector::s(),
+                },
+                ExecuteOption::Block {
+                    invert: false,
+                    pos: Coordinate::here(),
+                    value: "air".into(),
+                },
+            ],
+            cmd: Box::new(Command::Function {
+                func: loop_name.clone(),
+            }),
+        },
+    ];
+    state.functions.push((loop_name, loop_fn));
 
     Ok(vec![Command::Execute {
         options: vec![ExecuteOption::Summon {

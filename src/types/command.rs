@@ -15,9 +15,8 @@ pub enum Command {
         duration: Option<i32>,
         level: i32,
     },
-    // Kill {
-    //     target: Selector<String>,
-    // },
+    /// kill the target
+    Kill { target: Selector<String> },
     /// call a function
     Function { func: RStr },
     /// set a score to a value
@@ -108,7 +107,7 @@ impl Command {
                     duration.map_or_else(|| String::from("infinite"), |num| format!("{num}"))
                 )
             }
-            // Self::Kill { target } => format!("kill {target}"),
+            Self::Kill { target } => format!("kill {target}"),
             Self::Function { func } => format!("function {namespace}:{func}"),
             // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
             //     "add"
@@ -158,22 +157,44 @@ impl Command {
     ///
     /// If the other command is an execute, it combines them into one.
     /// If there are no execute subcommands, it returns the given command.
-    pub fn execute(mut options: Vec<ExecuteOption>, cmd: Self) -> Self {
-        match cmd {
-            Self::Execute {
+    /// If there is more than one given command, it returns a function call
+    pub fn execute<T: Display>(
+        mut options: Vec<ExecuteOption>,
+        cmd: Vec<Self>,
+        hash: T,
+        state: &mut InterRepr,
+    ) -> Self {
+        match &cmd[..] {
+            [Self::Execute {
                 options: inner_options,
                 cmd,
-            } => {
-                options.extend(inner_options);
-                Self::Execute { options, cmd }
+            }] => {
+                options.extend(inner_options.clone());
+                Self::Execute {
+                    options,
+                    cmd: cmd.clone(),
+                }
             }
-            _ => {
+            [cmd] => {
                 if options.is_empty() {
-                    cmd
+                    cmd.clone()
                 } else {
                     Self::Execute {
                         options,
-                        cmd: Box::new(cmd),
+                        cmd: Box::new(cmd.clone()),
+                    }
+                }
+            }
+            _ => {
+                let func_name: RStr = format!("closure/{hash}").into();
+                state.functions.push((func_name.clone(), cmd));
+                let func = Self::Function { func: func_name };
+                if options.is_empty() {
+                    func
+                } else {
+                    Self::Execute {
+                        options,
+                        cmd: Box::new(func),
                     }
                 }
             }
@@ -211,6 +232,8 @@ pub enum ExecuteOption {
     As { selector: Selector<String> },
     /// change where the command executes
     At { selector: Selector<String> },
+    // /// get rotation from an entity
+    // Rotated { selector: Selector<String> },
     /// anchored eyes|feet
     Anchored { ident: RStr },
     /// facing an entity
@@ -276,6 +299,7 @@ impl ExecuteOption {
             ),
             Self::As { selector } => format!("as {selector}"),
             Self::At { selector } => format!("at {selector}"),
+            // Self::Rotated { selector } => format!("rotated as {selector}"),
             Self::FacingEntity { selector } => format!("facing {selector}"),
             Self::Anchored { ident } => format!("anchored {ident}"),
             Self::On { ident } => format!("on {ident}"),

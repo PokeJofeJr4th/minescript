@@ -182,14 +182,12 @@ fn selector_block(
         _ => {}
     }
     let inner = inner_interpret(body, state, path)?;
-    let cmd = if let [cmd] = &inner[..] {
-        cmd.clone()
-    } else {
-        let func_name: RStr = format!("closure/{:x}", get_hash(body)).into();
-        state.functions.push((func_name.clone(), inner));
-        Command::Function { func: func_name }
-    };
-    Ok(vec![Command::execute(res_buf, cmd)])
+    Ok(vec![Command::execute(
+        res_buf,
+        inner,
+        get_hash(body),
+        state,
+    )])
 }
 
 fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {

@@ -35,7 +35,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                 left,
                 *op,
                 right,
-                &inner_interpret(block, state, path)?,
+                inner_interpret(block, state, path)?,
                 &format!("{:x}", get_hash(block)),
                 state,
             )
@@ -47,7 +47,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                 left,
                 *op,
                 right,
-                &inner_interpret(block, state, path)?,
+                inner_interpret(block, state, path)?,
                 &format!("{:x}", get_hash(block)),
                 state,
             )

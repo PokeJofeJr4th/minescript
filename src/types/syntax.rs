@@ -238,6 +238,9 @@ impl TryFrom<&Syntax> for String {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(Self::from(&**str)),
             Syntax::Integer(num) => Ok(format!("{num}")),
             Syntax::Float(float) => Ok(format!("{float}")),
+            Syntax::Range(None, Some(rhs)) => Ok(format!("..{rhs}")),
+            Syntax::Range(Some(lhs), None) => Ok(format!("{lhs}..")),
+            Syntax::Range(Some(lhs), Some(rhs)) => Ok(format!("{lhs}..{rhs}")),
             _ => Err(format!("Can't get a string from {value:?}")),
         }
     }
