@@ -146,13 +146,10 @@ fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Item> {
         name: String::new().into(),
         base: String::new().into(),
         nbt: Nbt::default(),
-        on_consume: None,
-        on_use: None,
-        while_using: None,
+        on_consume: Vec::new(),
+        on_use: Vec::new(),
+        while_using: Vec::new(),
     };
-    let mut on_consume_buf = Vec::new();
-    let mut on_use_buf = Vec::new();
-    let mut while_using_buf = Vec::new();
     let mut recipe_buf = None;
     for (prop, value) in src.iter() {
         match prop.as_ref() {
@@ -175,34 +172,41 @@ fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Item> {
                 item.nbt = name;
             }
             "on_consume" => match value {
-                Syntax::String(str) => item.on_consume = Some(str.clone()),
+                Syntax::String(str) => item
+                    .on_consume
+                    .push(Command::Function { func: str.clone() }),
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_consume = Some(name.clone());
+                    item.on_consume
+                        .push(Command::Function { func: name.clone() });
                 }
                 other => {
-                    on_consume_buf = inner_interpret(other, state, path)?;
+                    item.on_consume.extend(inner_interpret(other, state, path)?);
                 }
             },
             "on_use" => match value {
-                Syntax::String(str) => item.on_use = Some(str.clone()),
+                Syntax::String(str) => item.on_use.push(Command::Function { func: str.clone() }),
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_use = Some(name.clone());
+                    item.on_use.push(Command::Function { func: name.clone() });
                 }
-                other => on_use_buf = inner_interpret(other, state, path)?,
+                other => item.on_use.extend(inner_interpret(other, state, path)?),
             },
             "while_using" => match value {
-                Syntax::String(str) => item.while_using = Some(str.clone()),
+                Syntax::String(str) => item
+                    .while_using
+                    .push(Command::Function { func: str.clone() }),
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
-                    item.while_using = Some(name.clone());
+                    item.while_using
+                        .push(Command::Function { func: name.clone() });
                 }
                 other => {
-                    while_using_buf = inner_interpret(other, state, path)?;
+                    item.while_using
+                        .extend(inner_interpret(other, state, path)?);
                 }
             },
             "recipe" => {
@@ -238,26 +242,11 @@ fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Item> {
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
     }
-    if !on_consume_buf.is_empty() {
-        let func_name: RStr = format!("consume/{}", item.name).into();
-        state.functions.push((func_name.clone(), on_consume_buf));
-        item.on_consume = Some(func_name);
-    }
-    if !on_use_buf.is_empty() {
-        let func_name: RStr = format!("use/{}", item.name).into();
-        state.functions.push((func_name.clone(), on_use_buf));
-        item.on_use = Some(func_name);
-    }
-    if item.on_use.is_some() {
+    if !item.on_use.is_empty() {
         state.objectives.insert(
             format!("use_{}", item.base).into(),
             format!("minecraft.used:minecraft.{}", item.base).into(),
         );
-    }
-    if !while_using_buf.is_empty() {
-        let func_name: RStr = format!("using/{}", item.name).into();
-        state.functions.push((func_name.clone(), while_using_buf));
-        item.while_using = Some(func_name);
     }
     if let Some(recipe) = recipe_buf {
         state.recipes.insert(item.name.clone(), recipe.to_json());

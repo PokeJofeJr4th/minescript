@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::types::prelude::*;
 
-pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
+pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     // @raycast {
     //   max
     //   amount
@@ -84,10 +84,10 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) -> SResult<()> {
+fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRepr) -> SResult<()> {
     let mut tick_buf = String::new();
     let mut using_base_item_scores = BTreeSet::new();
-    for item in &src.items {
+    for item in src.items.clone() {
         let ident = item.name.to_lowercase().replace(' ', "_");
 
         let mut give_obj = match &item.nbt {
@@ -117,8 +117,8 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
         );
 
         // make the consume function
-        if let Some(on_consume) = &item.on_consume {
-            let on_consume = on_consume.to_lowercase().replace(' ', "_").into();
+        if !item.on_consume.is_empty() {
+            let on_consume = format!("consume/{}", item.name).into();
             let advancement_content = nbt!({
               criteria: nbt!({
                 requirement: nbt!({
@@ -148,11 +148,33 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
         }
 
         // make the use function
-        if let Some(on_use) = &item.on_use {
-            let on_use = on_use.to_lowercase().replace(' ', "_");
+        if !item.on_use.is_empty() {
+            let on_use = format!("use/{}", item.name);
             let using_base = format!("use_{}", item.base);
             let holding_item = format!("holding_{ident}");
-            tick_buf.push_str(&format!("execute as @a[tag={holding_item},scores={{{using_base}=1}}] at @s run function {namespace}:{on_use}\n"));
+            let execute_fn = Command::execute(
+                vec![
+                    ExecuteOption::As {
+                        selector: Selector {
+                            selector_type: SelectorType::A,
+                            args: [
+                                ("tag".into(), holding_item.clone()),
+                                ("scores".into(), format!("{{{using_base}=1}}")),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        },
+                    },
+                    ExecuteOption::At {
+                        selector: Selector::s(),
+                    },
+                ],
+                item.on_use.clone(),
+                on_use,
+                src,
+            );
+            tick_buf.push_str(&execute_fn.stringify(namespace));
+            tick_buf.push('\n');
             tick_buf.push_str(&format!(
                 "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
                 item.base,
@@ -162,8 +184,8 @@ fn compile_items(src: &InterRepr, namespace: &str, compiled: &mut CompiledRepr) 
         }
 
         // make the while_using function
-        if let Some(while_using) = &item.while_using {
-            let while_using = while_using.to_lowercase().replace(' ', "_").into();
+        if !item.while_using.is_empty() {
+            let while_using = format!("using/{}", item.name).into();
             let advancement_content = nbt!({
               criteria: nbt!({
                 requirement: nbt!({

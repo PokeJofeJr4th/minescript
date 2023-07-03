@@ -37,9 +37,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let folder = path
         .parent()
         .ok_or_else(|| String::from("Bad source path"))?;
-    let state = interpreter::interpret(&syntax, folder)?;
+    let mut state = interpreter::interpret(&syntax, folder)?;
     println!("{state:#?}");
-    let compiled = compiler::compile(&state, &args.namespace)?;
+    let compiled = compiler::compile(&mut state, &args.namespace)?;
     println!("{compiled:#?}");
     match fs::remove_dir_all(&args.namespace) {
         Ok(_) => println!("Deleted existing directory"),

@@ -2,17 +2,17 @@ use std::collections::BTreeMap;
 
 use crate::types::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Item {
     pub name: RStr,
     pub base: RStr,
     pub nbt: Nbt,
     /// function that runs when the item is consumed
-    pub on_consume: Option<RStr>,
+    pub on_consume: Vec<Command>,
     /// function that runs when the item is used
-    pub on_use: Option<RStr>,
+    pub on_use: Vec<Command>,
     /// function that runs every tick while the item is being used
-    pub while_using: Option<RStr>,
+    pub while_using: Vec<Command>,
 }
 
 #[derive(Debug)]
