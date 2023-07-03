@@ -69,6 +69,11 @@ pub enum Command {
         target: Selector<String>,
         destination: Coordinate,
     },
+    /// teleport the selected entity(ies) to another selected entity
+    TeleportTo {
+        target: Selector<String>,
+        destination: Selector<String>,
+    },
     Sound {
         sound: RStr,
         source: RStr,
@@ -140,6 +145,7 @@ impl Command {
                 format!("execute {options_buf}run {}", cmd.stringify(namespace))
             },
             Self::Teleport { target, destination } => format!("tp {target} {destination}"),
+            Self::TeleportTo { target, destination } => format!("tp {target} {destination}"),
             Self::Sound { sound, source, target, pos, volume, pitch, min_volume } => format!("playsound {sound} {source} {target} {pos} {volume} {pitch} {min_volume}"),
             Self::Damage { target, amount, damage_type, attacker } => format!("damage {target} {amount} {damage_type} by {attacker}"),
             Self::XpAdd { target, amount, levels } => format!("xp add {target} {amount} {}", if *levels { "levels" } else {"points"}),

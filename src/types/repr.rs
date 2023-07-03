@@ -21,6 +21,8 @@ pub struct InterRepr {
     pub objectives: BTreeMap<RStr, RStr>,
     pub functions: Vec<(RStr, Vec<Command>)>,
     pub recipes: BTreeMap<RStr, String>,
+    // /// all of the standard library functions it uses
+    // pub std_imports: BTreeSet<RStr>,
 }
 
 impl InterRepr {
@@ -31,6 +33,7 @@ impl InterRepr {
             objectives: BTreeMap::new(),
             functions: Vec::new(),
             recipes: BTreeMap::new(),
+            // std_imports: BTreeSet::new(),
         }
     }
 }

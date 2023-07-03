@@ -193,8 +193,21 @@ fn selector_block(
 }
 
 fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
-    Ok(vec![Command::Teleport {
-        target: selector.stringify()?,
-        destination: Coordinate::try_from(body)?,
-    }])
+    let target = selector.stringify()?;
+
+    if let Ok(destination) = Coordinate::try_from(body) {
+        Ok(vec![Command::Teleport {
+            target,
+            destination,
+        }])
+    } else if let Syntax::Selector(sel) = body {
+        Ok(vec![Command::TeleportTo {
+            target,
+            destination: sel.stringify()?,
+        }])
+    } else {
+        Err(format!(
+            "Expected coordinates or target for `tp` body; got `{body:?}`"
+        ))
+    }
 }

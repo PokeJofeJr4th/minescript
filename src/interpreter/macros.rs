@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, fs, path::Path, rc::Rc};
 
 use super::{inner_interpret, InterRepr, Item};
 use crate::{lexer::tokenize, parser::parse, types::prelude::*};
@@ -14,10 +14,9 @@ pub(super) fn macros(
             return effect(properties);
         }
         "function" => {
-            return Ok(vec![Command::Function {
-                func: RStr::try_from(properties)
-                    .map_err(|_| String::from("Function macro should have a string"))?,
-            }])
+            let func = RStr::try_from(properties)
+                .map_err(|e| format!("Function macro should have a string; {e}"))?;
+            return Ok(vec![Command::Function { func }]);
         }
         "import" => {
             let Syntax::String(str) = properties else {
@@ -59,6 +58,10 @@ pub(super) fn macros(
                 ))
             }
         },
+        "raycast" => {
+            unimplemented!("Raycasting is not yet available");
+            return raycast(properties, state, path);
+        }
         "sound" | "playsound" => return sound(properties),
         other => return Err(format!("Unexpected macro invocation `{other}`")),
     }
@@ -342,5 +345,68 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
         volume,
         pitch,
         min_volume,
+    }])
+}
+
+fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Vec<Command>> {
+    let Syntax::Object(obj) = properties else {
+        return Err(format!("Raycast macro expects an object, not {properties:?}"))
+    };
+    let mut max = 0;
+    let mut step = 0.0;
+    let mut callback_buf = Vec::new();
+    let mut callback = None;
+    for (k, v) in obj {
+        match &**k {
+            "max" => {
+                let Syntax::Integer(int) = v else {
+                    return Err(format!("Expected integer for raycast max; got `{v:?}`"))
+                };
+                max = *int;
+            }
+            "step" | "amount" => {
+                if let Syntax::Integer(int) = v {
+                    step = *int as f32;
+                } else if let Syntax::Float(float) = v {
+                    step = *float;
+                } else {
+                    return Err(format!("Expected number as raycast step size; got `{v:?}`"));
+                }
+            }
+            "callback" | "hit" => match v {
+                Syntax::String(str) => callback = Some(str.clone()),
+                Syntax::Function(name, body) => {
+                    let new_body = inner_interpret(body, state, path)?;
+                    state.functions.push((name.clone(), new_body));
+                    callback = Some(name.clone());
+                }
+                other => callback_buf = inner_interpret(other, state, path)?,
+            },
+            other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
+        }
+    }
+    let hash = get_hash(properties);
+
+    if !callback_buf.is_empty() {
+        let func_name: RStr = format!("closure/callback_{hash:x}").into();
+        state.functions.push((func_name.clone(), callback_buf));
+        callback = Some(func_name);
+    }
+
+    let Some(callback) = callback else {
+        return Err(String::from("Raycast macro must specify a callback function"))
+    };
+
+    let closure_name: Rc<str> = format!("closure/{hash:x}").into();
+
+    todo!("gotta get this thingy going");
+
+    state.functions.push((closure_name.clone(), vec![]));
+
+    Ok(vec![Command::Execute {
+        options: vec![ExecuteOption::Summon {
+            ident: "marker".into(),
+        }],
+        cmd: Box::new(Command::Function { func: closure_name }),
     }])
 }

@@ -26,6 +26,7 @@ pub fn compile(src: &InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         .to_json(),
         ..Default::default()
     };
+
     let mut load = format!("say {namespace}, a datapack created with MineScript");
     for (objective, trigger) in &src.objectives {
         load.push('\n');
