@@ -344,6 +344,7 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
     let mut max = 0;
     let mut step = 0.0;
     let mut callback = Vec::new();
+    let mut each = Vec::new();
     for (k, v) in obj {
         match &**k {
             "max" => {
@@ -362,13 +363,22 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
                 }
             }
             "callback" | "hit" => match v {
-                Syntax::String(str) => callback = vec![Command::Function { func: str.clone() }],
+                Syntax::String(str) => callback.push(Command::Function { func: str.clone() }),
                 Syntax::Function(name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
-                    callback = vec![Command::Function { func: name.clone() }];
+                    callback.push(Command::Function { func: name.clone() });
                 }
-                other => callback = inner_interpret(other, state, path)?,
+                other => callback.extend(inner_interpret(other, state, path)?),
+            },
+            "each" => match v {
+                Syntax::String(str) => each.push(Command::Function { func: str.clone() }),
+                Syntax::Function(name, body) => {
+                    let new_body = inner_interpret(body, state, path)?;
+                    state.functions.push((name.clone(), new_body));
+                    each.push(Command::Function { func: name.clone() });
+                }
+                other => each.extend(inner_interpret(other, state, path)?),
             },
             other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
         }
@@ -376,7 +386,7 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
     let hash = get_hash(properties);
 
     if callback.is_empty() {
-        return Err(String::from("Raycast requires a callback function"));
+        return Err(String::from("Raycast requires a hit/callback function"));
     };
 
     let closure_name: RStr = format!("closure/{hash:x}").into();
@@ -415,13 +425,12 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
     ];
     state.functions.push((closure_name.clone(), closure_fn));
 
-    let loop_fn = vec![
+    each.extend([
         // tp @s ^ ^ ^1
         Command::Teleport {
             target: Selector::s(),
             destination: Coordinate::Angular(0.0, 0.0, step),
         },
-        Command::Raw("particle minecraft:campfire_signal_smoke".into()),
         // timer ++
         Command::ScoreAdd {
             target: "%timer".into(),
@@ -451,8 +460,8 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
                 func: loop_name.clone(),
             }),
         },
-    ];
-    state.functions.push((loop_name, loop_fn));
+    ]);
+    state.functions.push((loop_name, each));
 
     Ok(vec![Command::Execute {
         options: vec![ExecuteOption::Summon {
