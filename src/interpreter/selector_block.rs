@@ -59,7 +59,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
             }))
         }
         // named selector score
-        Syntax::ColonSelector(sel, objective) => Ok(nbt!({
+        Syntax::SelectorColon(sel, objective) => Ok(nbt!({
             score: nbt!({name: sel.stringify()?.to_string(), objective: objective})
         })),
         // entity name

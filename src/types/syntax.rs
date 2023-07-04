@@ -17,7 +17,9 @@ pub enum Syntax {
     /// A selector
     Selector(Selector<Syntax>),
     /// A selector with a colon and a score name
-    ColonSelector(Selector<Syntax>, RStr),
+    SelectorColon(Selector<Syntax>, RStr),
+    /// A selector with an nbt path in the form of `@s.Inventory[42].tag`
+    SelectorNbt(Selector<Syntax>, NbtPath),
     /// A binary operation like x += 2
     BinaryOp(OpLeft, Operation, Box<Syntax>),
     /// A block of the form `if left op right {content}`
@@ -89,9 +91,15 @@ impl Hash for Syntax {
             Self::Object(map) => map.hash(state),
             Self::Array(arr) => arr.hash(state),
             Self::Selector(sel) => sel.hash(state),
-            Self::ColonSelector(sel, ident) => {
+            Self::SelectorColon(sel, ident) => {
                 sel.hash(state);
                 ident.hash(state);
+            }
+            Self::SelectorNbt(sel, nbt) => {
+                sel.hash(state);
+                for nbt in nbt {
+                    nbt.hash(state);
+                }
             }
             Self::BinaryOp(left, op, right) => {
                 left.hash(state);

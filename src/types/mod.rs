@@ -13,7 +13,7 @@ pub mod prelude {
     use std::rc::Rc;
 
     pub use super::command::{Command, Coordinate, ExecuteOption};
-    pub use super::nbt::Nbt;
+    pub use super::nbt::{Nbt, NbtPathPart};
     pub use super::repr::{CompiledRepr, InterRepr, Item};
     pub use super::selector::{Selector, SelectorType};
     pub use super::syntax::{
@@ -24,6 +24,7 @@ pub mod prelude {
 
     pub type SResult<T> = Result<T, String>;
     pub type RStr = Rc<str>;
+    pub type NbtPath = Vec<NbtPathPart>;
 
     pub fn get_hash<T: Hash>(obj: T) -> u64 {
         let mut hasher = DefaultHasher::new();

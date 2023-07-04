@@ -56,11 +56,56 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
                     break 'm;
                 };
                 return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
+            } else if tokens.peek() == Some(&Token::Dot) {
+                return Ok(Syntax::SelectorNbt(sel.clone(), parse_nbt_path(tokens)?));
             }
         }
     }
     // println!("{first:?}");
     Ok(first)
+}
+
+/// get an nbt path, like `.Inventory[42].tag`
+fn parse_nbt_path<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<NbtPath> {
+    let mut path_buf: NbtPath = Vec::new();
+    loop {
+        match tokens.peek() {
+            // `___.tag`
+            Some(Token::Dot) => {
+                tokens.next();
+                match tokens.next() {
+                    Some(Token::Identifier(ident)) => path_buf.push(NbtPathPart::Ident(ident)),
+                    other => {
+                        return Err(format!(
+                            "Expected identifier after `.` in NBT path; got `{other:?}`"
+                        ))
+                    }
+                }
+            }
+            // `___[42]`
+            Some(Token::LSquare) => {
+                tokens.next();
+                match tokens.next() {
+                    Some(Token::Integer(int @ 0..)) => {
+                        #[allow(clippy::cast_sign_loss)]
+                        // we know the integer is positive because of the match statement
+                        path_buf.push(NbtPathPart::Index(int as u32));
+                        if tokens.next() != Some(Token::RSquare) {
+                            return Err(format!("Expected `]` after `[{int}` in NBT path"));
+                        }
+                    }
+                    other => {
+                        return Err(format!(
+                            "Expected number after `.` in NBT path; got `{other:?}`"
+                        ))
+                    }
+                }
+            }
+            // something else; end the thingy
+            _ => break,
+        }
+    }
+    Ok(path_buf)
 }
 
 #[allow(clippy::cast_precision_loss)]
@@ -86,6 +131,7 @@ fn extract_float<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult
     })
 }
 
+/// get a list of statements with the given closing character; like `{...}` or `(...)`
 fn parse_block<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     closing: &Token,
@@ -123,6 +169,7 @@ fn parse_block<T: Iterator<Item = Token>>(
         )
 }
 
+/// get and consume an operation from the next token(s)
 fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operation> {
     let val = match tokens.peek() {
         Some(Token::Colon) => Some(Operation::Colon),
@@ -160,6 +207,7 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
     val
 }
 
+/// parse a statement that starts with an identifier
 #[allow(clippy::too_many_lines)]
 fn parse_identifier<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
@@ -293,43 +341,43 @@ fn parse_identifier<T: Iterator<Item = Token>>(
     }
 }
 
+/// parse a statement that starts with `@`
 fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
-    {
-        let Some(Token::Identifier(identifier)) = tokens.next() else {
-            return Err("Expected identifier after `@`".to_string())
-        };
-        match identifier.as_ref() {
-            "s" | "p" | "e" | "a" | "r" => {
-                let mut statements_buf = BTreeMap::new();
-                if tokens.peek() == Some(&Token::LSquare) {
-                    tokens.next();
-                    while let Some(tok) = tokens.next() {
-                        if tok == Token::RSquare {
-                            tokens.next();
-                            break;
-                        }
-                        let Token::Identifier(ident) = tok else {
-                            return Err(format!("Expected a selector parameter; got `{tok:?}`"))
-                        };
-                        let Some(Token::Equal) = tokens.next() else {
-                            return Err(String::from("Expected `=` for selector property"))
-                        };
-                        statements_buf.insert(ident.clone(), parse(tokens)?);
+    let Some(Token::Identifier(identifier)) = tokens.next() else {
+        return Err("Expected identifier after `@`".to_string())
+    };
+    match identifier.as_ref() {
+        "s" | "p" | "e" | "a" | "r" => {
+            let mut selector_buf = BTreeMap::new();
+            if tokens.peek() == Some(&Token::LSquare) {
+                tokens.next();
+                while let Some(tok) = tokens.next() {
+                    if tok == Token::RSquare {
+                        break;
+                    } else if tok == Token::Comma {
+                        continue;
                     }
+                    let Token::Identifier(ident) = tok else {
+                        return Err(format!("Expected a selector parameter; got `{tok:?}`"))
+                    };
+                    let Some(Token::Equal) = tokens.next() else {
+                        return Err(String::from("Expected `=` for selector property"))
+                    };
+                    selector_buf.insert(ident.clone(), parse(tokens)?);
                 }
-                Ok(Syntax::Selector(Selector {
-                    selector_type: match identifier.as_ref() {
-                        "s" => SelectorType::S,
-                        "p" => SelectorType::P,
-                        "e" => SelectorType::E,
-                        "a" => SelectorType::A,
-                        "r" => SelectorType::R,
-                        _ => unreachable!(),
-                    },
-                    args: statements_buf,
-                }))
             }
-            _ => Ok(Syntax::Macro(identifier, Box::new(parse(tokens)?))),
+            Ok(Syntax::Selector(Selector {
+                selector_type: match identifier.as_ref() {
+                    "s" => SelectorType::S,
+                    "p" => SelectorType::P,
+                    "e" => SelectorType::E,
+                    "a" => SelectorType::A,
+                    "r" => SelectorType::R,
+                    _ => unreachable!(),
+                },
+                args: selector_buf,
+            }))
         }
+        _ => Ok(Syntax::Macro(identifier, Box::new(parse(tokens)?))),
     }
 }

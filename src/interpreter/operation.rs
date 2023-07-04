@@ -68,7 +68,7 @@ pub(super) fn operation(
             }])
         }
         // x = @r.y
-        (op, Syntax::ColonSelector(sel, ident)) => Ok(vec![Command::ScoreOperation {
+        (op, Syntax::SelectorColon(sel, ident)) => Ok(vec![Command::ScoreOperation {
             target: target_name,
             target_objective,
             operation: op,

@@ -216,3 +216,9 @@ impl TryFrom<Syntax> for Nbt {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NbtPathPart {
+    Ident(RStr),
+    Index(u32),
+}
