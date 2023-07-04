@@ -1,8 +1,14 @@
+/// types related to commands, including `Command`, `Coordinate`, and `ExecuteOption`
 mod command;
+/// types related to NBT data, including `Nbt` and `NbtPathPart`
 mod nbt;
+/// types related to the representation of data, including `CompiledRepr` and `InterRepr`
 mod repr;
+/// types related to selectors, including `Selector` and `SelectorType`
 mod selector;
+/// types related to the syntax tree, including `Syntax`, `Operation`, and `BlockType`
 mod syntax;
+/// the `Token` type
 mod token;
 
 pub use prelude::*;
@@ -26,6 +32,7 @@ pub mod prelude {
     pub type RStr = Rc<str>;
     pub type NbtPath = Vec<NbtPathPart>;
 
+    /// use a default hasher to get the hash of the given object
     pub fn get_hash<T: Hash>(obj: T) -> u64 {
         let mut hasher = DefaultHasher::new();
         obj.hash(&mut hasher);

@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use super::prelude::*;
 
+/// One Minecraft command
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     /// A user-made command that passes through the compiler unchanged
@@ -155,7 +156,7 @@ impl Command {
 
     /// Create an Execute command that runs the specified other command.
     ///
-    /// If the other command is an execute, it combines them into one.
+    /// If the other command is an execute, it telescopes their options into one.
     /// If there are no execute subcommands, it returns the given command.
     /// If there is more than one given command, it returns a function call
     pub fn execute<T: Display>(

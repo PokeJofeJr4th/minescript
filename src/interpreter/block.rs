@@ -3,8 +3,8 @@ use std::path::Path;
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
-/// # Panics
-/// If `block_type` is If or Unless. Use `interpret_if` for these cases
+/// ## Panics
+/// If `block_type` is `If` or `Unless`. Use `interpret_if` for these cases
 pub(super) fn block(
     block_type: BlockType,
     left: &OpLeft,
@@ -74,6 +74,7 @@ pub(super) fn block(
     })
 }
 
+/// get the command for an `if|unless` block
 #[allow(clippy::too_many_lines)]
 pub(super) fn interpret_if(
     invert: bool,
@@ -181,6 +182,7 @@ pub(super) fn interpret_if(
     Ok(vec![Command::execute(options, content, hash, state)])
 }
 
+/// interpret a block of the form `on attacker {...}`
 pub(super) fn ident_block(
     block_type: IdentBlockType,
     ident: RStr,

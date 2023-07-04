@@ -2,9 +2,13 @@ use std::path::Path;
 
 use crate::types::prelude::*;
 
+/// handles blocks of the form `if <condition> {...}`
 mod block;
+/// handles macros like `@item {...}`
 mod macros;
+/// handles operations like `counter += 1;`
 mod operation;
+/// handles selector blocks like `as @s {...}`
 mod selector_block;
 
 pub fn interpret(src: &Syntax, path: &Path) -> SResult<InterRepr> {
@@ -79,9 +83,10 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
     Ok(Vec::new())
 }
 
+/// ## Testing Only
 /// This function allows a test to expose `inner_interpret` without interacting with `IntermediateRepr`
 ///
-/// It should not be used for any real application, since the side effects on the state are vital to the project's function
+/// It should normally not be used, since the side effects on the state are vital to the project's function
 #[cfg(test)]
 pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
     inner_interpret(src, &mut InterRepr::new(), Path::new(""))

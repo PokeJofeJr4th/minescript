@@ -5,6 +5,7 @@ use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 use crate::types::SelectorBlockType as SBT;
 
+/// interpret any selector block of the form `tp @s (...)`
 pub(super) fn block(
     block_type: SBT,
     selector: &Selector<Syntax>,
@@ -20,6 +21,7 @@ pub(super) fn block(
     }
 }
 
+/// interpret a tellraw block like `tellraw @a {...}`
 fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
     let mut nbt_buf: Vec<Nbt> = Vec::new();
 
@@ -39,6 +41,7 @@ fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Comm
     )])
 }
 
+/// get a tellraw component
 fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
     match src {
         // a given object
@@ -103,6 +106,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
     }
 }
 
+/// interpret a block of type `damage @p {...}`
 fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
     let mut amount = 1;
     let mut damage_type: RStr = "entity-attack".into();
@@ -148,6 +152,7 @@ fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Comma
     }])
 }
 
+/// interpret a block of the form `at @s {...}`
 fn selector_block(
     block_type: SBT,
     selector: &Selector<Syntax>,
@@ -190,6 +195,9 @@ fn selector_block(
     )])
 }
 
+/// interpret a teleport block
+/// `tp @p`
+/// `tp (~ ~ ~)`
 fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
     let target = selector.stringify()?;
 

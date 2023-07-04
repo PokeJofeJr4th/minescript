@@ -1,6 +1,7 @@
 use super::InterRepr;
 use crate::types::prelude::*;
 
+/// interpret an operation, like `x += 1`
 #[allow(clippy::too_many_lines)]
 pub(super) fn operation(
     target: &OpLeft,

@@ -9,10 +9,15 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+/// transforms an `InterRepr` into a set of files that need to be written to a datapack
 mod compiler;
+/// transforms a syntax tree into an `InterRepr` containing the datapack's items, functions, and recipes
 mod interpreter;
+/// transforms a string into a stream of `Token`s
 mod lexer;
+/// transforms a stream of `Token`s into a syntax tree
 mod parser;
+/// defines all relevant types
 mod types;
 
 #[cfg(test)]
