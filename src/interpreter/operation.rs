@@ -213,17 +213,22 @@ pub(super) fn nbt(
     op: Operation,
     right: &Syntax,
 ) -> SResult<Vec<Command>> {
+    if op != Operation::Equal {
+        return Err(format!(
+            "NBT operations only support the `=` operation, not `{op}`"
+        ));
+    }
     match right {
-        Syntax::Array(arr) => todo!(),
-        Syntax::Object(obj) => todo!(),
-        Syntax::String(str) => Ok(vec![Command::DataMergeValue {
+        Syntax::Array(_)
+        | Syntax::Object(_)
+        | Syntax::String(_)
+        | Syntax::Integer(_)
+        | Syntax::Float(_) => Ok(vec![Command::DataMergeValue {
             target_type: "entity".into(),
             target: sel.stringify()?.to_string().into(),
             target_path: nbt,
-            value: format!("\"{str}\"").into(),
+            value: Nbt::try_from(right)?.to_string().into(),
         }]),
-        Syntax::Integer(int) => todo!(),
-        Syntax::Float(fl) => todo!(),
         Syntax::SelectorNbt(rhs_sel, rhs_nbt) => Ok(vec![Command::DataMergeFrom {
             target_type: "entity".into(),
             target: sel.stringify()?.to_string().into(),
