@@ -164,7 +164,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     },
                 ],
                 item.on_use.clone(),
-                on_use,
+                &on_use,
                 src,
             );
             tick_buf.push_str(&execute_fn.stringify(namespace));

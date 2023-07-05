@@ -66,6 +66,9 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         Syntax::BinaryOp(OpLeft::SelectorDoubleColon(sel, ident), op, right) => {
             return operation::double_colon(sel, ident, *op, right)
         }
+        Syntax::BinaryOp(OpLeft::SelectorNbt(sel, nbt), op, right) => {
+            return operation::nbt(sel, nbt.clone(), *op, right)
+        }
         // x += 1
         Syntax::BinaryOp(target, op, syn) => return operation::operation(target, *op, syn, state),
         // tp @s (~ ~10 ~)

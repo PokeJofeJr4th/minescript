@@ -18,6 +18,8 @@ pub enum Syntax {
     Selector(Selector<Syntax>),
     /// A selector with a colon and a score name
     SelectorColon(Selector<Syntax>, RStr),
+    /// A selector with a double colon and a special identifier
+    SelectorDoubleColon(Selector<Syntax>, RStr),
     /// A selector with an nbt path in the form of `@s.Inventory[42].tag`
     SelectorNbt(Selector<Syntax>, NbtPath),
     /// A binary operation like x += 2
@@ -91,7 +93,7 @@ impl Hash for Syntax {
             Self::Object(map) => map.hash(state),
             Self::Array(arr) => arr.hash(state),
             Self::Selector(sel) => sel.hash(state),
-            Self::SelectorColon(sel, ident) => {
+            Self::SelectorColon(sel, ident) | Self::SelectorDoubleColon(sel, ident) => {
                 sel.hash(state);
                 ident.hash(state);
             }
@@ -149,6 +151,8 @@ pub enum OpLeft {
     SelectorColon(Selector<Syntax>, RStr),
     /// A specified entity's special property
     SelectorDoubleColon(Selector<Syntax>, RStr),
+    /// A specified entity with an NBT path
+    SelectorNbt(Selector<Syntax>, NbtPath),
 }
 
 impl OpLeft {
@@ -158,7 +162,7 @@ impl OpLeft {
             Self::Selector(selector) | Self::SelectorColon(selector, _) => {
                 Ok(format!("{}", selector.stringify()?).into())
             }
-            Self::SelectorDoubleColon(_, _) => Err(format!(
+            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) => Err(format!(
                 "{self:?} isn't a score. This is a compiler error. Please notify the developers"
             )),
         }
@@ -168,7 +172,7 @@ impl OpLeft {
         match self {
             Self::Ident(_) | Self::Selector(_) => Ok("dummy".into()),
             Self::Colon(_, score) | Self::SelectorColon(_, score) => Ok(score.clone()),
-            Self::SelectorDoubleColon(_, _) => Err(format!(
+            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) => Err(format!(
                 "{self:?} isn't a score. This is a compiler error. Please notify the developers"
             )),
         }

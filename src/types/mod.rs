@@ -32,6 +32,27 @@ pub mod prelude {
     pub type RStr = Rc<str>;
     pub type NbtPath = Vec<NbtPathPart>;
 
+    pub fn fmt_nbt_path(path: &[NbtPathPart]) -> String {
+        let mut iter = path.iter();
+        let mut ret_buf = String::new();
+        let Some(NbtPathPart::Ident(id)) = iter.next() else { panic!() };
+        ret_buf.push_str(id);
+        for item in iter {
+            match item {
+                NbtPathPart::Ident(ident) => {
+                    ret_buf.push('.');
+                    ret_buf.push_str(ident);
+                }
+                NbtPathPart::Index(idx) => {
+                    ret_buf.push('[');
+                    ret_buf.push_str(&format!("{idx}"));
+                    ret_buf.push(']');
+                }
+            }
+        }
+        ret_buf
+    }
+
     /// use a default hasher to get the hash of the given object
     pub fn get_hash<T: Hash>(obj: T) -> u64 {
         let mut hasher = DefaultHasher::new();

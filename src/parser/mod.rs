@@ -34,14 +34,22 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
     if let Syntax::Selector(sel) = &first {
         'm: {
             // println!("Selector");
-            if tokens.peek() == Some(&Token::Colon) || tokens.peek() == Some(&Token::DoubleColon) {
+            if tokens.peek() == Some(&Token::Colon)
+                || tokens.peek() == Some(&Token::DoubleColon)
+                || tokens.peek() == Some(&Token::Dot)
+            {
                 let tok = tokens.next();
                 let Some(Token::Identifier(ident)) = tokens.next() else {
-                    return Err(String::from("Selectors can only be indexed with `:<identifier>` or `::<identifier>`"))
+                    return Err(String::from("Selectors can only be indexed with `:<identifier>`, `::<identifier>`, or `.<nbt>`"))
                 };
                 let left = match tok {
                     Some(Token::Colon) => OpLeft::SelectorColon(sel.clone(), ident),
                     Some(Token::DoubleColon) => OpLeft::SelectorDoubleColon(sel.clone(), ident),
+                    Some(Token::Dot) => {
+                        let mut nbt = vec![NbtPathPart::Ident(ident)];
+                        nbt.extend(parse_nbt_path(tokens)?);
+                        OpLeft::SelectorNbt(sel.clone(), nbt)
+                    }
                     _ => unreachable!(),
                 };
                 let (op, right) = if let Some(op) = get_op(tokens) {
@@ -54,12 +62,18 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
                     tokens.next();
                     (Operation::SubEq, Syntax::Integer(1))
                 } else {
-                    // don't return anything if it's not an increment
-                    break 'm;
+                    match left {
+                        OpLeft::SelectorColon(sel, ident) => {
+                            return Ok(Syntax::SelectorColon(sel, ident))
+                        }
+                        OpLeft::SelectorDoubleColon(sel, ident) => {
+                            return Ok(Syntax::SelectorDoubleColon(sel, ident))
+                        }
+                        OpLeft::SelectorNbt(sel, nbt) => return Ok(Syntax::SelectorNbt(sel, nbt)),
+                        _ => unreachable!(),
+                    }
                 };
                 return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
-            } else if tokens.peek() == Some(&Token::Dot) {
-                return Ok(Syntax::SelectorNbt(sel.clone(), parse_nbt_path(tokens)?));
             }
         }
     }

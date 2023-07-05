@@ -190,7 +190,7 @@ fn selector_block(
     Ok(vec![Command::execute(
         res_buf,
         inner,
-        get_hash(body),
+        &format!("{:x}", get_hash(body)),
         state,
     )])
 }

@@ -212,19 +212,19 @@ pub(super) fn ident_block(
         IdentBlockType::On => Ok(vec![Command::execute(
             vec![ExecuteOption::On { ident }],
             content,
-            get_hash(body),
+            &format!("{:x}", get_hash(body)),
             state,
         )]),
         IdentBlockType::Summon => Ok(vec![Command::execute(
             vec![ExecuteOption::Summon { ident }],
             content,
-            get_hash(body),
+            &format!("{:x}", get_hash(body)),
             state,
         )]),
         IdentBlockType::Anchored => Ok(vec![Command::execute(
             vec![ExecuteOption::Anchored { ident }],
             content,
-            get_hash(body),
+            &format!("{:x}", get_hash(body)),
             state,
         )]),
     }

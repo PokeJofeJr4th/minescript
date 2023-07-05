@@ -54,6 +54,20 @@ pub enum Command {
         target: Selector<String>,
         levels: bool,
     },
+    DataMergeFrom {
+        target_type: RStr,
+        target: RStr,
+        target_path: NbtPath,
+        src_type: RStr,
+        src: RStr,
+        src_path: NbtPath,
+    },
+    DataMergeValue {
+        target_type: RStr,
+        target: RStr,
+        target_path: NbtPath,
+        value: RStr,
+    },
     /// execute a command with certain options
     Execute {
         options: Vec<ExecuteOption>,
@@ -150,7 +164,9 @@ impl Command {
             Self::Damage { target, amount, damage_type, attacker } => format!("damage {target} {amount} {damage_type} by {attacker}"),
             Self::XpAdd { target, amount, levels } => format!("xp add {target} {amount} {}", if *levels { "levels" } else {"points"}),
             Self::XpSet { target, amount, levels } => format!("xp set {target} {amount} {}", if *levels { "levels"} else {"points"}),
-            Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"})
+            Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"}),
+            Self::DataMergeFrom { target_type, target, target_path, src_type, src, src_path } => format!("data modify {target_type} {target} {} merge from {src_type} {src} {}", fmt_nbt_path(target_path), fmt_nbt_path(src_path)),
+            Self::DataMergeValue { target_type, target, target_path, value } => format!("data modify {target_type} {target} {} merge value {value}", fmt_nbt_path(target_path))
         }
     }
 
@@ -159,10 +175,10 @@ impl Command {
     /// If the other command is an execute, it telescopes their options into one.
     /// If there are no execute subcommands, it returns the given command.
     /// If there is more than one given command, it returns a function call
-    pub fn execute<T: Display>(
+    pub fn execute(
         mut options: Vec<ExecuteOption>,
         cmd: Vec<Self>,
-        hash: T,
+        hash: &str,
         state: &mut InterRepr,
     ) -> Self {
         match &cmd[..] {

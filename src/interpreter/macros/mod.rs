@@ -221,7 +221,7 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
                 selector: Selector::s(),
             }],
             callback,
-            format!("callback_{hash:x}"),
+            &format!("callback_{hash:x}"),
             state,
         ),
         // kill @s

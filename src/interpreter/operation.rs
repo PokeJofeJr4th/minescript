@@ -205,3 +205,33 @@ pub(super) fn double_colon(
         _ => Err(format!("Can't operate on XP with `{op}` `{right:?}`")),
     }
 }
+
+/// apply an operation where the left is a selector with an nbt path
+pub(super) fn nbt(
+    sel: &Selector<Syntax>,
+    nbt: NbtPath,
+    op: Operation,
+    right: &Syntax,
+) -> SResult<Vec<Command>> {
+    match right {
+        Syntax::Array(arr) => todo!(),
+        Syntax::Object(obj) => todo!(),
+        Syntax::String(str) => Ok(vec![Command::DataMergeValue {
+            target_type: "entity".into(),
+            target: sel.stringify()?.to_string().into(),
+            target_path: nbt,
+            value: format!("\"{str}\"").into(),
+        }]),
+        Syntax::Integer(int) => todo!(),
+        Syntax::Float(fl) => todo!(),
+        Syntax::SelectorNbt(rhs_sel, rhs_nbt) => Ok(vec![Command::DataMergeFrom {
+            target_type: "entity".into(),
+            target: sel.stringify()?.to_string().into(),
+            target_path: nbt,
+            src_type: "entity".into(),
+            src: rhs_sel.stringify()?.to_string().into(),
+            src_path: rhs_nbt.clone(),
+        }]),
+        _ => todo!(),
+    }
+}
