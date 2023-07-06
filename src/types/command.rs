@@ -54,7 +54,7 @@ pub enum Command {
         target: Selector<String>,
         levels: bool,
     },
-    DataMergeFrom {
+    DataSetFrom {
         target_type: RStr,
         target: RStr,
         target_path: NbtPath,
@@ -62,7 +62,12 @@ pub enum Command {
         src: RStr,
         src_path: NbtPath,
     },
-    DataMergeValue {
+    DataGet {
+        target_type: RStr,
+        target: RStr,
+        target_path: NbtPath,
+    },
+    DataSetValue {
         target_type: RStr,
         target: RStr,
         target_path: NbtPath,
@@ -165,8 +170,9 @@ impl Command {
             Self::XpAdd { target, amount, levels } => format!("xp add {target} {amount} {}", if *levels { "levels" } else {"points"}),
             Self::XpSet { target, amount, levels } => format!("xp set {target} {amount} {}", if *levels { "levels"} else {"points"}),
             Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"}),
-            Self::DataMergeFrom { target_type, target, target_path, src_type, src, src_path } => format!("data modify {target_type} {target} {} merge from {src_type} {src} {}", fmt_nbt_path(target_path), fmt_nbt_path(src_path)),
-            Self::DataMergeValue { target_type, target, target_path, value } => format!("data modify {target_type} {target} {} merge value {value}", fmt_nbt_path(target_path))
+            Self::DataSetFrom { target_type, target, target_path, src_type, src, src_path } => format!("data modify {target_type} {target} {} set from {src_type} {src} {}", fmt_nbt_path(target_path), fmt_nbt_path(src_path)),
+            Self::DataSetValue { target_type, target, target_path, value } => format!("data modify {target_type} {target} {} set value {value}", fmt_nbt_path(target_path)),
+            Self::DataGet { target_type, target, target_path } => format!("data get {target_type} {target} {}", fmt_nbt_path(target_path))
         }
     }
 

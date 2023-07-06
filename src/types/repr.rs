@@ -64,4 +64,14 @@ impl CompiledRepr {
             recipes: BTreeMap::new(),
         }
     }
+
+    /// insert a function into the object, adding it to the end of an existing function if necessary.
+    pub fn insert_fn(&mut self, name: &str, func: &str) {
+        match self.functions.get_mut(name) {
+            Some(existing) => existing.push_str(func),
+            None => {
+                self.functions.insert(name.into(), func.into());
+            }
+        }
+    }
 }

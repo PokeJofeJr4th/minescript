@@ -3,20 +3,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::types::prelude::*;
 
 pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
-    // @raycast {
-    //   max
-    //   amount
-    //   callback
-    // }
-    // summon marker {
-    //   for timer in 0..max {
-    //     tp @s (^ ^ ^{amount});
-    //     unless block #air timer = max;
-    //   }
-    //   at @s {callback}
-    //   kill @s
-    // }
-
     let mut compiled = CompiledRepr::new(namespace);
 
     let mut load = format!("say {namespace}, a datapack created with MineScript");
@@ -28,7 +14,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         load.push(' ');
         load.push_str(trigger);
     }
-    compiled.functions.insert("load".into(), load);
+    compiled.insert_fn("load", &load);
     compile_items(src, namespace, &mut compiled)?;
     // put all the functions in
     for (name, statements) in &src.functions {
@@ -38,12 +24,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             fn_buf.push('\n');
             fn_buf.push_str(&statement.stringify(namespace));
         }
-        match compiled.functions.get_mut(&name) {
-            Some(func) => func.push_str(&fn_buf),
-            None => {
-                compiled.functions.insert(name.clone(), fn_buf);
-            }
-        }
+        compiled.insert_fn(&name, &fn_buf);
     }
     // make all the recipes
     for (name, content) in &src.recipes {
@@ -66,9 +47,9 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             })
             .to_json(),
         );
-        compiled.functions.insert(
-          format!("craft/{name}").into(),
-          format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
+        compiled.insert_fn(
+          &format!("craft/{name}"),
+          &format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
           give=compiled.functions.get::<RStr>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
         );
     }
@@ -99,9 +80,9 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         );
 
         // make the give function
-        compiled.functions.insert(
-            format!("give/{ident}").into(),
-            format!(
+        compiled.insert_fn(
+            &format!("give/{ident}"),
+            &format!(
                 "give @s minecraft:{base}{nbt}",
                 base = item.base,
                 nbt = Nbt::Object(give_obj)
@@ -110,7 +91,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
 
         // make the consume function
         if !item.on_consume.is_empty() {
-            let on_consume = format!("consume/{}", item.name).into();
+            let on_consume: RStr = format!("consume/{}", item.name).into();
             let advancement_content = nbt!({
               criteria: nbt!({
                 requirement: nbt!({
@@ -138,7 +119,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
             compiled
                 .advancements
                 .insert(format!("consume/{ident}").into(), advancement_content);
-            compiled.functions.insert(on_consume, consume_fn);
+            compiled.insert_fn(&on_consume, &consume_fn);
         }
 
         // make the use function
@@ -179,7 +160,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
 
         // make the while_using function
         if !item.while_using.is_empty() {
-            let while_using = format!("using/{}", item.name).into();
+            let while_using: RStr = format!("using/{}", item.name).into();
             let advancement_content = nbt!({
               criteria: nbt!({
                 requirement: nbt!({
@@ -207,12 +188,14 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
             compiled
                 .advancements
                 .insert(format!("use/{ident}").into(), advancement_content);
-            compiled.functions.insert(while_using, fn_content);
+            compiled.insert_fn(&while_using, &fn_content);
         }
     }
     for base_score in using_base_item_scores {
         tick_buf.push_str(&format!("scoreboard players reset @a {base_score}\n"));
     }
-    compiled.functions.insert("tick".into(), tick_buf);
+    if !tick_buf.is_empty() {
+        compiled.insert_fn("tick", &tick_buf);
+    }
     Ok(())
 }

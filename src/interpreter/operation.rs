@@ -2,6 +2,9 @@ use super::InterRepr;
 use crate::types::prelude::*;
 
 /// interpret an operation, like `x += 1`
+///
+/// ## Panics
+/// If passed a `target` with a double colon or nbt
 #[allow(clippy::too_many_lines)]
 pub(super) fn operation(
     target: &OpLeft,
@@ -53,6 +56,45 @@ pub(super) fn operation(
             )?);
             Ok(vec)
         }
+        (Operation::Equal, Syntax::SelectorNbt(selector, nbt)) => Ok(vec![Command::execute(
+            vec![ExecuteOption::StoreScore {
+                target: target_name,
+                objective: target_objective,
+            }],
+            vec![Command::DataGet {
+                target_type: "entity".into(),
+                target: selector.stringify()?.to_string().into(),
+                target_path: nbt.clone(),
+            }],
+            "",
+            state,
+        )]),
+        (op, Syntax::SelectorNbt(selector, nbt)) => {
+            let hash = get_hash(syn);
+            let mut cmd_buf = vec![Command::Execute {
+                options: vec![ExecuteOption::StoreScore {
+                    target: format!("%{hash:x}").into(),
+                    objective: "dummy".into(),
+                }],
+                cmd: Box::new(Command::DataGet {
+                    target_type: "entity".into(),
+                    target: selector.stringify()?.to_string().into(),
+                    target_path: nbt.clone(),
+                }),
+            }];
+            cmd_buf.extend(operation(
+                target,
+                op,
+                &Syntax::Identifier(format!("{hash:x}").into()),
+                state,
+            )?);
+            cmd_buf.push(Command::ScoreSet {
+                target: format!("%{hash:x}").into(),
+                objective: "dummy".into(),
+                value: 0,
+            });
+            Ok(cmd_buf)
+        }
         // x = y
         (op, Syntax::Identifier(ident)) => {
             if !state.objectives.contains_key(&target_objective) {
@@ -69,11 +111,11 @@ pub(super) fn operation(
             }])
         }
         // x = @r.y
-        (op, Syntax::SelectorColon(sel, ident)) => Ok(vec![Command::ScoreOperation {
+        (op, Syntax::SelectorColon(selector, ident)) => Ok(vec![Command::ScoreOperation {
             target: target_name,
             target_objective,
             operation: op,
-            source: format!("{}", sel.stringify()?).into(),
+            source: format!("{}", selector.stringify()?).into(),
             source_objective: ident.clone(),
         }]),
         // x *= 0
@@ -174,7 +216,7 @@ pub(super) fn operation(
 }
 
 pub(super) fn double_colon(
-    sel: &Selector<Syntax>,
+    selector: &Selector<Syntax>,
     ident: &str,
     op: Operation,
     right: &Syntax,
@@ -192,13 +234,13 @@ pub(super) fn double_colon(
         (Operation::AddEq | Operation::SubEq, Syntax::Integer(int)) => {
             let amount = if op == Operation::AddEq { *int } else { -int };
             Ok(vec![Command::XpAdd {
-                target: sel.stringify()?,
+                target: selector.stringify()?,
                 amount,
                 levels,
             }])
         }
         (Operation::Equal, Syntax::Integer(amount)) => Ok(vec![Command::XpSet {
-            target: sel.stringify()?,
+            target: selector.stringify()?,
             amount: *amount,
             levels,
         }]),
@@ -208,14 +250,14 @@ pub(super) fn double_colon(
 
 /// apply an operation where the left is a selector with an nbt path
 pub(super) fn nbt(
-    sel: &Selector<Syntax>,
+    selector: &Selector<Syntax>,
     nbt: NbtPath,
-    op: Operation,
+    operation: Operation,
     right: &Syntax,
 ) -> SResult<Vec<Command>> {
-    if op != Operation::Equal {
+    if operation != Operation::Equal {
         return Err(format!(
-            "NBT operations only support the `=` operation, not `{op}`"
+            "NBT operations only support the `=` operation, not `{operation}`"
         ));
     }
     match right {
@@ -223,15 +265,15 @@ pub(super) fn nbt(
         | Syntax::Object(_)
         | Syntax::String(_)
         | Syntax::Integer(_)
-        | Syntax::Float(_) => Ok(vec![Command::DataMergeValue {
+        | Syntax::Float(_) => Ok(vec![Command::DataSetValue {
             target_type: "entity".into(),
-            target: sel.stringify()?.to_string().into(),
+            target: selector.stringify()?.to_string().into(),
             target_path: nbt,
             value: Nbt::try_from(right)?.to_string().into(),
         }]),
-        Syntax::SelectorNbt(rhs_sel, rhs_nbt) => Ok(vec![Command::DataMergeFrom {
+        Syntax::SelectorNbt(rhs_sel, rhs_nbt) => Ok(vec![Command::DataSetFrom {
             target_type: "entity".into(),
-            target: sel.stringify()?.to_string().into(),
+            target: selector.stringify()?.to_string().into(),
             target_path: nbt,
             src_type: "entity".into(),
             src: rhs_sel.stringify()?.to_string().into(),
