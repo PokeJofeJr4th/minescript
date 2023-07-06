@@ -20,12 +20,7 @@ pub(super) fn operation(
             .insert(target_objective.clone(), "dummy".into());
     }
     match (op, syn) {
-        (_, Syntax::BinaryOp(OpLeft::Selector(sel), Operation::DoubleColon, syn)) => {
-            let Syntax::Identifier(ident) = &**syn else {
-                return Err(format!(
-                    "A selector can only be `::` indexed with `lvl` or `xp`, not `{syn:?}`"
-                ));
-            };
+        (_, Syntax::SelectorDoubleColon(sel, ident)) => {
             let ident = &**ident;
             let levels = if ident == "lvl" || ident == "level" {
                 true
@@ -56,24 +51,21 @@ pub(super) fn operation(
             )?);
             Ok(vec)
         }
-        (Operation::Equal, Syntax::SelectorNbt(selector, nbt)) => Ok(vec![Command::execute(
-            vec![ExecuteOption::StoreScore {
+        (Operation::Equal, Syntax::SelectorNbt(selector, nbt)) => Ok(vec![Command::Execute {
+            options: vec![ExecuteOption::StoreScore {
                 target: target_name,
                 objective: target_objective,
             }],
-            vec![Command::DataGet {
+            cmd: Box::new(Command::DataGet {
                 target_type: "entity".into(),
                 target: selector.stringify()?.to_string().into(),
                 target_path: nbt.clone(),
-            }],
-            "",
-            state,
-        )]),
+            }),
+        }]),
         (op, Syntax::SelectorNbt(selector, nbt)) => {
-            let hash = get_hash(syn);
             let mut cmd_buf = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
-                    target: format!("%{hash:x}").into(),
+                    target: "".into(),
                     objective: "dummy".into(),
                 }],
                 cmd: Box::new(Command::DataGet {
@@ -85,14 +77,9 @@ pub(super) fn operation(
             cmd_buf.extend(operation(
                 target,
                 op,
-                &Syntax::Identifier(format!("{hash:x}").into()),
+                &Syntax::Identifier("".into()),
                 state,
             )?);
-            cmd_buf.push(Command::ScoreSet {
-                target: format!("%{hash:x}").into(),
-                objective: "dummy".into(),
-                value: 0,
-            });
             Ok(cmd_buf)
         }
         // x = y
