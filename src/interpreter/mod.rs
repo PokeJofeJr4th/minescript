@@ -62,15 +62,6 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         }
         // @function x
         Syntax::Macro(name, properties) => return macros::macros(name, properties, state, path),
-        // @s::xp += 1
-        Syntax::BinaryOp(OpLeft::SelectorDoubleColon(sel, ident), op, right) => {
-            return operation::double_colon(sel, ident, *op, right)
-        }
-        Syntax::BinaryOp(OpLeft::SelectorNbt(sel, nbt), op, right) => {
-            return operation::nbt(sel, nbt.clone(), *op, right)
-        }
-        // x += 1
-        Syntax::BinaryOp(target, op, syn) => return operation::operation(target, *op, syn, state),
         // tp @s (~ ~10 ~)
         Syntax::SelectorBlock(block_type, selector, body) => {
             return selector_block::block(*block_type, selector, body, state, path)
@@ -79,6 +70,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         Syntax::IdentBlock(block_type, ident, body) => {
             return block::ident_block(*block_type, ident.clone(), body, state, path)
         }
+        Syntax::BinaryOp(lhs, op, rhs) => return operation::operation(lhs, *op, rhs, state),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }

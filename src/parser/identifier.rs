@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::types::prelude::*;
 
-use super::{get_op, parse};
+use super::{get_op, parse, parse_nbt_path};
 /// parse a statement that starts with an identifier
 #[allow(clippy::too_many_lines)]
 pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
@@ -30,6 +30,10 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
             Operation::SubEq,
             Box::new(Syntax::Integer(1)),
         ))
+    } else if tokens.peek() == Some(&Token::Dot) {
+        let mut path = vec![NbtPathPart::Ident(id)];
+        path.extend(parse_nbt_path(tokens)?);
+        Ok(Syntax::NbtStorage(path))
     } else if id_ref == "function" {
         let Some(Token::Identifier(func) | Token::String(func)) = tokens.next() else {
                 return Err(String::from("Expected identifier after function"))

@@ -74,6 +74,15 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             };
             return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
         }
+    } else if let Syntax::NbtStorage(nbt) = &first {
+        if Some(&Token::Equal) == tokens.peek() {
+            tokens.next();
+            return Ok(Syntax::BinaryOp(
+                OpLeft::NbtStorage(nbt.clone()),
+                Operation::Equal,
+                Box::new(parse(tokens)?),
+            ));
+        }
     }
     // println!("{first:?}");
     Ok(first)

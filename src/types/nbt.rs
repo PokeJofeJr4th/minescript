@@ -222,3 +222,18 @@ pub enum NbtPathPart {
     Ident(RStr),
     Index(u32),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NbtLocation {
+    Entity(Selector<String>, NbtPath),
+    Storage(NbtPath),
+}
+
+impl NbtLocation {
+    pub fn stringify(&self, namespace: &str) -> String {
+        match self {
+            Self::Entity(sel, nbt) => format!("entity {sel} {}", fmt_nbt_path(nbt)),
+            Self::Storage(nbt) => format!("storage {namespace} {}", fmt_nbt_path(nbt)),
+        }
+    }
+}

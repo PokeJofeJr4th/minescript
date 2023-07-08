@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::prelude::*;
+use super::{nbt::NbtLocation, prelude::*};
 
 /// One Minecraft command
 #[derive(Debug, Clone, PartialEq)]
@@ -17,9 +17,13 @@ pub enum Command {
         level: i32,
     },
     /// kill the target
-    Kill { target: Selector<String> },
+    Kill {
+        target: Selector<String>,
+    },
     /// call a function
-    Function { func: RStr },
+    Function {
+        func: RStr,
+    },
     /// set a score to a value
     ScoreSet {
         target: RStr,
@@ -55,22 +59,14 @@ pub enum Command {
         levels: bool,
     },
     DataSetFrom {
-        target_type: RStr,
-        target: RStr,
-        target_path: NbtPath,
-        src_type: RStr,
-        src: RStr,
-        src_path: NbtPath,
+        target: NbtLocation,
+        src: NbtLocation,
     },
     DataGet {
-        target_type: RStr,
-        target: RStr,
-        target_path: NbtPath,
+        target: NbtLocation,
     },
     DataSetValue {
-        target_type: RStr,
-        target: RStr,
-        target_path: NbtPath,
+        target: NbtLocation,
         value: RStr,
     },
     /// execute a command with certain options
@@ -170,9 +166,9 @@ impl Command {
             Self::XpAdd { target, amount, levels } => format!("xp add {target} {amount} {}", if *levels { "levels" } else {"points"}),
             Self::XpSet { target, amount, levels } => format!("xp set {target} {amount} {}", if *levels { "levels"} else {"points"}),
             Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"}),
-            Self::DataSetFrom { target_type, target, target_path, src_type, src, src_path } => format!("data modify {target_type} {target} {} set from {src_type} {src} {}", fmt_nbt_path(target_path), fmt_nbt_path(src_path)),
-            Self::DataSetValue { target_type, target, target_path, value } => format!("data modify {target_type} {target} {} set value {value}", fmt_nbt_path(target_path)),
-            Self::DataGet { target_type, target, target_path } => format!("data get {target_type} {target} {}", fmt_nbt_path(target_path))
+            Self::DataSetFrom { target, src } => format!("data modify {} set from {}", target.stringify(namespace), src.stringify(namespace)),
+            Self::DataSetValue { target, value } => format!("data modify {} set value {value}", target.stringify(namespace)),
+            Self::DataGet { target } => format!("data get {}", target.stringify(namespace))
         }
     }
 

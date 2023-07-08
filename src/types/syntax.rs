@@ -22,6 +22,8 @@ pub enum Syntax {
     SelectorDoubleColon(Selector<Syntax>, RStr),
     /// A selector with an nbt path in the form of `@s.Inventory[42].tag`
     SelectorNbt(Selector<Syntax>, NbtPath),
+    /// An identifier with an NBT path on the end
+    NbtStorage(NbtPath),
     /// A binary operation like x += 2
     BinaryOp(OpLeft, Operation, Box<Syntax>),
     /// A block of the form `if left op right {content}`
@@ -99,9 +101,10 @@ impl Hash for Syntax {
             }
             Self::SelectorNbt(sel, nbt) => {
                 sel.hash(state);
-                for nbt in nbt {
-                    nbt.hash(state);
-                }
+                nbt.hash(state);
+            }
+            Self::NbtStorage(nbt) => {
+                nbt.hash(state);
             }
             Self::BinaryOp(left, op, right) => {
                 left.hash(state);
@@ -153,6 +156,8 @@ pub enum OpLeft {
     SelectorDoubleColon(Selector<Syntax>, RStr),
     /// A specified entity with an NBT path
     SelectorNbt(Selector<Syntax>, NbtPath),
+    /// A storage space with an NBT path
+    NbtStorage(NbtPath),
 }
 
 impl OpLeft {
@@ -162,9 +167,11 @@ impl OpLeft {
             Self::Selector(selector) | Self::SelectorColon(selector, _) => {
                 Ok(format!("{}", selector.stringify()?).into())
             }
-            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) => Err(format!(
+            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) | Self::NbtStorage(_) => {
+                Err(format!(
                 "{self:?} isn't a score. This is a compiler error. Please notify the developers"
-            )),
+            ))
+            }
         }
     }
 
@@ -172,9 +179,11 @@ impl OpLeft {
         match self {
             Self::Ident(_) | Self::Selector(_) => Ok("dummy".into()),
             Self::Colon(_, score) | Self::SelectorColon(_, score) => Ok(score.clone()),
-            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) => Err(format!(
+            Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) | Self::NbtStorage(_) => {
+                Err(format!(
                 "{self:?} isn't a score. This is a compiler error. Please notify the developers"
-            )),
+            ))
+            }
         }
     }
 }
