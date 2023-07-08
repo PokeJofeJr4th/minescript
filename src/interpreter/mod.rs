@@ -79,7 +79,6 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         Syntax::IdentBlock(block_type, ident, body) => {
             return block::ident_block(*block_type, ident.clone(), body, state, path)
         }
-        // Syntax::Identifier(_) => todo!(),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }

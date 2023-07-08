@@ -137,11 +137,7 @@ fn xp_ops() {
         test_interpret(&Syntax::BinaryOp(
             OpLeft::Ident("x".into()),
             Operation::MulEq,
-            Box::new(Syntax::BinaryOp(
-                OpLeft::Selector(Selector::s()),
-                Operation::DoubleColon,
-                Box::new(Syntax::Identifier("lvl".into()))
-            ))
+            Box::new(Syntax::SelectorDoubleColon(Selector::s(), "lvl".into()))
         )),
         Ok(vec![
             Command::Execute {

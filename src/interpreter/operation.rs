@@ -202,6 +202,7 @@ pub(super) fn operation(
     }
 }
 
+/// apply an operation on a selector indexed by double colon
 pub(super) fn double_colon(
     selector: &Selector<Syntax>,
     ident: &str,
@@ -247,25 +248,30 @@ pub(super) fn nbt(
             "NBT operations only support the `=` operation, not `{operation}`"
         ));
     }
-    match right {
-        Syntax::Array(_)
-        | Syntax::Object(_)
-        | Syntax::String(_)
-        | Syntax::Integer(_)
-        | Syntax::Float(_) => Ok(vec![Command::DataSetValue {
+    match (operation, right) {
+        (
+            Operation::Equal,
+            Syntax::Array(_)
+            | Syntax::Object(_)
+            | Syntax::String(_)
+            | Syntax::Integer(_)
+            | Syntax::Float(_),
+        ) => Ok(vec![Command::DataSetValue {
             target_type: "entity".into(),
             target: selector.stringify()?.to_string().into(),
             target_path: nbt,
             value: Nbt::try_from(right)?.to_string().into(),
         }]),
-        Syntax::SelectorNbt(rhs_sel, rhs_nbt) => Ok(vec![Command::DataSetFrom {
-            target_type: "entity".into(),
-            target: selector.stringify()?.to_string().into(),
-            target_path: nbt,
-            src_type: "entity".into(),
-            src: rhs_sel.stringify()?.to_string().into(),
-            src_path: rhs_nbt.clone(),
-        }]),
-        _ => todo!(),
+        (Operation::Equal, Syntax::SelectorNbt(rhs_sel, rhs_nbt)) => {
+            Ok(vec![Command::DataSetFrom {
+                target_type: "entity".into(),
+                target: selector.stringify()?.to_string().into(),
+                target_path: nbt,
+                src_type: "entity".into(),
+                src: rhs_sel.stringify()?.to_string().into(),
+                src_path: rhs_nbt.clone(),
+            }])
+        }
+        _ => Err(format!("Can't operate `NBT` {operation} `{right:?}`")),
     }
 }
