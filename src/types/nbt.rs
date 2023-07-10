@@ -112,6 +112,12 @@ impl Nbt {
     }
 }
 
+impl From<Vec<Self>> for Nbt {
+    fn from(value: Vec<Self>) -> Self {
+        Self::Array(value)
+    }
+}
+
 impl TryFrom<&Syntax> for Nbt {
     type Error = String;
 
