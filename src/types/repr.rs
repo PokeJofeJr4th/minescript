@@ -21,7 +21,7 @@ pub struct InterRepr {
     pub items: Vec<Item>,
     pub objectives: BTreeMap<RStr, RStr>,
     pub functions: Vec<(RStr, Vec<Command>)>,
-    pub recipes: BTreeMap<RStr, String>,
+    pub recipes: BTreeMap<RStr, (String, RStr)>,
     // /// all of the standard library functions it uses
     // pub std_imports: BTreeSet<RStr>,
 }

@@ -27,7 +27,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         compiled.insert_fn(&name, &fn_buf);
     }
     // make all the recipes
-    for (name, content) in &src.recipes {
+    for (name, (content, item_name)) in &src.recipes {
         let name: RStr = name.to_lowercase().replace(' ', "_").into();
         compiled.recipes.insert(name.clone(), content.clone());
         compiled.advancements.insert(
@@ -50,7 +50,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         compiled.insert_fn(
           &format!("craft/{name}"),
           &format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
-          give=compiled.functions.get::<RStr>(&format!("give/{name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
+          give=compiled.functions.get::<RStr>(&format!("give/{item_name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
         );
     }
     Ok(compiled)

@@ -85,11 +85,17 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
             format!("minecraft.used:minecraft.{}", item.base).into(),
         );
     }
-    for recipe in recipe_buf {
-        state.recipes.insert(
-            format!("{}_{:x}", item.name, get_hash(&recipe)).into(),
-            recipe.to_json(),
-        );
+    if let [recipe] = &recipe_buf[..] {
+        state
+            .recipes
+            .insert(item.name.clone(), (recipe.to_json(), item.name.clone()));
+    } else {
+        for recipe in recipe_buf {
+            state.recipes.insert(
+                format!("{}_{:x}", item.name, get_hash(&recipe)).into(),
+                (recipe.to_json(), item.name.clone()),
+            );
+        }
     }
     if item.base.is_empty() {
         Err(String::from(
