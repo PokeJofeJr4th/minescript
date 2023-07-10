@@ -15,7 +15,7 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         on_use: Vec::new(),
         while_using: Vec::new(),
     };
-    let mut recipe_buf = None;
+    let mut recipe_buf = Vec::new();
     for (prop, value) in src.iter() {
         match prop.as_ref() {
             "name" => {
@@ -74,7 +74,7 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                         .extend(inner_interpret(other, state, path)?);
                 }
             },
-            "recipe" => recipe_buf = Some(recipe(value)?),
+            "recipe" => recipe_buf.push(recipe(value)?),
 
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
@@ -85,8 +85,11 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
             format!("minecraft.used:minecraft.{}", item.base).into(),
         );
     }
-    if let Some(recipe) = recipe_buf {
-        state.recipes.insert(item.name.clone(), recipe.to_json());
+    for recipe in recipe_buf {
+        state.recipes.insert(
+            format!("{}_{:x}", item.name, get_hash(&recipe)).into(),
+            recipe.to_json(),
+        );
     }
     if item.base.is_empty() {
         Err(String::from(

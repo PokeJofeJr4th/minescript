@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{collections::BTreeMap, fmt::Display, hash::Hash};
 
 use super::prelude::*;
 
@@ -60,6 +60,21 @@ impl Display for Nbt {
             Self::Float(float) => write!(f, "{float}"),
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Unit => write!(f, "{{}}"),
+        }
+    }
+}
+
+impl Hash for Nbt {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Object(obj) => obj.hash(state),
+            Self::Array(arr) => arr.hash(state),
+            Self::String(str) => str.hash(state),
+            Self::Integer(int) => int.hash(state),
+            Self::Float(float) => float.to_bits().hash(state),
+            Self::Boolean(bool) => bool.hash(state),
+            Self::Unit => {}
         }
     }
 }

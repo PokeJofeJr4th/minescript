@@ -54,7 +54,7 @@ pub mod prelude {
     }
 
     /// use a default hasher to get the hash of the given object
-    pub fn get_hash<T: Hash>(obj: T) -> u64 {
+    pub fn get_hash<T: Hash>(obj: &T) -> u64 {
         let mut hasher = DefaultHasher::new();
         obj.hash(&mut hasher);
         hasher.finish()
