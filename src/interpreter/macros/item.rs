@@ -40,7 +40,7 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                 Syntax::String(str) => item
                     .on_consume
                     .push(Command::Function { func: str.clone() }),
-                Syntax::Function(name, body) => {
+                Syntax::IdentBlock(IdentBlockType::Function, name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_consume
@@ -52,7 +52,7 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
             },
             "on_use" => match value {
                 Syntax::String(str) => item.on_use.push(Command::Function { func: str.clone() }),
-                Syntax::Function(name, body) => {
+                Syntax::IdentBlock(IdentBlockType::Function, name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_use.push(Command::Function { func: name.clone() });
@@ -63,7 +63,7 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                 Syntax::String(str) => item
                     .while_using
                     .push(Command::Function { func: str.clone() }),
-                Syntax::Function(name, body) => {
+                Syntax::IdentBlock(IdentBlockType::Function, name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     item.while_using

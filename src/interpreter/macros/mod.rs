@@ -170,7 +170,7 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
             }
             "callback" | "hit" => match v {
                 Syntax::String(str) => callback.push(Command::Function { func: str.clone() }),
-                Syntax::Function(name, body) => {
+                Syntax::IdentBlock(IdentBlockType::Function, name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     callback.push(Command::Function { func: name.clone() });
@@ -179,7 +179,7 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
             },
             "each" => match v {
                 Syntax::String(str) => each.push(Command::Function { func: str.clone() }),
-                Syntax::Function(name, body) => {
+                Syntax::IdentBlock(IdentBlockType::Function, name, body) => {
                     let new_body = inner_interpret(body, state, path)?;
                     state.functions.push((name.clone(), new_body));
                     each.push(Command::Function { func: name.clone() });

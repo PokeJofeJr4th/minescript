@@ -12,8 +12,6 @@ pub enum Syntax {
     Object(BTreeMap<RStr, Syntax>),
     /// A list of syntax elements
     Array(Rc<[Syntax]>),
-    /// A function definition with the function name and body
-    Function(RStr, Box<Syntax>),
     /// A selector
     Selector(Selector<Syntax>),
     /// A selector with a colon and a score name
@@ -78,6 +76,8 @@ pub enum IdentBlockType {
     On,
     Summon,
     Anchored,
+    Async,
+    Function,
 }
 
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them
@@ -88,7 +88,7 @@ impl Hash for Syntax {
         core::mem::discriminant(self).hash(state);
         match self {
             Self::Identifier(str) | Self::String(str) => str.hash(state),
-            Self::Function(name, syn) | Self::Macro(name, syn) => {
+            Self::Macro(name, syn) => {
                 name.hash(state);
                 syn.hash(state);
             }

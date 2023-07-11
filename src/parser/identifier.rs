@@ -34,13 +34,6 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
         let mut path = vec![NbtPathPart::Ident(id)];
         path.extend(parse_nbt_path(tokens)?);
         Ok(Syntax::NbtStorage(path))
-    } else if id_ref == "function" {
-        let Some(Token::Identifier(func) | Token::String(func)) = tokens.next() else {
-                return Err(String::from("Expected identifier after function"))
-            };
-        Ok(Syntax::Function(func, Box::new(parse(tokens)?)))
-    // } else if id == "effect" {
-    //     todo!()
     } else if matches!(id_ref, "if" | "unless" | "do" | "while" | "until" | "for") {
         let id_ref = if id_ref == "do" {
             match tokens.next() {
@@ -88,11 +81,13 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
             )),
             _ => return Err(format!("{id} statement requires a check like `x = 2`")),
         }
-    } else if matches!(id_ref, "summon" | "on" | "anchored") {
+    } else if matches!(id_ref, "summon" | "on" | "anchored" | "async" | "function") {
         let block_type = match id_ref {
             "summon" => IdentBlockType::Summon,
             "on" => IdentBlockType::On,
             "anchored" => IdentBlockType::Anchored,
+            "async" => IdentBlockType::Async,
+            "function" => IdentBlockType::Function,
             _ => unreachable!(),
         };
         let Some(Token::Identifier(ident)) = tokens.next() else {

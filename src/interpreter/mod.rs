@@ -27,11 +27,6 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
             }
             return Ok(commands_buf);
         }
-        // function x {}
-        Syntax::Function(func, content) => {
-            let inner = inner_interpret(content, state, path)?;
-            state.functions.push((func.clone(), inner));
-        }
         // if x=1 {}
         Syntax::Block(BlockType::If, left, op, right, block) => {
             return block::interpret_if(
@@ -65,6 +60,43 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         // tp @s (~ ~10 ~)
         Syntax::SelectorBlock(block_type, selector, body) => {
             return selector_block::block(*block_type, selector, body, state, path)
+        }
+        Syntax::IdentBlock(IdentBlockType::Function, ident, body) => {
+            let inner = inner_interpret(body, state, path)?;
+            state.functions.push((ident.clone(), inner));
+        }
+        // async do_thing { ... }
+        Syntax::IdentBlock(IdentBlockType::Async, ident, body) => {
+            let Syntax::Array(arr) = &**body else {
+                // just make it a normal function
+                let inner = inner_interpret(body, state, path)?;
+                state.functions.push((ident.clone(), inner));
+                return Ok(Vec::new());
+            };
+            let mut func = ident.clone();
+            let mut command_buf: Vec<Command> = Vec::new();
+            for cmd in arr.iter() {
+                if let Syntax::Macro(id, body) = cmd {
+                    if &**id == "delay" {
+                        let Syntax::Integer(time) = &**body else {
+                            return Err(format!("Expected an integer for delay; got `{body:?}`"))
+                        };
+                        let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
+                        command_buf.push(Command::Schedule {
+                            func: next_func.clone(),
+                            time: *time,
+                            replace: false,
+                        });
+                        state.functions.push((
+                            core::mem::replace(&mut func, next_func),
+                            core::mem::take(&mut command_buf),
+                        ));
+                        continue;
+                    }
+                }
+                command_buf.extend(inner_interpret(cmd, state, path)?);
+            }
+            state.functions.push((func, command_buf));
         }
         // on owner {...}
         Syntax::IdentBlock(block_type, ident, body) => {

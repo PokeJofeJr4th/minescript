@@ -24,6 +24,12 @@ pub enum Command {
     Function {
         func: RStr,
     },
+    /// schedule a function to execute at a later time
+    Schedule {
+        func: RStr,
+        time: i32,
+        replace: bool,
+    },
     /// set a score to a value
     ScoreSet {
         target: RStr,
@@ -125,6 +131,7 @@ impl Command {
             }
             Self::Kill { target } => format!("kill {target}"),
             Self::Function { func } => format!("function {namespace}:{func}"),
+            Self::Schedule { func, time, replace } => format!("schedule function {func} {time} {}", if *replace { "replace" } else { "append" }),
             // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
             //     "add"
             // } else {

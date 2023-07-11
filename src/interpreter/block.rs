@@ -183,6 +183,8 @@ pub(super) fn interpret_if(
 }
 
 /// interpret a block of the form `on attacker {...}`
+/// ## Panics
+/// If given an async or function
 pub(super) fn ident_block(
     block_type: IdentBlockType,
     ident: RStr,
@@ -227,5 +229,6 @@ pub(super) fn ident_block(
             &format!("{:x}", get_hash(body)),
             state,
         )]),
+        IdentBlockType::Async | IdentBlockType::Function => unreachable!(),
     }
 }
