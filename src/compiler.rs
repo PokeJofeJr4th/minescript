@@ -29,6 +29,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     // make all the recipes
     for (name, (content, item_name)) in &src.recipes {
         let name: RStr = name.to_lowercase().replace(' ', "_").into();
+        let item_name = item_name.to_lowercase().replace(' ', "_");
         compiled.recipes.insert(name.clone(), content.clone());
         compiled.advancements.insert(
             format!("craft/{name}").into(),

@@ -74,7 +74,13 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                         .extend(inner_interpret(other, state, path)?);
                 }
             },
-            "recipe" => recipe_buf.push(recipe(value)?),
+            "recipe" => {
+                if let Syntax::Array(arr) = value {
+                    recipe_buf.extend(arr.iter().map(recipe).collect::<SResult<Vec<_>>>()?);
+                } else {
+                    recipe_buf.push(recipe(value)?);
+                }
+            }
 
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
