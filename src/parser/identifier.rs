@@ -90,7 +90,7 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
             "function" => IdentBlockType::Function,
             _ => unreachable!(),
         };
-        let Some(Token::Identifier(ident)) = tokens.next() else {
+        let Some(Token::Identifier(ident) | Token::String(ident)) = tokens.next() else {
             return Err(format!("`{id}` requires an identifier next"))
         };
         Ok(Syntax::IdentBlock(
