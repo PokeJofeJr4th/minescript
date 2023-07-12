@@ -6,6 +6,7 @@ use crate::{lexer::tokenize, parser::parse, types::prelude::*};
 mod effect;
 mod item;
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn macros(
     name: &str,
     properties: &Syntax,
@@ -65,6 +66,55 @@ pub(super) fn macros(
             return raycast(properties, state, path);
         }
         "sound" | "playsound" => return sound(properties),
+        "random" | "rand" => {
+            let Syntax::BinaryOp(lhs, Operation::In, properties) = properties else {
+                return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
+            };
+            let (min, max) = match &**properties {
+                Syntax::Integer(max) | Syntax::Range(None, Some(max)) => (0, *max),
+                Syntax::Range(Some(min), Some(max)) => (*min, *max),
+                _ => {
+                    return Err(format!(
+                        "`@random` in statement form takes an integer or bounded range; got `{properties:?}`"
+                    ))
+                }
+            };
+            let loot_table_name: RStr = format!("rng/{min}_{max}").into();
+            // if the loot table doesn't exist, build it
+            state
+                .loot_tables
+                .entry(loot_table_name.clone())
+                .or_insert_with(|| {
+                    nbt!({
+                        pools: nbt!([nbt!({
+                            rolls: nbt!({
+                                min: min,
+                                max: max
+                            }),
+                            entries: nbt!([
+                                nbt!({
+                                    type: "item",
+                                    weight: 1,
+                                    name: "minecraft:stone"
+                                })
+                            ])
+                        })])
+                    })
+                    .to_json()
+                    .into()
+                });
+            return Ok(vec![Command::execute(
+                vec![ExecuteOption::StoreScore {
+                    target: lhs.stringify_scoreboard_target()?,
+                    objective: lhs.stringify_scoreboard_objective()?,
+                }],
+                vec![Command::Raw(
+                    format!("loot spawn 0 -256 0 loot <NAMESPACE>:{loot_table_name}").into(),
+                )],
+                "",
+                state,
+            )]);
+        }
         other => return Err(format!("Unexpected macro invocation `{other}`")),
     }
     Ok(Vec::new())

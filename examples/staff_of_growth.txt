@@ -1,0 +1,79 @@
+
+@item {
+    base: carrot_on_a_stick
+    name: "Staff of Growth"
+    nbt: {customModelData:1907}
+    on_use: @raycast {
+        max: 1000
+        step: 0.5
+        each: @raw "particle composter"
+        hit: @raw {
+            "execute if block ~ ~ ~ wheat run setblock ~ ~ ~ wheat[age=7]"
+            "execute if block ~ ~ ~ carrots run setblock ~ ~ ~ carrots[age=7]"
+            "execute if block ~ ~ ~ pumpkin_stem run setblock ~ ~ ~ pumpkin_stem[age=7]"
+            "execute if block ~ ~ ~ melon_stem run setblock ~ ~ ~ melon_stem[age=7]"
+            "execute if block ~ ~ ~ beetroots run setblock ~ ~ ~ beetroots[age=3]"
+            "execute if block ~ ~ ~ potatoes run setblock ~ ~ ~ potatoes[age=7]"
+            "execute if block ~ ~ ~ pitcher_crop[half=lower] run setblock ~ ~ ~ pitcher_crop[age=4]"
+            "execute if block ~ ~ ~ pitcher_crop[half=lower] run setblock ~ ~1 ~ pitcher_crop[age=4,half=upper]"
+            "execute if block ~ ~ ~ torchflower_crop run setblock ~ ~ ~ torchflower"
+            "execute if block ~ ~ ~ cocoa[facing=north] run setblock ~ ~ ~ cocoa[age=2,facing=north]"
+            "execute if block ~ ~ ~ cocoa[facing=east] run setblock ~ ~ ~ cocoa[age=2,facing=east]"
+            "execute if block ~ ~ ~ cocoa[facing=south] run setblock ~ ~ ~ cocoa[age=2,facing=south]"
+            "execute if block ~ ~ ~ cocoa[facing=west] run setblock ~ ~ ~ cocoa[age=2,facing=west]"
+            "execute if block ~ ~1 ~ air if block ~ ~ ~ grass_block run function <NAMESPACE>:random_flower"
+        }
+    }
+    recipe: {
+        pattern: {
+            " i "
+            "isi"
+            " l "
+        }
+        key: {
+            s: nether_star
+            i: glistering_melon_slice
+            l: end_rod
+        }
+    }
+}
+
+function random_flower {
+    @rand flower_type in 0..11
+    if flower_type = 0 {
+        @raw "setblock ~ ~1 ~ dandelion"
+    }
+    if flower_type = 1 {
+        @raw "setblock ~ ~1 ~ poppy"
+    }
+    if flower_type = 2 {
+        @raw "setblock ~ ~1 ~ blue_orchid"
+    }
+    if flower_type = 3 {
+        @raw "setblock ~ ~1 ~ allium"
+    }
+    if flower_type = 4 {
+        @raw "setblock ~ ~1 ~ azure_bluet"
+    }
+    if flower_type = 5 {
+        @raw "setblock ~ ~1 ~ red_tulip"
+    }
+    if flower_type = 6 {
+        @raw "setblock ~ ~1 ~ orange_tulip"
+    }
+    if flower_type = 7 {
+        @raw "setblock ~ ~1 ~ white_tulip"
+    }
+    if flower_type = 8 {
+        @raw "setblock ~ ~1 ~ pink_tulip"
+    }
+    if flower_type = 9 {
+        @raw "setblock ~ ~1 ~ oxeye_daisy"
+    }
+    if flower_type = 10 {
+        @raw "setblock ~ ~1 ~ cornflower"
+    }
+    if flower_type = 11 {
+        @raw "setblock ~ ~1 ~ lily_of_the_valley"
+    }
+}

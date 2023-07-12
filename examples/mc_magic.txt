@@ -1,0 +1,68 @@
+
+@item {
+    base: cookie
+    name: Goodberry
+    nbt: {customModelData:702}
+    on_consume: @effect {
+        effect: saturation
+        level: 10
+        duration: 1
+    }
+    recipe: {
+        pattern: [
+            " l "
+            "lbl"
+            " l "
+        ]
+        key: {
+            b: sweet_berries
+            l: lapis_lazuli
+        }
+    }
+}
+
+@item {
+    base: wheat_seeds
+    name: "Infinity Seeds"
+    nbt: {customModelData:919}
+    on_use: "give/infinity_seeds"
+    recipe: {
+        pattern: {
+            "xix"
+            "ixi"
+            "xix"
+        }
+        key: {
+            x: nether_star
+            i: wheat_seeds
+        }
+    }
+}
+
+@item {
+    base: carrot_on_a_stick
+    name: "Fireball"
+    nbt: {customModelData:600}
+    on_use: {
+        @raycast {
+            max: 1000
+            step: 0.5
+            each: @raw "particle smoke"
+            hit: @raw "summon tnt"
+        }
+    }
+    recipe: {
+        pattern: {
+            " T "
+            "TsT"
+            " l "
+        }
+        key: {
+            T: tnt
+            s: nether_star
+            l: end_rod
+        }
+    }
+}
+
+@import "staff_of_growth.txt"

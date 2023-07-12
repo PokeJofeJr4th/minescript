@@ -253,17 +253,31 @@ pub enum ExecuteOption {
         selector: Selector<String>,
     },
     /// store a result in a score
-    StoreScore { target: RStr, objective: RStr },
+    StoreScore {
+        target: RStr,
+        objective: RStr,
+    },
     /// change who `@s` is
-    As { selector: Selector<String> },
+    As {
+        selector: Selector<String>,
+    },
     /// change where the command executes
-    At { selector: Selector<String> },
+    At {
+        selector: Selector<String>,
+    },
     // /// get rotation from an entity
     // Rotated { selector: Selector<String> },
+    Positioned {
+        pos: Coordinate,
+    },
     /// anchored eyes|feet
-    Anchored { ident: RStr },
+    Anchored {
+        ident: RStr,
+    },
     /// facing an entity
-    FacingEntity { selector: Selector<String> },
+    FacingEntity {
+        selector: Selector<String>,
+    },
     /// Block matches id or tag
     Block {
         invert: bool,
@@ -271,9 +285,13 @@ pub enum ExecuteOption {
         value: RStr,
     },
     /// Change `@s` to an entity with a certain relationship to current `@s`
-    On { ident: RStr },
+    On {
+        ident: RStr,
+    },
     /// summon an entity of type `ident` and set it to `@s`
-    Summon { ident: RStr },
+    Summon {
+        ident: RStr,
+    },
 }
 
 impl ExecuteOption {
@@ -326,6 +344,7 @@ impl ExecuteOption {
             Self::As { selector } => format!("as {selector}"),
             Self::At { selector } => format!("at {selector}"),
             // Self::Rotated { selector } => format!("rotated as {selector}"),
+            Self::Positioned { pos } => format!("positioned {pos}"),
             Self::FacingEntity { selector } => format!("facing {selector}"),
             Self::Anchored { ident } => format!("anchored {ident}"),
             Self::On { ident } => format!("on {ident}"),
@@ -345,6 +364,10 @@ pub enum Coordinate {
 impl Coordinate {
     pub const fn here() -> Self {
         Self::Linear(true, 0.0, true, 0.0, true, 0.0)
+    }
+
+    pub const fn absolute(x: f32, y: f32, z: f32) -> Self {
+        Self::Linear(false, x, false, y, false, z)
     }
 }
 

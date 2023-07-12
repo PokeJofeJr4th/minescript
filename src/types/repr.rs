@@ -22,6 +22,7 @@ pub struct InterRepr {
     pub objectives: BTreeMap<RStr, RStr>,
     pub functions: Vec<(RStr, Vec<Command>)>,
     pub recipes: BTreeMap<RStr, (String, RStr)>,
+    pub loot_tables: BTreeMap<RStr, RStr>,
     // /// all of the standard library functions it uses
     // pub std_imports: BTreeSet<RStr>,
 }
@@ -34,6 +35,7 @@ impl InterRepr {
             objectives: BTreeMap::new(),
             functions: Vec::new(),
             recipes: BTreeMap::new(),
+            loot_tables: BTreeMap::new(),
             // std_imports: BTreeSet::new(),
         }
     }
@@ -45,12 +47,13 @@ pub struct CompiledRepr {
     pub functions: BTreeMap<RStr, String>,
     pub advancements: BTreeMap<RStr, String>,
     pub recipes: BTreeMap<RStr, String>,
+    pub loot_tables: BTreeMap<RStr, RStr>,
     pub mcmeta: String,
 }
 
 impl CompiledRepr {
     /// writes the .mcmeta file
-    pub fn new(namespace: &str) -> Self {
+    pub fn new(namespace: &str, loot_tables: BTreeMap<RStr, RStr>) -> Self {
         Self {
             mcmeta: nbt!({
                 pack: nbt!({
@@ -62,6 +65,7 @@ impl CompiledRepr {
             functions: BTreeMap::new(),
             advancements: BTreeMap::new(),
             recipes: BTreeMap::new(),
+            loot_tables,
         }
     }
 

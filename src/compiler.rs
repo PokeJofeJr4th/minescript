@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::types::prelude::*;
 
 pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
-    let mut compiled = CompiledRepr::new(namespace);
+    let mut compiled = CompiledRepr::new(namespace, core::mem::take(&mut src.loot_tables));
 
     let mut load = format!("say {namespace}, a datapack created with MineScript");
     // add all the scoreboard objectives

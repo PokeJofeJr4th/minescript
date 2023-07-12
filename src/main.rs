@@ -29,6 +29,9 @@ struct Args {
     path: String,
     /// namespace for the finished program
     namespace: String,
+    /// Print debug data for intermediate representations
+    #[clap(short, long)]
+    verbose: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -36,16 +39,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let path = PathBuf::from(args.path);
     let file = format!("[{}]", fs::read_to_string(&path)?);
     let tokens = lexer::tokenize(&file)?;
-    println!("{tokens:?}");
+    if args.verbose {
+        println!("{tokens:?}");
+    }
     let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
-    println!("{syntax:?}");
+    if args.verbose {
+        println!("{syntax:?}");
+    }
     let folder = path
         .parent()
         .ok_or_else(|| String::from("Bad source path"))?;
     let mut state = interpreter::interpret(&syntax, folder)?;
-    println!("{state:#?}");
+    if args.verbose {
+        println!("{state:#?}");
+    }
     let compiled = compiler::compile(&mut state, &args.namespace)?;
-    println!("{compiled:#?}");
+    if args.verbose {
+        println!("{compiled:#?}");
+    }
     match fs::remove_dir_all(&args.namespace) {
         Ok(_) => println!("Deleted existing directory"),
         Err(err) => println!("Didn't delete directory: {err}"),
@@ -89,6 +100,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (path, contents) in compiled.recipes {
         let mut file = create_file_with_parent_dirs(&format!(
             "{nmsp}/data/{nmsp}/recipes/{path}.json",
+            nmsp = args.namespace
+        ))?;
+        write!(file, "{contents}")?;
+    }
+    for (path, contents) in compiled.loot_tables {
+        let mut file = create_file_with_parent_dirs(&format!(
+            "{nmsp}/data/{nmsp}/loot_tables/{path}.json",
             nmsp = args.namespace
         ))?;
         write!(file, "{contents}")?;
