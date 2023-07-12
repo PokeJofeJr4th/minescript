@@ -1,4 +1,6 @@
-use super::InterRepr;
+use std::path::Path;
+
+use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
 /// interpret an operation, like `x += 1`
@@ -7,6 +9,7 @@ pub(super) fn operation(
     op: Operation,
     rhs: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     match (lhs, op, rhs) {
         // @s::xp
@@ -17,7 +20,7 @@ pub(super) fn operation(
         }
         (OpLeft::NbtStorage(nbt), _, _) => nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs),
         // x | @s:score | const:x
-        _ => simple_operation(lhs, op, rhs, state),
+        _ => simple_operation(lhs, op, rhs, state, path),
     }
 }
 
@@ -31,6 +34,7 @@ fn simple_operation(
     op: Operation,
     syn: &Syntax,
     state: &mut InterRepr,
+    path: &Path,
 ) -> SResult<Vec<Command>> {
     let target_objective = target.stringify_scoreboard_objective()?;
     let target_name = target.stringify_scoreboard_target()?;
@@ -68,6 +72,7 @@ fn simple_operation(
                 op,
                 &Syntax::Identifier("".into()),
                 state,
+                path,
             )?);
             Ok(vec)
         }
@@ -83,7 +88,7 @@ fn simple_operation(
         (op, Syntax::SelectorNbt(selector, nbt)) => {
             let mut cmd_buf = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
-                    target: "".into(),
+                    target: "%".into(),
                     objective: "dummy".into(),
                 }],
                 cmd: Box::new(Command::DataGet {
@@ -95,6 +100,7 @@ fn simple_operation(
                 op,
                 &Syntax::Identifier("".into()),
                 state,
+                path,
             )?);
             Ok(cmd_buf)
         }
@@ -113,7 +119,7 @@ fn simple_operation(
                 source_objective: "dummy".into(),
             }])
         }
-        // x = @r.y
+        // x = @r:y
         (op, Syntax::SelectorColon(selector, ident)) => Ok(vec![Command::ScoreOperation {
             target: target_name,
             target_objective,
@@ -121,7 +127,57 @@ fn simple_operation(
             source: format!("{}", selector.stringify()?).into(),
             source_objective: ident.clone(),
         }]),
-        // x *= 0
+        // x = @rand ...
+        (Operation::Equal, Syntax::Macro(mac, bound)) => {
+            if !matches!(&**mac, "rand" | "random") {
+                return Err(format!(
+                    "The only macro allowed in an operation is `rand`; got `{mac}`"
+                ));
+            }
+            inner_interpret(
+                &Syntax::Macro(
+                    mac.clone(),
+                    Box::new(Syntax::BinaryOp(
+                        target.clone(),
+                        Operation::Equal,
+                        bound.clone(),
+                    )),
+                ),
+                state,
+                path,
+            )
+        }
+        // x += @rand ...
+        (op, Syntax::Macro(mac, bound)) => {
+            if !matches!(&**mac, "rand" | "random") {
+                return Err(format!(
+                    "The only macro allowed in an operation is `rand`; got `{mac}`"
+                ));
+            }
+            // set an intermediate score to the random value
+            let mut cmd_buf = inner_interpret(
+                &Syntax::Macro(
+                    mac.clone(),
+                    Box::new(Syntax::BinaryOp(
+                        OpLeft::Ident("%".into()),
+                        Operation::In,
+                        bound.clone(),
+                    )),
+                ),
+                state,
+                path,
+            )?;
+            // operate the random value into the target
+            cmd_buf.push(Command::ScoreOperation {
+                target: target.stringify_scoreboard_target()?,
+                target_objective: target.stringify_scoreboard_objective()?,
+                operation: op,
+                source: "%%".into(),
+                source_objective: "dummy".into(),
+            });
+            Ok(cmd_buf)
+        }
+        // x *= 0 => set to 0
         (Operation::MulEq, Syntax::Integer(0)) => Ok(vec![Command::ScoreSet {
             target: target_name,
             objective: target_objective,

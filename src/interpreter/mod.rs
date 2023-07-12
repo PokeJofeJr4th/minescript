@@ -102,7 +102,7 @@ fn inner_interpret(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
         Syntax::IdentBlock(block_type, ident, body) => {
             return block::ident_block(*block_type, ident.clone(), body, state, path)
         }
-        Syntax::BinaryOp(lhs, op, rhs) => return operation::operation(lhs, *op, rhs, state),
+        Syntax::BinaryOp(lhs, op, rhs) => return operation::operation(lhs, *op, rhs, state, path),
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
