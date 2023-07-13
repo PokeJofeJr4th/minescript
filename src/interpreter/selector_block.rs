@@ -3,20 +3,19 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
-use crate::types::SelectorBlockType as SBT;
 
 /// interpret any selector block of the form `tp @s (...)`
 pub(super) fn block(
-    block_type: SBT,
+    block_type: BlockType,
     selector: &Selector<Syntax>,
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
 ) -> SResult<Vec<Command>> {
     match block_type {
-        SBT::Tp => teleport(selector, body),
-        SBT::Damage => damage(selector, body),
-        SBT::TellRaw => tellraw(selector, body),
+        BlockType::Tp => teleport(selector, body),
+        BlockType::Damage => damage(selector, body),
+        BlockType::TellRaw => tellraw(selector, body),
         block_type => selector_block(block_type, selector, body, state, path),
     }
 }
@@ -154,37 +153,38 @@ fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Comma
 
 /// interpret a block of the form `at @s {...}`
 fn selector_block(
-    block_type: SBT,
+    block_type: BlockType,
     selector: &Selector<Syntax>,
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
-    if block_type == SBT::As || block_type == SBT::AsAt {
+    if block_type == BlockType::As || block_type == BlockType::AsAt {
         res_buf.push(ExecuteOption::As {
             selector: selector.stringify()?,
         });
     }
     match block_type {
-        SBT::At => res_buf.push(ExecuteOption::At {
+        BlockType::At => res_buf.push(ExecuteOption::At {
             selector: selector.stringify()?,
         }),
-        SBT::AsAt => res_buf.push(ExecuteOption::At {
+        BlockType::AsAt => res_buf.push(ExecuteOption::At {
             selector: Selector::s(),
         }),
-        SBT::IfEntity => res_buf.push(ExecuteOption::Entity {
+        BlockType::If => res_buf.push(ExecuteOption::Entity {
             invert: false,
             selector: selector.stringify()?,
         }),
-        SBT::UnlessEntity => res_buf.push(ExecuteOption::Entity {
+        BlockType::Unless => res_buf.push(ExecuteOption::Entity {
             invert: true,
             selector: selector.stringify()?,
         }),
-        SBT::FacingEntity => res_buf.push(ExecuteOption::FacingEntity {
+        BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity {
             selector: selector.stringify()?,
         }),
-        _ => {}
+        BlockType::As => {}
+        _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path)?;
     Ok(vec![Command::execute(
@@ -196,8 +196,8 @@ fn selector_block(
 }
 
 /// interpret a teleport block
-/// `tp @p`
-/// `tp (~ ~ ~)`
+/// `tp @s @p`
+/// `tp @s (~ ~ ~)`
 fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
     let target = selector.stringify()?;
 

@@ -3,9 +3,99 @@ use std::path::Path;
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
-/// ## Panics
-/// If `block_type` is `If` or `Unless`. Use `interpret_if` for these cases
 pub(super) fn block(
+    block_type: BlockType,
+    lhs: &Syntax,
+    rhs: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+) -> SResult<Vec<Command>> {
+    match (block_type, lhs, rhs) {
+        // if x=1 {}
+        (BlockType::If, Syntax::BinaryOp(left, op, right), _) => interpret_if(
+            false,
+            left,
+            *op,
+            right,
+            inner_interpret(rhs, state, path)?,
+            &format!("{:x}", get_hash(rhs)),
+            state,
+        ),
+        // unless x=1 {}
+        (BlockType::Unless, Syntax::BinaryOp(left, op, right), _) => interpret_if(
+            true,
+            left,
+            *op,
+            right,
+            inner_interpret(rhs, state, path)?,
+            &format!("{:x}", get_hash(rhs)),
+            state,
+        ),
+        // for _ in 1..10 {}
+        (_, Syntax::BinaryOp(left, op, right), _) => {
+            loop_block(block_type, left, *op, right, rhs, state, path)
+        }
+        // tp @s (~ ~10 ~)
+        (_, Syntax::Selector(selector), _) => {
+            super::selector_block::block(block_type, selector, rhs, state, path)
+        }
+        (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
+            let inner = inner_interpret(rhs, state, path)?;
+            state.functions.push((ident.clone(), inner));
+            Ok(Vec::new())
+        }
+        // async do_thing { ... }
+        (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
+            let Syntax::Array(arr) = rhs else {
+                // just make it a normal function
+                let inner = inner_interpret(rhs, state, path)?;
+                state.functions.push((ident.clone(), inner));
+                return Ok(Vec::new());
+            };
+            let mut func = ident.clone();
+            let mut command_buf: Vec<Command> = Vec::new();
+            for cmd in arr.iter() {
+                if let Syntax::Macro(id, body) = cmd {
+                    if &**id == "delay" {
+                        let Syntax::Integer(time) = &**body else {
+                            return Err(format!("Expected an integer for delay; got `{body:?}`"))
+                        };
+                        let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
+                        command_buf.push(Command::Schedule {
+                            func: next_func.clone(),
+                            time: *time,
+                            replace: false,
+                        });
+                        state.functions.push((
+                            core::mem::replace(&mut func, next_func),
+                            core::mem::take(&mut command_buf),
+                        ));
+                        continue;
+                    }
+                }
+                command_buf.extend(inner_interpret(cmd, state, path)?);
+            }
+            state.functions.push((func, command_buf));
+            Ok(Vec::new())
+        }
+        // on owner {...}
+        (
+            BlockType::On | BlockType::Summon | BlockType::Anchored,
+            Syntax::Identifier(ident) | Syntax::String(ident),
+            _,
+        ) => ident_block(block_type, ident.clone(), rhs, state, path),
+        _ => {
+            if let Ok(coord) = Coordinate::try_from(lhs) {
+                return coord_block(block_type, coord, rhs, state, path);
+            }
+            Err(format!(
+                "Unsupported block invocation: `{block_type:?} {lhs:?} {rhs:?}`"
+            ))
+        }
+    }
+}
+
+fn loop_block(
     block_type: BlockType,
     left: &OpLeft,
     op: Operation,
@@ -17,7 +107,7 @@ pub(super) fn block(
     let invert = match block_type {
         BlockType::For | BlockType::DoWhile | BlockType::While => false,
         BlockType::DoUntil | BlockType::Until => true,
-        BlockType::If | BlockType::Unless => unreachable!(),
+        _ => unreachable!(),
     };
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
@@ -76,7 +166,7 @@ pub(super) fn block(
 
 /// get the command for an `if|unless` block
 #[allow(clippy::too_many_lines)]
-pub(super) fn interpret_if(
+fn interpret_if(
     invert: bool,
     left: &OpLeft,
     op: Operation,
@@ -182,17 +272,14 @@ pub(super) fn interpret_if(
     Ok(vec![Command::execute(options, content, hash, state)])
 }
 
-/// interpret a block of the form `on attacker {...}`
-/// ## Panics
-/// If given an async or function
-pub(super) fn ident_block(
-    block_type: IdentBlockType,
+fn ident_block(
+    block_type: BlockType,
     ident: RStr,
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
 ) -> SResult<Vec<Command>> {
-    if block_type == IdentBlockType::On
+    if block_type == BlockType::On
         && !matches!(
             &*ident,
             "attacker"
@@ -211,24 +298,45 @@ pub(super) fn ident_block(
     let content = inner_interpret(body, state, path)?;
 
     match block_type {
-        IdentBlockType::On => Ok(vec![Command::execute(
+        BlockType::On => Ok(vec![Command::execute(
             vec![ExecuteOption::On { ident }],
             content,
             &format!("{:x}", get_hash(body)),
             state,
         )]),
-        IdentBlockType::Summon => Ok(vec![Command::execute(
+        BlockType::Summon => Ok(vec![Command::execute(
             vec![ExecuteOption::Summon { ident }],
             content,
             &format!("{:x}", get_hash(body)),
             state,
         )]),
-        IdentBlockType::Anchored => Ok(vec![Command::execute(
+        BlockType::Anchored => Ok(vec![Command::execute(
             vec![ExecuteOption::Anchored { ident }],
             content,
             &format!("{:x}", get_hash(body)),
             state,
         )]),
-        IdentBlockType::Async | IdentBlockType::Function => unreachable!(),
+        _ => unreachable!(),
     }
+}
+
+fn coord_block(
+    block_type: BlockType,
+    coord: Coordinate,
+    block: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+) -> SResult<Vec<Command>> {
+    let mut opts = Vec::new();
+    match block_type {
+        BlockType::Facing => opts.push(ExecuteOption::FacingPos { pos: coord }),
+        BlockType::Positioned => opts.push(ExecuteOption::Positioned { pos: coord }),
+        _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
+    }
+    Ok(vec![Command::execute(
+        opts,
+        inner_interpret(block, state, path)?,
+        &format!("{:x}", get_hash(block)),
+        state,
+    )])
 }

@@ -18,12 +18,12 @@ fn function() {
 #[test]
 fn tp_s_up() {
     assert_eq!(
-        test_interpret(&Syntax::SelectorBlock(
-            SelectorBlockType::AsAt,
-            Selector::r(),
-            Box::new(Syntax::SelectorBlock(
-                SelectorBlockType::Tp,
-                Selector::s(),
+        test_interpret(&Syntax::Block(
+            BlockType::AsAt,
+            Box::new(Syntax::Selector(Selector::r())),
+            Box::new(Syntax::Block(
+                BlockType::Tp,
+                Box::new(Syntax::Selector(Selector::s())),
                 Box::new(Syntax::Array(Rc::from([
                     Syntax::WooglyCoord(0.0),
                     Syntax::WooglyCoord(10.0),
@@ -51,17 +51,19 @@ fn tp_s_up() {
 #[test]
 fn as_s_if_score() {
     assert_eq!(
-        test_interpret(&Syntax::SelectorBlock(
-            SelectorBlockType::As,
-            Selector::r(),
-            Box::new(Syntax::IdentBlock(
-                IdentBlockType::On,
-                "owner".into(),
+        test_interpret(&Syntax::Block(
+            BlockType::As,
+            Box::new(Syntax::Selector(Selector::r())),
+            Box::new(Syntax::Block(
+                BlockType::On,
+                Box::new(Syntax::Identifier("owner".into())),
                 Box::new(Syntax::Block(
                     BlockType::If,
-                    OpLeft::SelectorColon(Selector::s(), "count".into()),
-                    Operation::RCaretEq,
-                    Box::new(Syntax::Integer(3)),
+                    Box::new(Syntax::BinaryOp(
+                        OpLeft::SelectorColon(Selector::s(), "count".into()),
+                        Operation::RCaretEq,
+                        Box::new(Syntax::Integer(3)),
+                    )),
                     Box::new(Syntax::Macro(
                         "function".into(),
                         Box::new(Syntax::String("give/my_item".into()))
@@ -96,9 +98,9 @@ fn as_s_if_score() {
 fn tellraw() {
     // tellraw @a [{\"text\":\"hello world\",\"italic\":true},{\"text\":\"plain\"}]
     assert_eq!(
-        test_interpret(&Syntax::SelectorBlock(
-            SelectorBlockType::TellRaw,
-            Selector::a(),
+        test_interpret(&Syntax::Block(
+            BlockType::TellRaw,
+            Box::new(Syntax::Selector(Selector::a())),
             Box::new(Syntax::Array(Rc::from([
                 Syntax::Array(Rc::from([
                     Syntax::String("hello world".into()),

@@ -80,9 +80,11 @@ fn for_loop() {
         ),
         Ok(Syntax::Block(
             BlockType::For,
-            OpLeft::Ident("x".into()),
-            Operation::In,
-            Box::new(Syntax::Range(Some(0), Some(10))),
+            Box::new(Syntax::BinaryOp(
+                OpLeft::Ident("x".into()),
+                Operation::In,
+                Box::new(Syntax::Range(Some(0), Some(10))),
+            )),
             Box::new(Syntax::Unit)
         ))
     );
@@ -149,12 +151,9 @@ fn tp() {
             .into_iter()
             .peekable()
         ),
-        Ok(Syntax::SelectorBlock(
-            SelectorBlockType::As,
-            Selector {
-                selector_type: SelectorType::S,
-                args: BTreeMap::new()
-            },
+        Ok(Syntax::Block(
+            BlockType::As,
+            Box::new(Syntax::Selector(Selector::s())),
             Box::new(Syntax::Unit)
         ))
     );
@@ -203,9 +202,11 @@ fn do_until() {
         ),
         Ok(Syntax::Block(
             BlockType::DoUntil,
-            OpLeft::Ident("x".into()),
-            Operation::Equal,
-            Box::new(Syntax::Integer(10)),
+            Box::new(Syntax::BinaryOp(
+                OpLeft::Ident("x".into()),
+                Operation::Equal,
+                Box::new(Syntax::Integer(10)),
+            )),
             Box::new(Syntax::Array(Rc::from([Syntax::BinaryOp(
                 OpLeft::Ident("x".into()),
                 Operation::AddEq,

@@ -278,6 +278,10 @@ pub enum ExecuteOption {
     FacingEntity {
         selector: Selector<String>,
     },
+    /// facing a position
+    FacingPos {
+        pos: Coordinate,
+    },
     /// Block matches id or tag
     Block {
         invert: bool,
@@ -345,7 +349,8 @@ impl ExecuteOption {
             Self::At { selector } => format!("at {selector}"),
             // Self::Rotated { selector } => format!("rotated as {selector}"),
             Self::Positioned { pos } => format!("positioned {pos}"),
-            Self::FacingEntity { selector } => format!("facing {selector}"),
+            Self::FacingEntity { selector } => format!("facing entity {selector}"),
+            Self::FacingPos { pos } => format!("facing {pos}"),
             Self::Anchored { ident } => format!("anchored {ident}"),
             Self::On { ident } => format!("on {ident}"),
             Self::Summon { ident } => format!("summon {ident}"),
@@ -366,9 +371,9 @@ impl Coordinate {
         Self::Linear(true, 0.0, true, 0.0, true, 0.0)
     }
 
-    pub const fn absolute(x: f32, y: f32, z: f32) -> Self {
-        Self::Linear(false, x, false, y, false, z)
-    }
+    // pub const fn absolute(x: f32, y: f32, z: f32) -> Self {
+    //     Self::Linear(false, x, false, y, false, z)
+    // }
 }
 
 impl TryFrom<&Syntax> for Coordinate {
