@@ -310,11 +310,6 @@ fn double_colon(
 
 /// apply an operation where the left is a selector with an nbt path
 fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<Command>> {
-    if operation != Operation::Equal {
-        return Err(format!(
-            "NBT operations only support the `=` operation, not `{operation}`"
-        ));
-    }
     match (operation, rhs) {
         (
             Operation::Equal,
@@ -337,6 +332,30 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<C
             target: lhs,
             src: NbtLocation::Storage(rhs_nbt.clone()),
         }]),
-        _ => Err(format!("Can't operate `NBT` {operation} `{rhs:?}`")),
+        (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
+            Ok(swap(lhs, NbtLocation::Storage(rhs_nbt.clone())))
+        }
+        (Operation::Swap, Syntax::SelectorNbt(sel, rhs_nbt)) => Ok(swap(
+            lhs,
+            NbtLocation::Entity(sel.stringify()?, rhs_nbt.clone()),
+        )),
+        _ => Err(format!("Can't operate `{{NBT}} {operation} {rhs:?}`")),
     }
+}
+
+fn swap(lhs: NbtLocation, rhs: NbtLocation) -> Vec<Command> {
+    vec![
+        Command::DataSetFrom {
+            target: NbtLocation::Storage(vec![NbtPathPart::Ident("%".into())]),
+            src: lhs.clone(),
+        },
+        Command::DataSetFrom {
+            target: lhs,
+            src: rhs.clone(),
+        },
+        Command::DataSetFrom {
+            target: rhs,
+            src: NbtLocation::Storage(vec![NbtPathPart::Ident("%".into())]),
+        },
+    ]
 }
