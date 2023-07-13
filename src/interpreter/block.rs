@@ -3,6 +3,7 @@ use std::path::Path;
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn block(
     block_type: BlockType,
     lhs: &Syntax,
@@ -39,6 +40,7 @@ pub(super) fn block(
         (_, Syntax::Selector(selector), _) => {
             super::selector_block::block(block_type, selector, rhs, state, path)
         }
+        // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             let inner = inner_interpret(rhs, state, path)?;
             state.functions.push((ident.clone(), inner));
@@ -87,6 +89,41 @@ pub(super) fn block(
         _ => {
             if let Ok(coord) = Coordinate::try_from(lhs) {
                 return coord_block(block_type, coord, rhs, state, path);
+            }
+            if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, rhs) {
+                if let [yaw, pitch] = &arr[..] {
+                    let (yaw_rel, yaw) = match yaw {
+                        Syntax::Integer(int) => (false, *int as f32),
+                        Syntax::Float(fl) => (false, *fl),
+                        Syntax::WooglyCoord(fl) => (true, *fl),
+                        other => {
+                            return Err(format!(
+                            "Expected a number or relative rotation for `rotated`; got `{other:?}`"
+                        ))
+                        }
+                    };
+                    let (pitch_rel, pitch) = match pitch {
+                        Syntax::Integer(int) => (false, *int as f32),
+                        Syntax::Float(fl) => (false, *fl),
+                        Syntax::WooglyCoord(fl) => (true, *fl),
+                        other => {
+                            return Err(format!(
+                            "Expected a number or relative rotation for `rotated`; got `{other:?}`"
+                        ))
+                        }
+                    };
+                    return Ok(vec![Command::execute(
+                        vec![ExecuteOption::Rotated {
+                            yaw_rel,
+                            yaw,
+                            pitch_rel,
+                            pitch,
+                        }],
+                        inner_interpret(rhs, state, path)?,
+                        &format!("{:x}", get_hash(rhs)),
+                        state,
+                    )]);
+                }
             }
             Err(format!(
                 "Unsupported block invocation: `{block_type:?} {lhs:?} {rhs:?}`"

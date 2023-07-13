@@ -183,6 +183,9 @@ fn selector_block(
         BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity {
             selector: selector.stringify()?,
         }),
+        BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs {
+            selector: selector.stringify()?,
+        }),
         BlockType::As => {}
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
