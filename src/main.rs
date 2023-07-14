@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use clap::Parser;
-use dotenv::dotenv;
+use dotenvy::dotenv;
 
 /// transforms an `InterRepr` into a set of files that need to be written to a datapack
 mod compiler;
