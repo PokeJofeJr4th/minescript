@@ -32,6 +32,7 @@ pub(super) fn macros(
                 return Err(format!("Import macro expects a string, not `{properties:?}`"))
             };
             let new_path = path.join(str.as_ref());
+            src_files.insert(new_path.clone());
             let text = fs::read_to_string(&new_path)
                 .map_err(|err| format!("Error opening {str}: {err}"))?;
             let tokens = tokenize(&format!("[{text}]"))

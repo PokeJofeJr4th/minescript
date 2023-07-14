@@ -1,4 +1,3 @@
-
 @item {
     base: carrot_on_a_stick
     name: "Staff of Growth"
@@ -38,42 +37,17 @@
     }
 }
 
-function random_flower {
-    @rand flower_type in 0..11
-    if flower_type = 0 {
-        @raw "setblock ~ ~1 ~ dandelion"
-    }
-    if flower_type = 1 {
-        @raw "setblock ~ ~1 ~ poppy"
-    }
-    if flower_type = 2 {
-        @raw "setblock ~ ~1 ~ blue_orchid"
-    }
-    if flower_type = 3 {
-        @raw "setblock ~ ~1 ~ allium"
-    }
-    if flower_type = 4 {
-        @raw "setblock ~ ~1 ~ azure_bluet"
-    }
-    if flower_type = 5 {
-        @raw "setblock ~ ~1 ~ red_tulip"
-    }
-    if flower_type = 6 {
-        @raw "setblock ~ ~1 ~ orange_tulip"
-    }
-    if flower_type = 7 {
-        @raw "setblock ~ ~1 ~ white_tulip"
-    }
-    if flower_type = 8 {
-        @raw "setblock ~ ~1 ~ pink_tulip"
-    }
-    if flower_type = 9 {
-        @raw "setblock ~ ~1 ~ oxeye_daisy"
-    }
-    if flower_type = 10 {
-        @raw "setblock ~ ~1 ~ cornflower"
-    }
-    if flower_type = 11 {
-        @raw "setblock ~ ~1 ~ lily_of_the_valley"
-    }
+function random_flower switch @rand 0..11 {
+    case 0 @raw "setblock ~ ~1 ~ dandelion"
+    case 1 @raw "setblock ~ ~1 ~ poppy"
+    case 2 @raw "setblock ~ ~1 ~ blue_orchid"
+    case 3 @raw "setblock ~ ~1 ~ allium"
+    case 4 @raw "setblock ~ ~1 ~ azure_bluet"
+    case 5 @raw "setblock ~ ~1 ~ red_tulip"
+    case 6 @raw "setblock ~ ~1 ~ orange_tulip"
+    case 7 @raw "setblock ~ ~1 ~ white_tulip"
+    case 8 @raw "setblock ~ ~1 ~ pink_tulip"
+    case 9 @raw "setblock ~ ~1 ~ oxeye_daisy"
+    case 10 @raw "setblock ~ ~1 ~ cornflower"
+    case 11 @raw "setblock ~ ~1 ~ lily_of_the_valley"
 }

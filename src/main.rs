@@ -4,7 +4,7 @@
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use std::{env, fs, thread};
 
 use clap::Parser;
@@ -63,7 +63,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("{e}");
             let dm = input!("Provide the location of your `.minecraft` folder:");
             env::set_var("DOTMINECRAFT", &dm);
-            // TODO: Add to `.env`
             dm
         },
         |val| val,
@@ -82,27 +81,42 @@ fn main() -> Result<(), Box<dyn Error>> {
         args.verbose,
         &mut src_files,
     )?;
+    println!("Successfully built {}", args.namespace);
     if args.reload {
-        let mut dur = Duration::new(1, 0);
+        let dur = Duration::new(1, 0);
         loop {
+            thread::sleep(dur);
             let mut need_change = false;
             for src_file in &src_files {
-                let metadata = fs::metadata(src_file)?;
-                let modified: SystemTime = metadata.modified()?;
-                need_change |= modified.elapsed()? < dur;
+                let Ok(metadata) = fs::metadata(src_file) else { need_change = true; break };
+                let Ok(modified) = metadata.modified() else { need_change = true; break };
+                let Ok(elapsed) = modified.elapsed() else { need_change = true; break };
+                if elapsed < dur {
+                    need_change = true;
+                    if args.verbose {
+                        println!("{} has changed", src_file.to_string_lossy());
+                    }
+                    break;
+                }
             }
             if need_change {
-                dur = Duration::new(1, 0);
-                build(
+                println!("Rebuilding...");
+                src_files = BTreeSet::new();
+                match build(
                     &path,
                     &parent,
                     &args.namespace,
                     args.verbose,
                     &mut src_files,
-                )?;
+                ) {
+                    Ok(()) => println!(
+                        "{} Successfully rebuilt {}",
+                        chrono::Local::now().format("%H:%M:%S"),
+                        args.namespace
+                    ),
+                    Err(err) => eprintln!("Error rebuilding {}: {err}", args.namespace),
+                }
             }
-            dur *= 2;
-            thread::sleep(dur);
         }
     }
     Ok(())
@@ -131,7 +145,7 @@ fn build(
     let folder = path
         .parent()
         .ok_or_else(|| String::from("Bad source path"))?;
-    src_files.insert(PathBuf::from(folder));
+    src_files.insert(PathBuf::from(path));
     // interpret the syntax
     let mut state = interpreter::interpret(&syntax, folder, src_files)?;
     if verbose {

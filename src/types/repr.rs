@@ -84,10 +84,7 @@ impl CompiledRepr {
     }
 
     pub fn write(&self, parent: &str, nmsp: &str) -> Result<(), std::io::Error> {
-        match fs::remove_dir_all(&format!("{parent}{nmsp}")) {
-            Ok(_) => println!("Deleted existing directory"),
-            Err(err) => println!("Didn't delete directory: {err}"),
-        }
+        let _ = fs::remove_dir_all(&format!("{parent}{nmsp}"));
         for (path, contents) in &self.functions {
             let mut file = create_file_with_parent_dirs(&format!(
                 "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
