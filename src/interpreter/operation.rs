@@ -139,7 +139,7 @@ fn simple_operation(
                     mac.clone(),
                     Box::new(Syntax::BinaryOp(
                         target.clone(),
-                        Operation::Equal,
+                        Operation::In,
                         bound.clone(),
                     )),
                 ),

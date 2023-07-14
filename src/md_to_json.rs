@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use crate::types::{Nbt, RStr};
+use crate::types::Nbt;
 
 enum Token {
     Star(u8),

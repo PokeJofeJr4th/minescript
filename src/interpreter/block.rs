@@ -1,25 +1,25 @@
 use std::path::Path;
 
 use super::{inner_interpret, InterRepr};
-use crate::types::prelude::*;
+use crate::{interpreter::operation::operation, types::prelude::*};
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn block(
     block_type: BlockType,
     lhs: &Syntax,
-    rhs: &Syntax,
+    body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
 ) -> SResult<Vec<Command>> {
-    match (block_type, lhs, rhs) {
+    match (block_type, lhs, body) {
         // if x=1 {}
         (BlockType::If, Syntax::BinaryOp(left, op, right), _) => interpret_if(
             false,
             left,
             *op,
             right,
-            inner_interpret(rhs, state, path)?,
-            &format!("{:x}", get_hash(rhs)),
+            inner_interpret(body, state, path)?,
+            &format!("{:x}", get_hash(body)),
             state,
         ),
         // unless x=1 {}
@@ -28,29 +28,61 @@ pub(super) fn block(
             left,
             *op,
             right,
-            inner_interpret(rhs, state, path)?,
-            &format!("{:x}", get_hash(rhs)),
+            inner_interpret(body, state, path)?,
+            &format!("{:x}", get_hash(body)),
             state,
         ),
         // for _ in 1..10 {}
-        (_, Syntax::BinaryOp(left, op, right), _) => {
-            loop_block(block_type, left, *op, right, rhs, state, path)
+        (
+            BlockType::For
+            | BlockType::While
+            | BlockType::Until
+            | BlockType::DoWhile
+            | BlockType::DoUntil,
+            Syntax::BinaryOp(left, op, right),
+            _,
+        ) => loop_block(block_type, left, *op, right, body, state, path),
+        // switch _ { case _ { ...}* }
+        (BlockType::Switch, _, Syntax::Array(arr)) => {
+            let switch_var: RStr = format!("switch_{:x}", get_hash(body)).into();
+            let mut cmd_buf = operation(
+                &OpLeft::Ident(switch_var.clone()),
+                Operation::Equal,
+                lhs,
+                state,
+                path,
+            )?;
+            for syn in arr.iter() {
+                let Syntax::Block(BlockType::Case, match_value, body) = syn else {
+                    return Err(format!("Expected `case` statement; got `{syn:?}`"))
+                };
+                cmd_buf.extend(interpret_if(
+                    false,
+                    &OpLeft::Ident(switch_var.clone()),
+                    Operation::Equal,
+                    match_value,
+                    inner_interpret(body, state, path)?,
+                    &format!("case_{:x}", get_hash(body)),
+                    state,
+                )?);
+            }
+            Ok(cmd_buf)
         }
         // tp @s (~ ~10 ~)
         (_, Syntax::Selector(selector), _) => {
-            super::selector_block::block(block_type, selector, rhs, state, path)
+            super::selector_block::block(block_type, selector, body, state, path)
         }
         // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            let inner = inner_interpret(rhs, state, path)?;
+            let inner = inner_interpret(body, state, path)?;
             state.functions.push((ident.clone(), inner));
             Ok(Vec::new())
         }
         // async do_thing { ... }
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            let Syntax::Array(arr) = rhs else {
+            let Syntax::Array(arr) = body else {
                 // just make it a normal function
-                let inner = inner_interpret(rhs, state, path)?;
+                let inner = inner_interpret(body, state, path)?;
                 state.functions.push((ident.clone(), inner));
                 return Ok(Vec::new());
             };
@@ -85,12 +117,12 @@ pub(super) fn block(
             BlockType::On | BlockType::Summon | BlockType::Anchored,
             Syntax::Identifier(ident) | Syntax::String(ident),
             _,
-        ) => ident_block(block_type, ident.clone(), rhs, state, path),
+        ) => ident_block(block_type, ident.clone(), body, state, path),
         _ => {
             if let Ok(coord) = Coordinate::try_from(lhs) {
-                return coord_block(block_type, coord, rhs, state, path);
+                return coord_block(block_type, coord, body, state, path);
             }
-            if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, rhs) {
+            if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, body) {
                 if let [yaw, pitch] = &arr[..] {
                     let (yaw_rel, yaw) = match yaw {
                         Syntax::Integer(int) => (false, *int as f32),
@@ -119,19 +151,21 @@ pub(super) fn block(
                             pitch_rel,
                             pitch,
                         }],
-                        inner_interpret(rhs, state, path)?,
-                        &format!("{:x}", get_hash(rhs)),
+                        inner_interpret(body, state, path)?,
+                        &format!("{:x}", get_hash(body)),
                         state,
                     )]);
                 }
             }
             Err(format!(
-                "Unsupported block invocation: `{block_type:?} {lhs:?} {rhs:?}`"
+                "Unsupported block invocation: `{block_type:?} {lhs:?} {body:?}`"
             ))
         }
     }
 }
 
+/// # Panics
+/// If passed a `BlockType` other than `For`, `Until`, `DoWhile`, `While`, or `DoUntil`
 fn loop_block(
     block_type: BlockType,
     left: &OpLeft,
