@@ -8,5 +8,6 @@ authors = ["PokeJofeJr4th"]
 
 [dependencies]
 clap = { version = "4.3.3", features = ["derive"] }
+dotenv = "0.15.0"
 strum = "0.25.0"
 strum_macros = "0.25.1"

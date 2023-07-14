@@ -2,12 +2,11 @@
 #![allow(clippy::module_name_repetitions, clippy::cast_precision_loss)]
 
 use std::error::Error;
-use std::fs::{self, File};
-
-use std::io::Write;
 use std::path::PathBuf;
+use std::{env, fs};
 
 use clap::Parser;
+use dotenv::dotenv;
 
 /// transforms an `InterRepr` into a set of files that need to be written to a datapack
 mod compiler;
@@ -25,6 +24,15 @@ mod types;
 #[cfg(test)]
 mod tests;
 
+macro_rules! input {
+    ($msg: expr) => {{
+        println!($msg);
+        let mut response: String = String::new();
+        std::io::stdin().read_line(&mut response).unwrap();
+        response.trim().to_owned()
+    }};
+}
+
 #[derive(Parser)]
 struct Args {
     /// path to the source file
@@ -34,94 +42,61 @@ struct Args {
     /// Print debug data for intermediate representations
     #[clap(short, long)]
     verbose: bool,
+    // /// Enable hot reloading; when you change source file, the project will rebuild
+    // #[clap(short, long)]
+    // reload: bool,
+    /// Save the datapack to a world's `datapacks` folder
+    #[clap(short, long)]
+    world: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let path = PathBuf::from(args.path);
+    // read the contents of the primary source file
     let file = format!("[{}]", fs::read_to_string(&path)?);
+    // tokenize the raw source
     let tokens = lexer::tokenize(&file)?;
     if args.verbose {
         println!("{tokens:?}");
     }
+    // parse the tokens to syntax
     let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
     if args.verbose {
         println!("{syntax:?}");
     }
+    // get the current folder so that imports work
     let folder = path
         .parent()
         .ok_or_else(|| String::from("Bad source path"))?;
+    // interpret the syntax
     let mut state = interpreter::interpret(&syntax, folder)?;
     if args.verbose {
         println!("{state:#?}");
     }
+    // compile the InterRepr
     let compiled = compiler::compile(&mut state, &args.namespace)?;
     if args.verbose {
         println!("{compiled:#?}");
     }
-    match fs::remove_dir_all(&args.namespace) {
-        Ok(_) => println!("Deleted existing directory"),
-        Err(err) => println!("Didn't delete directory: {err}"),
-    }
-    for (path, contents) in compiled.functions {
-        let mut file = create_file_with_parent_dirs(&format!(
-            "{nmsp}/data/{nmsp}/functions/{path}.mcfunction",
-            nmsp = args.namespace
-        ))?;
-        write!(file, "{contents}")?;
-        if &*path == "tick" {
-            let mut tick = create_file_with_parent_dirs(&format!(
-                "{nmsp}/data/minecraft/tags/functions/tick.json",
-                nmsp = args.namespace
-            ))?;
-            write!(
-                tick,
-                "{{\"values\":[\"{nmsp}:tick\"]}}",
-                nmsp = args.namespace
-            )?;
-        }
-        if &*path == "load" {
-            let mut load = create_file_with_parent_dirs(&format!(
-                "{nmsp}/data/minecraft/tags/functions/load.json",
-                nmsp = args.namespace
-            ))?;
-            write!(
-                load,
-                "{{\"values\":[\"{nmsp}:load\"]}}",
-                nmsp = args.namespace
-            )?;
-        }
-    }
-    for (path, contents) in compiled.advancements {
-        let mut file = create_file_with_parent_dirs(&format!(
-            "{nmsp}/data/{nmsp}/advancements/{path}.json",
-            nmsp = args.namespace
-        ))?;
-        write!(file, "{contents}")?;
-    }
-    for (path, contents) in compiled.recipes {
-        let mut file = create_file_with_parent_dirs(&format!(
-            "{nmsp}/data/{nmsp}/recipes/{path}.json",
-            nmsp = args.namespace
-        ))?;
-        write!(file, "{contents}")?;
-    }
-    for (path, contents) in compiled.loot_tables {
-        let mut file = create_file_with_parent_dirs(&format!(
-            "{nmsp}/data/{nmsp}/loot_tables/{path}.json",
-            nmsp = args.namespace
-        ))?;
-        write!(file, "{contents}")?;
-    }
-    let mut mcmeta =
-        create_file_with_parent_dirs(&format!("{nmsp}/pack.mcmeta", nmsp = args.namespace))?;
-    write!(mcmeta, "{}", compiled.mcmeta)?;
+    // load environment variables from `.env` file
+    dotenv().ok();
+    // either get "DOTMINECRAFT" from env or ask for it
+    let dotminecraft = env::var("DOTMINECRAFT").map_or_else(
+        |e| {
+            println!("{e}");
+            let dm = input!("Provide the location of your `.minecraft` folder:");
+            env::set_var("DOTMINECRAFT", &dm);
+            // TODO: Add to `.env`
+            dm
+        },
+        |val| val,
+    );
+    // set the parent folder for the compiled output
+    let parent = args.world.map_or_else(
+        || format!("{dotminecraft}/datapacks/"),
+        |world| format!("{dotminecraft}/saves/{world}/datapacks/"),
+    );
+    compiled.write(&parent, &args.namespace)?;
     Ok(())
-}
-
-fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> {
-    let parent_dir = std::path::Path::new(filename).parent().unwrap();
-    fs::create_dir_all(parent_dir)?;
-
-    File::create(filename)
 }

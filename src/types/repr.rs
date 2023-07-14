@@ -1,4 +1,8 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    fs::{self, File},
+    io::Write,
+};
 
 use crate::types::prelude::*;
 
@@ -78,4 +82,57 @@ impl CompiledRepr {
             }
         }
     }
+
+    pub fn write(&self, parent: &str, nmsp: &str) -> Result<(), std::io::Error> {
+        match fs::remove_dir_all(&format!("{parent}{nmsp}")) {
+            Ok(_) => println!("Deleted existing directory"),
+            Err(err) => println!("Didn't delete directory: {err}"),
+        }
+        for (path, contents) in &self.functions {
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
+            ))?;
+            write!(file, "{contents}")?;
+            if &**path == "tick" {
+                let mut tick = create_file_with_parent_dirs(&format!(
+                    "{parent}{nmsp}/data/minecraft/tags/functions/tick.json"
+                ))?;
+                write!(tick, "{{\"values\":[\"{nmsp}:tick\"]}}")?;
+            }
+            if &**path == "load" {
+                let mut load = create_file_with_parent_dirs(&format!(
+                    "{parent}{nmsp}/data/minecraft/tags/functions/load.json"
+                ))?;
+                write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
+            }
+        }
+        for (path, contents) in &self.advancements {
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/{nmsp}/advancements/{path}.json"
+            ))?;
+            write!(file, "{contents}")?;
+        }
+        for (path, contents) in &self.recipes {
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/{nmsp}/recipes/{path}.json"
+            ))?;
+            write!(file, "{contents}")?;
+        }
+        for (path, contents) in &self.loot_tables {
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/{nmsp}/loot_tables/{path}.json"
+            ))?;
+            write!(file, "{contents}")?;
+        }
+        let mut mcmeta = create_file_with_parent_dirs(&format!("{parent}{nmsp}/pack.mcmeta"))?;
+        write!(mcmeta, "{}", self.mcmeta)?;
+        Ok(())
+    }
+}
+
+fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> {
+    let parent_dir = std::path::Path::new(filename).parent().unwrap();
+    fs::create_dir_all(parent_dir)?;
+
+    File::create(filename)
 }

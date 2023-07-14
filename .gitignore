@@ -1,3 +1,4 @@
 /target
 /minescript-src
 Cargo.lock
+.env
