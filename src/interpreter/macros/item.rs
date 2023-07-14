@@ -1,9 +1,17 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+};
 
 use crate::{interpreter::inner_interpret, types::prelude::*};
 
 #[allow(clippy::too_many_lines)]
-pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Item> {
+pub(super) fn item(
+    src: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
@@ -42,30 +50,33 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                     .push(Command::Function { func: str.clone() }),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.on_consume.extend(inner_interpret(value, state, path)?);
+                        item.on_consume.extend(inner_interpret(value, state, path, src_files)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path)?;
+                    let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_consume
                         .push(Command::Function { func: name.clone() });
                 }
                 other => {
-                    item.on_consume.extend(inner_interpret(other, state, path)?);
+                    item.on_consume
+                        .extend(inner_interpret(other, state, path, src_files)?);
                 }
             },
             "on_use" => match value {
                 Syntax::String(str) => item.on_use.push(Command::Function { func: str.clone() }),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.on_use.extend(inner_interpret(value, state, path)?);
+                        item.on_use.extend(inner_interpret(value, state, path, src_files)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path)?;
+                    let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
                     item.on_use.push(Command::Function { func: name.clone() });
                 }
-                other => item.on_use.extend(inner_interpret(other, state, path)?),
+                other => item
+                    .on_use
+                    .extend(inner_interpret(other, state, path, src_files)?),
             },
             "while_using" => match value {
                 Syntax::String(str) => item
@@ -73,17 +84,17 @@ pub(super) fn item(src: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<
                     .push(Command::Function { func: str.clone() }),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.while_using.extend(inner_interpret(value, state, path)?);
+                        item.while_using.extend(inner_interpret(value, state, path, src_files)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path)?;
+                    let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
                     item.while_using
                         .push(Command::Function { func: name.clone() });
                 }
                 other => {
                     item.while_using
-                        .extend(inner_interpret(other, state, path)?);
+                        .extend(inner_interpret(other, state, path, src_files)?);
                 }
             },
             "recipe" => {

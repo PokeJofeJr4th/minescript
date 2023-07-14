@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 use std::{collections::BTreeMap, rc::Rc};
 
 use super::{inner_interpret, InterRepr};
@@ -11,12 +12,13 @@ pub(super) fn block(
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     match block_type {
         BlockType::Tp => teleport(selector, body),
         BlockType::Damage => damage(selector, body),
         BlockType::TellRaw => tellraw(selector, body),
-        block_type => selector_block(block_type, selector, body, state, path),
+        block_type => selector_block(block_type, selector, body, state, path, src_files),
     }
 }
 
@@ -158,6 +160,7 @@ fn selector_block(
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
     if block_type == BlockType::As || block_type == BlockType::AsAt {
@@ -189,7 +192,7 @@ fn selector_block(
         BlockType::As => {}
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
-    let inner = inner_interpret(body, state, path)?;
+    let inner = inner_interpret(body, state, path, src_files)?;
     Ok(vec![Command::execute(
         res_buf,
         inner,

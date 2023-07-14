@@ -1,9 +1,11 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![allow(clippy::module_name_repetitions, clippy::cast_precision_loss)]
 
+use std::collections::BTreeSet;
 use std::error::Error;
-use std::path::PathBuf;
-use std::{env, fs};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+use std::{env, fs, thread};
 
 use clap::Parser;
 use dotenvy::dotenv;
@@ -42,9 +44,9 @@ struct Args {
     /// Print debug data for intermediate representations
     #[clap(short, long)]
     verbose: bool,
-    // /// Enable hot reloading; when you change source file, the project will rebuild
-    // #[clap(short, long)]
-    // reload: bool,
+    /// Enable hot reloading; when you change source file, the project will rebuild
+    #[clap(short, long)]
+    reload: bool,
     /// Save the datapack to a world's `datapacks` folder
     #[clap(short, long)]
     world: Option<String>,
@@ -53,32 +55,6 @@ struct Args {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let path = PathBuf::from(args.path);
-    // read the contents of the primary source file
-    let file = format!("[{}]", fs::read_to_string(&path)?);
-    // tokenize the raw source
-    let tokens = lexer::tokenize(&file)?;
-    if args.verbose {
-        println!("{tokens:?}");
-    }
-    // parse the tokens to syntax
-    let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
-    if args.verbose {
-        println!("{syntax:?}");
-    }
-    // get the current folder so that imports work
-    let folder = path
-        .parent()
-        .ok_or_else(|| String::from("Bad source path"))?;
-    // interpret the syntax
-    let mut state = interpreter::interpret(&syntax, folder)?;
-    if args.verbose {
-        println!("{state:#?}");
-    }
-    // compile the InterRepr
-    let compiled = compiler::compile(&mut state, &args.namespace)?;
-    if args.verbose {
-        println!("{compiled:#?}");
-    }
     // load environment variables from `.env` file
     dotenv().ok();
     // either get "DOTMINECRAFT" from env or ask for it
@@ -97,6 +73,75 @@ fn main() -> Result<(), Box<dyn Error>> {
         || format!("{dotminecraft}/datapacks/"),
         |world| format!("{dotminecraft}/saves/{world}/datapacks/"),
     );
-    compiled.write(&parent, &args.namespace)?;
+    // start the list of dependent files
+    let mut src_files = BTreeSet::new();
+    build(
+        &path,
+        &parent,
+        &args.namespace,
+        args.verbose,
+        &mut src_files,
+    )?;
+    if args.reload {
+        let mut dur = Duration::new(1, 0);
+        loop {
+            let mut need_change = false;
+            for src_file in &src_files {
+                let metadata = fs::metadata(src_file)?;
+                let modified: SystemTime = metadata.modified()?;
+                need_change |= modified.elapsed()? < dur;
+            }
+            if need_change {
+                dur = Duration::new(1, 0);
+                build(
+                    &path,
+                    &parent,
+                    &args.namespace,
+                    args.verbose,
+                    &mut src_files,
+                )?;
+            }
+            dur *= 2;
+            thread::sleep(dur);
+        }
+    }
+    Ok(())
+}
+
+fn build(
+    path: &Path,
+    parent: &str,
+    namespace: &str,
+    verbose: bool,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
+    // read the contents of the primary source file
+    let file = format!("[{}]", fs::read_to_string(path)?);
+    // tokenize the raw source
+    let tokens = lexer::tokenize(&file)?;
+    if verbose {
+        println!("{tokens:?}");
+    }
+    // parse the tokens to syntax
+    let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
+    if verbose {
+        println!("{syntax:?}");
+    }
+    // get the current folder so that imports work
+    let folder = path
+        .parent()
+        .ok_or_else(|| String::from("Bad source path"))?;
+    src_files.insert(PathBuf::from(folder));
+    // interpret the syntax
+    let mut state = interpreter::interpret(&syntax, folder, src_files)?;
+    if verbose {
+        println!("{state:#?}");
+    }
+    // compile the InterRepr
+    let compiled = compiler::compile(&mut state, namespace)?;
+    if verbose {
+        println!("{compiled:#?}");
+    }
+    compiled.write(parent, namespace)?;
     Ok(())
 }

@@ -1,4 +1,8 @@
-use std::{fs, path::Path};
+use std::{
+    collections::BTreeSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::inner_interpret;
 use crate::{lexer::tokenize, parser::parse, types::prelude::*};
@@ -12,6 +16,7 @@ pub(super) fn macros(
     properties: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     match name {
         "effect" => {
@@ -33,11 +38,11 @@ pub(super) fn macros(
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
             let syntax = parse(&mut tokens.into_iter().peekable())
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
-            return inner_interpret(&syntax, state, &new_path);
+            return inner_interpret(&syntax, state, &new_path, src_files);
         }
         "item" => {
             // can't borrow state as mutable more than once at a time
-            let item = item::item(properties, state, path)?;
+            let item = item::item(properties, state, path, src_files)?;
             state.items.push(item);
         }
         "raw" => match properties {
@@ -63,7 +68,7 @@ pub(super) fn macros(
             }
         },
         "raycast" => {
-            return raycast(properties, state, path);
+            return raycast(properties, state, path, src_files);
         }
         "sound" | "playsound" => return sound(properties),
         "random" | "rand" => {
@@ -193,7 +198,12 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<Vec<Command>> {
+fn raycast(
+    properties: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> SResult<Vec<Command>> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Raycast macro expects an object, not {properties:?}"))
     };
@@ -222,27 +232,27 @@ fn raycast(properties: &Syntax, state: &mut InterRepr, path: &Path) -> SResult<V
                 Syntax::String(str) => callback.push(Command::Function { func: str.clone() }),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        callback.extend(inner_interpret(v, state, path)?);
+                        callback.extend(inner_interpret(v, state, path, src_files)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path)?;
+                    let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
                     callback.push(Command::Function { func: name.clone() });
                 }
-                other => callback.extend(inner_interpret(other, state, path)?),
+                other => callback.extend(inner_interpret(other, state, path, src_files)?),
             },
             "each" => match v {
                 Syntax::String(str) => each.push(Command::Function { func: str.clone() }),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        each.extend(inner_interpret(v, state, path)?);
+                        each.extend(inner_interpret(v, state, path, src_files)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path)?;
+                    let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
                     each.push(Command::Function { func: name.clone() });
                 }
-                other => each.extend(inner_interpret(other, state, path)?),
+                other => each.extend(inner_interpret(other, state, path, src_files)?),
             },
             other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
         }

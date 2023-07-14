@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
@@ -10,6 +13,7 @@ pub(super) fn operation(
     rhs: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     match (lhs, op, rhs) {
         // @s::xp
@@ -20,7 +24,7 @@ pub(super) fn operation(
         }
         (OpLeft::NbtStorage(nbt), _, _) => nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs),
         // x | @s:score | const:x
-        _ => simple_operation(lhs, op, rhs, state, path),
+        _ => simple_operation(lhs, op, rhs, state, path, src_files),
     }
 }
 
@@ -35,6 +39,7 @@ fn simple_operation(
     syn: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     let target_objective = target.stringify_scoreboard_objective()?;
     let target_name = target.stringify_scoreboard_target()?;
@@ -73,6 +78,7 @@ fn simple_operation(
                 &Syntax::Identifier("".into()),
                 state,
                 path,
+                src_files,
             )?);
             Ok(vec)
         }
@@ -101,6 +107,7 @@ fn simple_operation(
                 &Syntax::Identifier("".into()),
                 state,
                 path,
+                src_files,
             )?);
             Ok(cmd_buf)
         }
@@ -145,6 +152,7 @@ fn simple_operation(
                 ),
                 state,
                 path,
+                src_files,
             )
         }
         // x += @rand ...
@@ -166,6 +174,7 @@ fn simple_operation(
                 ),
                 state,
                 path,
+                src_files,
             )?;
             // operate the random value into the target
             cmd_buf.push(Command::ScoreOperation {

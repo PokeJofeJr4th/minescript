@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 use super::{inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*};
@@ -10,6 +13,7 @@ pub(super) fn block(
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     match (block_type, lhs, body) {
         // if x=1 {}
@@ -18,7 +22,7 @@ pub(super) fn block(
             left,
             *op,
             right,
-            inner_interpret(body, state, path)?,
+            inner_interpret(body, state, path, src_files)?,
             &format!("{:x}", get_hash(body)),
             state,
         ),
@@ -28,7 +32,7 @@ pub(super) fn block(
             left,
             *op,
             right,
-            inner_interpret(body, state, path)?,
+            inner_interpret(body, state, path, src_files)?,
             &format!("{:x}", get_hash(body)),
             state,
         ),
@@ -41,7 +45,7 @@ pub(super) fn block(
             | BlockType::DoUntil,
             Syntax::BinaryOp(left, op, right),
             _,
-        ) => loop_block(block_type, left, *op, right, body, state, path),
+        ) => loop_block(block_type, left, *op, right, body, state, path, src_files),
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
             let switch_var: RStr = format!("switch_{:x}", get_hash(body)).into();
@@ -51,6 +55,7 @@ pub(super) fn block(
                 lhs,
                 state,
                 path,
+                src_files,
             )?;
             for syn in arr.iter() {
                 let Syntax::Block(BlockType::Case, match_value, body) = syn else {
@@ -61,7 +66,7 @@ pub(super) fn block(
                     &OpLeft::Ident(switch_var.clone()),
                     Operation::Equal,
                     match_value,
-                    inner_interpret(body, state, path)?,
+                    inner_interpret(body, state, path, src_files)?,
                     &format!("case_{:x}", get_hash(body)),
                     state,
                 )?);
@@ -70,11 +75,11 @@ pub(super) fn block(
         }
         // tp @s (~ ~10 ~)
         (_, Syntax::Selector(selector), _) => {
-            super::selector_block::block(block_type, selector, body, state, path)
+            super::selector_block::block(block_type, selector, body, state, path, src_files)
         }
         // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            let inner = inner_interpret(body, state, path)?;
+            let inner = inner_interpret(body, state, path, src_files)?;
             state.functions.push((ident.clone(), inner));
             Ok(Vec::new())
         }
@@ -82,7 +87,7 @@ pub(super) fn block(
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             let Syntax::Array(arr) = body else {
                 // just make it a normal function
-                let inner = inner_interpret(body, state, path)?;
+                let inner = inner_interpret(body, state, path, src_files)?;
                 state.functions.push((ident.clone(), inner));
                 return Ok(Vec::new());
             };
@@ -107,7 +112,7 @@ pub(super) fn block(
                         continue;
                     }
                 }
-                command_buf.extend(inner_interpret(cmd, state, path)?);
+                command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
             }
             state.functions.push((func, command_buf));
             Ok(Vec::new())
@@ -117,10 +122,10 @@ pub(super) fn block(
             BlockType::On | BlockType::Summon | BlockType::Anchored,
             Syntax::Identifier(ident) | Syntax::String(ident),
             _,
-        ) => ident_block(block_type, ident.clone(), body, state, path),
+        ) => ident_block(block_type, ident.clone(), body, state, path, src_files),
         _ => {
             if let Ok(coord) = Coordinate::try_from(lhs) {
-                return coord_block(block_type, coord, body, state, path);
+                return coord_block(block_type, coord, body, state, path, src_files);
             }
             if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, body) {
                 if let [yaw, pitch] = &arr[..] {
@@ -151,7 +156,7 @@ pub(super) fn block(
                             pitch_rel,
                             pitch,
                         }],
-                        inner_interpret(body, state, path)?,
+                        inner_interpret(body, state, path, src_files)?,
                         &format!("{:x}", get_hash(body)),
                         state,
                     )]);
@@ -166,6 +171,7 @@ pub(super) fn block(
 
 /// # Panics
 /// If passed a `BlockType` other than `For`, `Until`, `DoWhile`, `While`, or `DoUntil`
+#[allow(clippy::too_many_arguments)]
 fn loop_block(
     block_type: BlockType,
     left: &OpLeft,
@@ -174,6 +180,7 @@ fn loop_block(
     block: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     let invert = match block_type {
         BlockType::For | BlockType::DoWhile | BlockType::While => false,
@@ -200,7 +207,7 @@ fn loop_block(
         )?[..] else {
             return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
         };
-    let mut body = inner_interpret(block, state, path)?;
+    let mut body = inner_interpret(block, state, path, src_files)?;
     if block_type == BlockType::For {
         let &Syntax::Range(start, _) = right else {
                 return Err(format!("Expected a range in for loop; got `{right:?}`"))
@@ -349,6 +356,7 @@ fn ident_block(
     body: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     if block_type == BlockType::On
         && !matches!(
@@ -366,7 +374,7 @@ fn ident_block(
         return Err(format!("Invalid `on` identifier: {ident}"));
     }
 
-    let content = inner_interpret(body, state, path)?;
+    let content = inner_interpret(body, state, path, src_files)?;
 
     match block_type {
         BlockType::On => Ok(vec![Command::execute(
@@ -397,6 +405,7 @@ fn coord_block(
     block: &Syntax,
     state: &mut InterRepr,
     path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     let mut opts = Vec::new();
     match block_type {
@@ -406,7 +415,7 @@ fn coord_block(
     }
     Ok(vec![Command::execute(
         opts,
-        inner_interpret(block, state, path)?,
+        inner_interpret(block, state, path, src_files)?,
         &format!("{:x}", get_hash(block)),
         state,
     )])
