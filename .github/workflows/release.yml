@@ -1,6 +1,10 @@
+name: Compile and Release
+
 on:
   release:
     types: [created]
+
+permissions: read-all
 
 jobs:
   release:
