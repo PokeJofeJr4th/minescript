@@ -1,3 +1,4 @@
+[![Rust](https://github.com/PokeJofeJr4th/minescript/actions/workflows/rust.yml/badge.svg)](https://github.com/PokeJofeJr4th/minescript/actions/workflows/rust.yml)
 # Minescript
 
 Minescript is a powerful language with a Rust transpiler that turns it into a Minecraft datapack. It simplifies many of minecraft commands' roughest edges, like control flow, variables, and interoperability between commands, advancements, and recipes.
