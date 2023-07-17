@@ -135,11 +135,11 @@ fn parse_nbt_path<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResul
 fn extract_float<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<f32> {
     Ok(match tokens.peek() {
         Some(Token::Integer(_)) => {
-            let Some(Token::Integer(int)) = tokens.next() else {panic!()};
+            let Some(Token::Integer(int)) = tokens.next() else {unreachable!()};
             int as f32
         }
         Some(Token::Float(_)) => {
-            let Some(Token::Float(float)) = tokens.next() else {panic!()};
+            let Some(Token::Float(float)) = tokens.next() else {unreachable!()};
             float
         }
         Some(Token::Tack) => {

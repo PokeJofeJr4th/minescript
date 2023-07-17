@@ -30,6 +30,10 @@ pub mod prelude {
     pub type RStr = Rc<str>;
     pub type NbtPath = Vec<NbtPathPart>;
 
+    pub fn fmt_mc_ident(ident: &str) -> String {
+        ident.to_lowercase().replace(' ', "_")
+    }
+
     pub fn fmt_nbt_path(path: &[NbtPathPart]) -> String {
         let mut iter = path.iter();
         let mut ret_buf = String::new();

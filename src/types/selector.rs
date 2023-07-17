@@ -53,6 +53,10 @@ impl<T> Selector<T> {
             args: BTreeMap::new(),
         }
     }
+    pub fn with_property<K: Into<RStr>>(mut self, k: K, v: T) -> Self {
+        self.args.insert(k.into(), v);
+        self
+    }
 }
 
 impl Selector<Syntax> {

@@ -10,5 +10,7 @@ authors = ["PokeJofeJr4th"]
 chrono = "0.4.26"
 clap = { version = "4.3.3", features = ["derive"] }
 dotenvy = "0.15.7"
+lazy-regex = "3.0.0"
+regex = "1.9.1"
 strum = "0.25.0"
 strum_macros = "0.25.1"

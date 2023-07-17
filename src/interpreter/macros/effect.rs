@@ -10,16 +10,15 @@ pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
     if let Syntax::Object(src) = src {
         for (prop, value) in src.iter() {
             match prop.as_ref() {
-                "selector" | "target" => match value {
-                    Syntax::Selector(sel) => {
+                "selector" | "target" => {
+                    if let Syntax::Selector(sel) = &value {
                         selector = Some(sel.stringify()?);
-                    }
-                    other => {
+                    } else {
                         return Err(format!(
-                            "Unexpected element: `{other:?}`; expected a selector"
-                        ))
+                            "Unexpected element: `{value:?}`; expected a selector"
+                        ));
                     }
-                },
+                }
                 "effect" => {
                     let Ok(eff) = RStr::try_from(value) else {
                         return Err(String::from("Potion effect must be a string"))
@@ -41,14 +40,15 @@ pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
                         ))
                     }
                 },
-                "level" => match value {
-                    Syntax::Integer(num) => level = *num,
-                    other => {
+                "level" => {
+                    if let Syntax::Integer(num) = &value {
+                        level = *num;
+                    } else {
                         return Err(format!(
-                            "Potion level should be an integer, not `{other:?}`"
-                        ))
+                            "Potion level should be an integer, not `{value:?}`"
+                        ));
                     }
-                },
+                }
                 other => return Err(format!("Unexpected potion property: `{other}`")),
             }
         }

@@ -244,7 +244,7 @@ pub enum NbtPathPart {
     Index(u32),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NbtLocation {
     Entity(Selector<String>, NbtPath),
     Storage(NbtPath),

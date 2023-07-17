@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, hash::Hash};
 
 use super::{nbt::NbtLocation, prelude::*};
 
@@ -110,6 +110,100 @@ pub enum Command {
         damage_type: RStr,
         attacker: Selector<String>,
     },
+}
+
+impl Hash for Command {
+    #[allow(clippy::too_many_lines)]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Raw(str) | Self::Function { func: str } => str.hash(state),
+            Self::TellRaw(sel, content) => (sel, content).hash(state),
+            Self::EffectGive {
+                target,
+                effect,
+                duration,
+                level,
+            } => (target, effect, duration, level).hash(state),
+            Self::Kill { target } => target.hash(state),
+            Self::Schedule {
+                func,
+                time,
+                replace,
+            } => (func, time, replace).hash(state),
+            Self::ScoreSet {
+                target,
+                objective,
+                value,
+            }
+            | Self::ScoreAdd {
+                target,
+                objective,
+                value,
+            } => (target, objective, value).hash(state),
+            Self::ScoreOperation {
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            } => (
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            )
+                .hash(state),
+            Self::XpAdd {
+                target,
+                amount,
+                levels,
+            }
+            | Self::XpSet {
+                target,
+                amount,
+                levels,
+            } => (target, amount, levels).hash(state),
+            Self::XpGet { target, levels } => (target, levels).hash(state),
+            Self::DataSetFrom { target, src } => (target, src).hash(state),
+            Self::DataGet { target } => target.hash(state),
+            Self::DataSetValue { target, value } => (target, value).hash(state),
+            Self::Execute { options, cmd } => (options, cmd).hash(state),
+            Self::Teleport {
+                target,
+                destination,
+            } => (target, destination).hash(state),
+            Self::TeleportTo {
+                target,
+                destination,
+            } => (target, destination).hash(state),
+            Self::Sound {
+                sound,
+                source,
+                target,
+                pos,
+                volume,
+                pitch,
+                min_volume,
+            } => (
+                sound,
+                source,
+                target,
+                pos,
+                volume.to_bits(),
+                pitch.to_bits(),
+                min_volume.to_bits(),
+            )
+                .hash(state),
+            Self::Damage {
+                target,
+                amount,
+                damage_type,
+                attacker,
+            } => (target, amount, damage_type, attacker).hash(state),
+        }
+    }
 }
 
 impl Command {
@@ -287,6 +381,54 @@ pub enum ExecuteOption {
     Summon { ident: RStr },
 }
 
+impl Hash for ExecuteOption {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::ScoreMatches {
+                invert,
+                target,
+                objective,
+                lower,
+                upper,
+            } => (invert, target, objective, lower, upper).hash(state),
+            Self::ScoreSource {
+                invert,
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            } => (
+                invert,
+                target,
+                target_objective,
+                operation,
+                source,
+                source_objective,
+            )
+                .hash(state),
+            Self::Entity { invert, selector } => (invert, selector).hash(state),
+            Self::StoreScore { target, objective } => (target, objective).hash(state),
+            Self::As { selector }
+            | Self::At { selector }
+            | Self::RotatedAs { selector }
+            | Self::FacingEntity { selector } => selector.hash(state),
+            Self::Rotated {
+                yaw_rel,
+                yaw,
+                pitch_rel,
+                pitch,
+            } => (yaw_rel, yaw.to_bits(), pitch_rel, pitch.to_bits()).hash(state),
+            Self::FacingPos { pos } | Self::Positioned { pos } => pos.hash(state),
+            Self::Block { invert, pos, value } => (invert, pos, value).hash(state),
+            Self::Anchored { ident } | Self::On { ident } | Self::Summon { ident } => {
+                ident.hash(state);
+            }
+        }
+    }
+}
+
 impl ExecuteOption {
     pub fn stringify(&self, _namespace: &str) -> String {
         match self {
@@ -365,6 +507,18 @@ pub enum Coordinate {
     Angular(f32, f32, f32),
 }
 
+impl Hash for Coordinate {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Linear(bx, fx, by, fy, bz, fz) => {
+                (bx, by, bz, fy.to_bits(), fx.to_bits(), fz.to_bits()).hash(state);
+            }
+            Self::Angular(x, y, z) => (x.to_bits(), y.to_bits(), z.to_bits()).hash(state),
+        }
+    }
+}
+
 impl Coordinate {
     pub const fn here() -> Self {
         Self::Linear(true, 0.0, true, 0.0, true, 0.0)
@@ -380,11 +534,11 @@ impl TryFrom<&Syntax> for Coordinate {
 
     fn try_from(body: &Syntax) -> SResult<Self> {
         let Syntax::Array(arr) = body else {
-        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
-    };
+            return Err(format!("Expected a list of 3 coordinates; got `{body:?}`"))
+        };
         let [a, b, c] = &arr[..] else {
-        return Err(format!("Tp requires a list of 3 coordinates; got `{body:?}`"))
-    };
+            return Err(format!("Expected a list of 3 coordinates; got `{body:?}`"))
+        };
         Ok(
             if let (Syntax::CaretCoord(a), Syntax::CaretCoord(b), Syntax::CaretCoord(c)) = (a, b, c)
             {
@@ -394,19 +548,19 @@ impl TryFrom<&Syntax> for Coordinate {
                     Syntax::WooglyCoord(float) => (true, *float),
                     Syntax::Integer(int) => (false, *int as f32),
                     Syntax::Float(float) => (false, *float),
-                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{a:?}`")),
+                    _ => return Err(format!("Expected a list of 3 coordinates; got `{a:?}`")),
                 };
                 let (b, bf) = match b {
                     Syntax::WooglyCoord(float) => (true, *float),
                     Syntax::Integer(int) => (false, *int as f32),
                     Syntax::Float(float) => (false, *float),
-                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{b:?}`")),
+                    _ => return Err(format!("Expected a list of 3 coordinates; got `{b:?}`")),
                 };
                 let (c, cf) = match c {
                     Syntax::WooglyCoord(float) => (true, *float),
                     Syntax::Integer(int) => (false, *int as f32),
                     Syntax::Float(float) => (false, *float),
-                    _ => return Err(format!("Tp requires a list of 3 coordinates; got `{c:?}`")),
+                    _ => return Err(format!("Expected a list of 3 coordinates; got `{c:?}`")),
                 };
                 Self::Linear(a, af, b, bf, c, cf)
             },

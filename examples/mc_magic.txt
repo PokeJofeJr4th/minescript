@@ -22,24 +22,6 @@
 }
 
 @item {
-    base: wheat_seeds
-    name: "Infinity Seeds"
-    nbt: {customModelData:919}
-    on_use: "give/infinity_seeds"
-    recipe: {
-        pattern: {
-            "xix"
-            "ixi"
-            "xix"
-        }
-        key: {
-            x: nether_star
-            i: wheat_seeds
-        }
-    }
-}
-
-@item {
     base: carrot_on_a_stick
     name: "Fireball"
     nbt: {customModelData:600}
@@ -61,6 +43,34 @@
             T: tnt
             s: nether_star
             l: end_rod
+        }
+    }
+}
+
+@item {
+    base: golden_nugget
+    name: "Ring of Stars"
+    nbt: {customModelData:1918}
+    recipe: {
+        pattern: {
+            "oOo"
+            "O O"
+            "oOo"
+        }
+        key: {
+            O: nether_star
+            o: golden_nugget
+        }
+    }
+    while_slot: {
+        slot_101: {
+            @effect regeneration
+        }
+        head: {
+            @effect regeneration
+        }
+        mainhand: {
+            @effect regeneration
         }
     }
 }

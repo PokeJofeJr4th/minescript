@@ -18,7 +18,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     compile_items(src, namespace, &mut compiled)?;
     // put all the functions in
     for (name, statements) in &src.functions {
-        let name: RStr = name.to_lowercase().replace(' ', "_").into();
+        let name: RStr = fmt_mc_ident(name).into();
         let mut fn_buf = String::new();
         for statement in statements {
             fn_buf.push('\n');
@@ -28,8 +28,8 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     }
     // make all the recipes
     for (name, (content, item_name)) in &src.recipes {
-        let name: RStr = name.to_lowercase().replace(' ', "_").into();
-        let item_name = item_name.to_lowercase().replace(' ', "_");
+        let name: RStr = fmt_mc_ident(name).into();
+        let item_name = fmt_mc_ident(item_name);
         compiled.recipes.insert(name.clone(), content.clone());
         compiled.advancements.insert(
             format!("craft/{name}").into(),
@@ -62,7 +62,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
     let mut tick_buf = String::new();
     let mut using_base_item_scores = BTreeSet::new();
     for item in src.items.clone() {
-        let ident = item.name.to_lowercase().replace(' ', "_");
+        let ident = fmt_mc_ident(&item.name);
 
         let mut give_obj = match &item.nbt {
             Nbt::Object(obj) => obj.clone(),
@@ -190,6 +190,34 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                 .advancements
                 .insert(format!("use/{ident}").into(), advancement_content);
             compiled.insert_fn(&while_using, &fn_content);
+        }
+
+        // make the slot checks
+        for (slot, fn_content) in &item.slot_checks {
+            let cmd = Command::execute(
+                vec![
+                    ExecuteOption::As {
+                        selector: Selector::a().with_property(
+                            "nbt",
+                            nbt!({
+                                Inventory: nbt!([nbt!({
+                                    slot: *slot,
+                                    tag: item.nbt.clone()
+                                })])
+                            })
+                            .to_string(),
+                        ),
+                    },
+                    ExecuteOption::At {
+                        selector: Selector::s(),
+                    },
+                ],
+                fn_content.clone(),
+                &format!("{:x}", get_hash(fn_content)),
+                src,
+            );
+            tick_buf.push('\n');
+            tick_buf.push_str(&cmd.stringify(namespace));
         }
     }
     for base_score in using_base_item_scores {

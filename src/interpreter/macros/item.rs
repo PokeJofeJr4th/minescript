@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use lazy_regex::lazy_regex;
+
 use crate::{interpreter::inner_interpret, types::prelude::*};
 
 #[allow(clippy::too_many_lines)]
@@ -22,6 +24,7 @@ pub(super) fn item(
         on_consume: Vec::new(),
         on_use: Vec::new(),
         while_using: Vec::new(),
+        slot_checks: Vec::new(),
     };
     let mut recipe_buf = Vec::new();
     for (prop, value) in src.iter() {
@@ -104,7 +107,47 @@ pub(super) fn item(
                     recipe_buf.push(recipe(value)?);
                 }
             }
-
+            "while_slot" => {
+                let Syntax::Object(obj) = value else {
+                    return Err(format!("Expected an object for `while_slot` property; got `{value:?}`"))
+                };
+                for (k, v) in obj.iter() {
+                    let slot = if let Some(captures) =
+                        lazy_regex!("^slot_(?P<slot>[0-9]+)$").captures(k)
+                    {
+                        // given the regex above, `captures.name` can never fail
+                        captures
+                            .name("slot")
+                            .unwrap()
+                            .as_str()
+                            .parse()
+                            .map_err(|err| format!("While checking if item is in {k}: {err}"))?
+                    } else if let Some(captures) =
+                        lazy_regex!("^hotbar_(?P<slot>[0-9])$").captures(k)
+                    {
+                        // given the regex above, both `captures.name` and `parse::<i32>` can never fail
+                        captures
+                            .name("slot")
+                            .unwrap()
+                            .as_str()
+                            .parse::<i32>()
+                            .unwrap()
+                            + 100
+                    } else {
+                        match &**k {
+                            "mainhand" => 98,
+                            "offhand" => 99,
+                            "head" => 103,
+                            "chest" => 102,
+                            "legs" => 101,
+                            "feet" => 100,
+                            _ => return Err(format!("Unexpected slot: `{k}`")),
+                        }
+                    };
+                    item.slot_checks
+                        .push((slot, inner_interpret(v, state, path, src_files)?));
+                }
+            }
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
     }

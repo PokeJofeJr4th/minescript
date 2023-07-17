@@ -17,6 +17,8 @@ pub struct Item {
     pub on_use: Vec<Command>,
     /// function that runs every tick while the item is being used
     pub while_using: Vec<Command>,
+    // function that runs every tick while the item is in the given slot
+    pub slot_checks: Vec<(i32, Vec<Command>)>,
 }
 
 /// intermediate representation of most items and functions
