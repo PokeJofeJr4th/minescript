@@ -112,6 +112,12 @@ pub(super) fn item(
                     return Err(format!("Expected an object for `while_slot` property; got `{value:?}`"))
                 };
                 for (k, v) in obj.iter() {
+                    // SLOT INFO
+                    // 9  10 11 12 13 14 15 16 17
+                    // 18 19 20 21 22 23 24 25 26
+                    // 27 28 29 30 31 12 33 34 35
+                    // 0  1  2  3  4  5  6  7  8
+                    // -106
                     let slot = if let Some(captures) =
                         lazy_regex!("^slot_(?P<slot>[0-9]+)$").captures(k)
                     {
@@ -123,7 +129,7 @@ pub(super) fn item(
                             .parse()
                             .map_err(|err| format!("While checking if item is in {k}: {err}"))?
                     } else if let Some(captures) =
-                        lazy_regex!("^hotbar_(?P<slot>[0-9])$").captures(k)
+                        lazy_regex!("^hotbar_(?P<slot>[0-8])$").captures(k)
                     {
                         // given the regex above, both `captures.name` and `parse::<i32>` can never fail
                         captures
@@ -132,11 +138,10 @@ pub(super) fn item(
                             .as_str()
                             .parse::<i32>()
                             .unwrap()
-                            + 100
                     } else {
                         match &**k {
-                            "mainhand" => 98,
-                            "offhand" => 99,
+                            // "mainhand" => 98,
+                            "offhand" => -106,
                             "head" => 103,
                             "chest" => 102,
                             "legs" => 101,
