@@ -139,7 +139,7 @@ fn build(
     // parse the tokens to syntax
     let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
     if verbose {
-        println!("{syntax:?}");
+        println!("{syntax:#?}");
     }
     // get the current folder so that imports work
     let folder = path

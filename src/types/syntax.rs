@@ -1,9 +1,14 @@
-use std::{collections::BTreeMap, fmt::Display, hash::Hash, rc::Rc};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    rc::Rc,
+};
 use strum_macros::EnumString;
 
 use super::prelude::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Syntax {
     /// A floating piece of text
     Identifier(RStr),
@@ -41,6 +46,34 @@ pub enum Syntax {
     Float(f32),
     /// An empty object
     Unit,
+}
+
+impl Debug for Syntax {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier(ident) => write!(f, "{ident}"),
+            Self::Macro(name, body) => write!(f, "@{name} {body:?}"),
+            Self::Object(obj) => f.debug_map().entries(obj).finish(),
+            Self::Array(arr) => f.debug_list().entries(arr.iter()).finish(),
+            Self::Selector(sel) => write!(f, "{sel:?}"),
+            Self::SelectorColon(sel, ident) => write!(f, "{sel:?}:{ident}"),
+            Self::SelectorDoubleColon(sel, ident) => write!(f, "{sel:?}::{ident}"),
+            Self::SelectorNbt(sel, nbt) => write!(f, "{sel:?}.{}", fmt_nbt_path(nbt)),
+            Self::NbtStorage(nbt) => write!(f, "{}", fmt_nbt_path(nbt)),
+            Self::BinaryOp(lhs, op, rhs) => write!(f, "{lhs:?} {op} {rhs:?}"),
+            Self::Block(block_type, lhs, rhs) => write!(f, "{block_type} ({lhs:?}) {rhs:?}"),
+            Self::String(str) => write!(f, "\"{str}\""),
+            Self::Integer(int) => write!(f, "{int}"),
+            Self::Range(Some(lhs), Some(rhs)) => write!(f, "{lhs}..{rhs}"),
+            Self::Range(Some(lhs), None) => write!(f, "{lhs}.."),
+            Self::Range(None, Some(rhs)) => write!(f, "..{rhs}"),
+            Self::Range(None, None) => write!(f, ".."),
+            Self::WooglyCoord(coord) => write!(f, "~{coord}"),
+            Self::CaretCoord(coord) => write!(f, "^{coord}"),
+            Self::Float(float) => write!(f, "{float}"),
+            Self::Unit => write!(f, "()"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString)]

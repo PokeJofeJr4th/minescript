@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+};
 
 use super::prelude::*;
 
@@ -16,10 +19,23 @@ pub enum SelectorType {
     R,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Selector<T> {
     pub selector_type: SelectorType,
     pub args: BTreeMap<RStr, T>,
+}
+
+impl<T: Debug> Debug for Selector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{:?}", self.selector_type)?;
+        f.debug_list()
+            .entries(
+                self.args
+                    .iter()
+                    .map(|(name, value)| format!("{name}={value:?}")),
+            )
+            .finish()
+    }
 }
 
 impl<T> Selector<T> {
@@ -76,9 +92,9 @@ impl Selector<Syntax> {
 impl<T: Display> Display for Selector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.args.is_empty() {
-            self.selector_type.fmt(f)
+            write!(f, "{}", self.selector_type)
         } else {
-            write!(f, "{}", self.selector_type)?;
+            write!(f, "@{}", self.selector_type)?;
             let mut args_buf = f.debug_list();
             for (k, v) in &self.args {
                 args_buf.entry(&format_args!("{k}={v}"));

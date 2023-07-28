@@ -1,5 +1,7 @@
 /// types related to commands, including `Command`, `Coordinate`, and `ExecuteOption`
 mod command;
+/// the `ExecuteOption` type
+mod execute;
 /// types related to NBT data, including `Nbt` and `NbtPathPart`
 mod nbt;
 /// types related to the representation of data, including `CompiledRepr` and `InterRepr`
@@ -18,7 +20,8 @@ pub mod prelude {
     use std::collections::hash_map::DefaultHasher;
     use std::rc::Rc;
 
-    pub use super::command::{Command, Coordinate, ExecuteOption};
+    pub use super::command::{Command, Coordinate};
+    pub use super::execute::ExecuteOption;
     pub use super::nbt::{Nbt, NbtLocation, NbtPathPart};
     pub use super::repr::{CompiledRepr, InterRepr, Item};
     pub use super::selector::{Selector, SelectorType};

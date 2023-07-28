@@ -49,6 +49,7 @@ fn simple_operation(
             .insert(target_objective.clone(), "dummy".into());
     }
     match (op, syn) {
+        (_, Syntax::Integer(value)) => integer_operation(target_name, target_objective, op, *value, state),
         (_, Syntax::SelectorDoubleColon(sel, ident)) => {
             let ident = &**ident;
             let levels = if ident == "lvl" || ident == "level" {
@@ -186,61 +187,6 @@ fn simple_operation(
             });
             Ok(cmd_buf)
         }
-        // x *= 0 => set to 0
-        (Operation::MulEq, Syntax::Integer(0)) => Ok(vec![Command::ScoreSet {
-            target: target_name,
-            objective: target_objective,
-            value: 0,
-        }]),
-        // x /= 0
-        (Operation::DivEq | Operation::ModEq, Syntax::Integer(0)) => {
-            Err(String::from("Can't divide by zero"))
-        }
-        // x = 2
-        (Operation::Equal, Syntax::Integer(int)) => Ok(vec![Command::ScoreSet {
-            target: target_name,
-            objective: target_objective,
-            value: *int,
-        }]),
-        // x *= 1 => nop
-        (Operation::MulEq | Operation::DivEq | Operation::ModEq, Syntax::Integer(1))
-        | (Operation::AddEq | Operation::SubEq, Syntax::Integer(0)) => Ok(Vec::new()),
-        // x += 2
-        (Operation::AddEq, Syntax::Integer(int)) => Ok(vec![Command::ScoreAdd {
-            target: target_name,
-            objective: target_objective,
-            value: *int,
-        }]),
-        // x >< 1 => complain
-        (Operation::Swap, Syntax::Integer(_)) => Err(String::from(
-            "Can't apply `><` (the swap operator) to an integer; did you mean `=`, `>`, or `<`?",
-        )),
-        // x -= 2
-        (Operation::SubEq, Syntax::Integer(int)) => Ok(vec![Command::ScoreAdd {
-            target: target_name,
-            objective: target_objective,
-            value: -int,
-        }]),
-        // x *= 2 => x += x
-        (Operation::MulEq, Syntax::Integer(2)) => Ok(vec![Command::ScoreOperation {
-            source: target_name.clone(),
-            source_objective: target_objective.clone(),
-            target: target_name,
-            target_objective,
-            operation: Operation::MulEq,
-        }]),
-        // x %= 2
-        (op, Syntax::Integer(int)) => {
-            state.objectives.insert("dummy".into(), "dummy".into());
-            state.constants.insert(*int);
-            Ok(vec![Command::ScoreOperation {
-                target: target_name,
-                target_objective,
-                operation: op,
-                source: format!("%const_{int:x}").into(),
-                source_objective: "dummy".into(),
-            }])
-        }
         (Operation::MulEq | Operation::DivEq, Syntax::Float(float)) => {
             let approx = farey_approximation(
                 if op == Operation::MulEq {
@@ -272,6 +218,71 @@ fn simple_operation(
         // x += 0.1 => complain
         (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication and division.")),
         _ => Err(format!("Unsupported operation: `{target:?} {op} {syn:?}`")),
+    }
+}
+
+/// an operation with a variable and literal integer
+fn integer_operation(
+    target_name: RStr,
+    target_objective: RStr,
+    op: Operation,
+    value: i32,
+    state: &mut InterRepr,
+) -> SResult<Vec<Command>> {
+    match (op, value) {
+        // x *= 0 => set to 0
+        (Operation::MulEq, 0) => Ok(vec![Command::ScoreSet {
+            target: target_name,
+            objective: target_objective,
+            value: 0,
+        }]),
+        // x /= 0
+        (Operation::DivEq | Operation::ModEq, 0) => Err(String::from("Can't divide by zero")),
+        // x = 2
+        (Operation::Equal, _) => Ok(vec![Command::ScoreSet {
+            target: target_name,
+            objective: target_objective,
+            value,
+        }]),
+        // x *= 1 => nop
+        (Operation::MulEq | Operation::DivEq | Operation::ModEq, 1)
+        | (Operation::AddEq | Operation::SubEq, 0) => Ok(Vec::new()),
+        // x += 2
+        (Operation::AddEq, _) => Ok(vec![Command::ScoreAdd {
+            target: target_name,
+            objective: target_objective,
+            value,
+        }]),
+        // x >< 1 => complain
+        (Operation::Swap, _) => Err(String::from(
+            "Can't apply `><` (the swap operator) to an integer; did you mean `=`, `>`, or `<`?",
+        )),
+        // x -= 2
+        (Operation::SubEq, _) => Ok(vec![Command::ScoreAdd {
+            target: target_name,
+            objective: target_objective,
+            value: -value,
+        }]),
+        // x *= 2 => x += x
+        (Operation::MulEq, 2) => Ok(vec![Command::ScoreOperation {
+            source: target_name.clone(),
+            source_objective: target_objective.clone(),
+            target: target_name,
+            target_objective,
+            operation: Operation::MulEq,
+        }]),
+        // x %= 2
+        (op, _) => {
+            state.objectives.insert("dummy".into(), "dummy".into());
+            state.constants.insert(value);
+            Ok(vec![Command::ScoreOperation {
+                target: target_name,
+                target_objective,
+                operation: op,
+                source: format!("%const_{value:x}").into(),
+                source_objective: "dummy".into(),
+            }])
+        }
     }
 }
 

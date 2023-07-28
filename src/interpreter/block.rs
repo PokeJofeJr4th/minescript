@@ -153,7 +153,7 @@ fn loop_block(
     if block_type == BlockType::For {
         // reset value at start of for loop
         let &Syntax::Range(start, _) = right else {
-                return Err(format!("Expected a range in for loop; got `{right:?}`"))
+                return Err(format!("Expected `for {{variable}} in {{range}}`; got `{right:?}`"))
             };
         body.push(Command::ScoreSet {
             target: left.stringify_scoreboard_target()?,
@@ -254,7 +254,7 @@ fn interpret_if(
                 Operation::RCaret => (!invert, None, Some(*num)),
                 // x < 1 => unless x matches 1..
                 Operation::LCaret => (!invert, Some(*num), None),
-                _ => return Err(format!("Can't evaluate `if <variable> {op} <number>`")),
+                _ => return Err(format!("Can't evaluate `if {{...}} {op} {{integer}}`")),
             };
             vec![ExecuteOption::ScoreMatches {
                 invert,
@@ -267,7 +267,7 @@ fn interpret_if(
         Syntax::Range(left, right) => {
             if op != Operation::In {
                 return Err(format!(
-                    "Can't check if `{{score}} {op} {{range}}`. Did you mean `{{score}} in {{range}}`?"
+                    "Can't check if `{{...}} {op} {{range}}`. Did you mean `{{...}} in {{range}}`?"
                 ));
             };
             vec![ExecuteOption::ScoreMatches {
@@ -278,7 +278,7 @@ fn interpret_if(
                 upper: *right,
             }]
         }
-        _ => return Err(format!("Can't check if `{{score}} {op} {right:?}`")),
+        _ => return Err(format!("Can't check if `{{...}} {op} {right:?}`")),
     };
     Ok(vec![Command::execute(options, content, hash, state)])
 }
