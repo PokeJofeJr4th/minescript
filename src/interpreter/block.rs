@@ -190,7 +190,7 @@ fn loop_block(
     let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
     let left = if block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
-        OpLeft::Ident(get_hash(block).to_string().into())
+        OpLeft::Ident(format!("{:x}", get_hash(block)).into())
     } else {
         left.clone()
     };
@@ -205,21 +205,25 @@ fn loop_block(
             "",
             state,
         )?[..] else {
-            return Err(format!("Internal compiler error - please report this to the devs. {}{}", file!(), line!()))
+            return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
         };
     let mut body = inner_interpret(block, state, path, src_files)?;
     if block_type == BlockType::For {
+        // reset value at start of for loop
         let &Syntax::Range(start, _) = right else {
                 return Err(format!("Expected a range in for loop; got `{right:?}`"))
             };
-        body.push(Command::ScoreAdd {
+        body.push(Command::ScoreSet {
             target: left.stringify_scoreboard_target()?,
             objective: left.stringify_scoreboard_objective()?,
             value: start.unwrap_or(0),
         });
     }
-    // don't perform the initial check for do-while or for loops
-    if block_type == BlockType::DoWhile || block_type == BlockType::For {
+    // don't perform the initial check for do-while, do-until, or for loops
+    if matches!(
+        block_type,
+        BlockType::DoWhile | BlockType::DoUntil | BlockType::For
+    ) {
         body.push(Command::Function {
             func: fn_name.clone(),
         });
@@ -227,19 +231,7 @@ fn loop_block(
         body.push(goto_fn.clone());
     }
     state.functions.push((fn_name, body));
-    Ok(if block_type == BlockType::For {
-        // reset the value at the end of a for loop
-        vec![
-            goto_fn.clone(),
-            Command::ScoreSet {
-                target: left.stringify_scoreboard_target()?,
-                objective: left.stringify_scoreboard_objective()?,
-                value: 0,
-            },
-        ]
-    } else {
-        vec![goto_fn.clone()]
-    })
+    Ok(vec![goto_fn.clone()])
 }
 
 /// get the command for an `if|unless` block
@@ -334,7 +326,7 @@ fn interpret_if(
         Syntax::Range(left, right) => {
             if op != Operation::In {
                 return Err(format!(
-                    "The only available operation for a range like `{right:?}` is `in`; not `{op}`"
+                    "Can't check if `{{score}} {op} {{range}}`. Did you mean `{{score}} in {{range}}`?"
                 ));
             };
             vec![ExecuteOption::ScoreMatches {
@@ -345,7 +337,7 @@ fn interpret_if(
                 upper: *right,
             }]
         }
-        _ => return Err(format!("Can't end an if statement with {right:?}")),
+        _ => return Err(format!("Can't check if `{{score}} {op} {right:?}`")),
     };
     Ok(vec![Command::execute(options, content, hash, state)])
 }
@@ -371,32 +363,27 @@ fn ident_block(
                 | "vehicle"
         )
     {
-        return Err(format!("Invalid `on` identifier: {ident}"));
+        return Err(format!("Invalid `on` identifier: `{ident}`; expected `attacker`, `controller`, `leasher`, `origin`, `owner`, `passengers`, `target`, or `vehicle`"));
     }
 
     let content = inner_interpret(body, state, path, src_files)?;
 
-    match block_type {
-        BlockType::On => Ok(vec![Command::execute(
-            vec![ExecuteOption::On { ident }],
-            content,
-            &format!("closure/on_{:x}", get_hash(body)),
-            state,
-        )]),
-        BlockType::Summon => Ok(vec![Command::execute(
-            vec![ExecuteOption::Summon { ident }],
-            content,
-            &format!("closure/summon_{:x}", get_hash(body)),
-            state,
-        )]),
-        BlockType::Anchored => Ok(vec![Command::execute(
-            vec![ExecuteOption::Anchored { ident }],
-            content,
-            &format!("closure/anchored_{:x}", get_hash(body)),
-            state,
-        )]),
+    let (options, hash) = match block_type {
+        BlockType::On => (
+            ExecuteOption::On { ident },
+            format!("closure/on_{:x}", get_hash(body)),
+        ),
+        BlockType::Summon => (
+            ExecuteOption::Summon { ident },
+            format!("closure/summon_{:x}", get_hash(body)),
+        ),
+        BlockType::Anchored => (
+            ExecuteOption::Anchored { ident },
+            format!("closure/anchored_{:x}", get_hash(body)),
+        ),
         _ => unreachable!(),
-    }
+    };
+    Ok(vec![Command::execute(vec![options], content, &hash, state)])
 }
 
 fn coord_block(

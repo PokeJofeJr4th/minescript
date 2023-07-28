@@ -163,33 +163,30 @@ fn selector_block(
     src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<Vec<Command>> {
     let mut res_buf = Vec::new();
-    if block_type == BlockType::As || block_type == BlockType::AsAt {
+    let selector = selector.stringify()?;
+    // special case for `as at`: as @p[..] at @s
+    if block_type == BlockType::AsAt {
         res_buf.push(ExecuteOption::As {
-            selector: selector.stringify()?,
+            selector: selector.clone(),
         });
     }
     match block_type {
-        BlockType::At => res_buf.push(ExecuteOption::At {
-            selector: selector.stringify()?,
-        }),
+        // special case for `as at`: as @p[..] at @s
         BlockType::AsAt => res_buf.push(ExecuteOption::At {
             selector: Selector::s(),
         }),
+        BlockType::At => res_buf.push(ExecuteOption::At { selector }),
         BlockType::If => res_buf.push(ExecuteOption::Entity {
             invert: false,
-            selector: selector.stringify()?,
+            selector,
         }),
         BlockType::Unless => res_buf.push(ExecuteOption::Entity {
             invert: true,
-            selector: selector.stringify()?,
+            selector,
         }),
-        BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity {
-            selector: selector.stringify()?,
-        }),
-        BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs {
-            selector: selector.stringify()?,
-        }),
-        BlockType::As => {}
+        BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity { selector }),
+        BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs { selector }),
+        BlockType::As => res_buf.push(ExecuteOption::As { selector }),
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path, src_files)?;

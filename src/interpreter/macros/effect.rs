@@ -11,13 +11,12 @@ pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
         for (prop, value) in src.iter() {
             match prop.as_ref() {
                 "selector" | "target" => {
-                    if let Syntax::Selector(sel) = &value {
-                        selector = Some(sel.stringify()?);
-                    } else {
+                    let Syntax::Selector(sel) = &value else {
                         return Err(format!(
                             "Unexpected element: `{value:?}`; expected a selector"
                         ));
-                    }
+                    };
+                    selector = Some(sel.stringify()?);
                 }
                 "effect" => {
                     let Ok(eff) = RStr::try_from(value) else {
@@ -31,6 +30,7 @@ pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
                             return Err(format!(
                                 "Potion duration should be an integer or infinite, not `{str}`"
                             ));
+                            // duration is infinite by default, so we don't actually need to do anything here
                         }
                     }
                     Syntax::Integer(num) => duration = Some(*num),
