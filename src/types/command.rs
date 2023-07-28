@@ -50,27 +50,33 @@ pub enum Command {
         source: RStr,
         source_objective: RStr,
     },
+    /// add to a target's XP points / levels
     XpAdd {
         target: Selector<String>,
         amount: i32,
         levels: bool,
     },
+    /// set a target's XP points / levels
     XpSet {
         target: Selector<String>,
         amount: i32,
         levels: bool,
     },
+    /// get a player's XP points / levels
     XpGet {
         target: Selector<String>,
         levels: bool,
     },
+    /// transfer NBT data
     DataSetFrom {
         target: NbtLocation,
         src: NbtLocation,
     },
+    /// get NBT data
     DataGet {
         target: NbtLocation,
     },
+    /// set NBT data to a constant
     DataSetValue {
         target: NbtLocation,
         value: RStr,
@@ -95,6 +101,7 @@ pub enum Command {
         target: Selector<String>,
         destination: Selector<String>,
     },
+    /// play a sound
     Sound {
         sound: RStr,
         source: RStr,
@@ -104,6 +111,7 @@ pub enum Command {
         pitch: f32,
         min_volume: f32,
     },
+    /// damage the target
     Damage {
         target: Selector<String>,
         amount: i32,
@@ -277,7 +285,7 @@ impl Command {
     ///
     /// If the other command is an execute, it telescopes their options into one.
     /// If there are no execute subcommands, it returns the given command.
-    /// If there is more than one given command, it returns a function call
+    /// If there is more than one given command, it returns a function call and inserts the function into the state
     pub fn execute(
         mut options: Vec<ExecuteOption>,
         cmd: Vec<Self>,

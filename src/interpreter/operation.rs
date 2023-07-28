@@ -211,6 +211,10 @@ fn simple_operation(
             objective: target_objective,
             value: *int,
         }]),
+        // x >< 1 => complain
+        (Operation::Swap, Syntax::Integer(_)) => Err(String::from(
+            "Can't apply `><` (the swap operator) to an integer; did you mean `=`, `>`, or `<`?",
+        )),
         // x -= 2
         (Operation::SubEq, Syntax::Integer(int)) => Ok(vec![Command::ScoreAdd {
             target: target_name,
@@ -265,7 +269,9 @@ fn simple_operation(
                 },
             ])
         }
-        _ => Err(format!("Unsupported operation: {target:?} {op} {syn:?}")),
+        // x += 0.1 => complain
+        (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication and division.")),
+        _ => Err(format!("Unsupported operation: `{target:?} {op} {syn:?}`")),
     }
 }
 
@@ -276,14 +282,14 @@ fn double_colon(
     op: Operation,
     right: &Syntax,
 ) -> SResult<Vec<Command>> {
-    let levels = if ident == "lvl" || ident == "level" {
-        true
-    } else if ident == "xp" || ident == "experience" {
-        false
-    } else {
-        return Err(format!(
-            "A selector can only be `::` indexed with `lvl` or `xp`, not `{ident}`"
-        ));
+    let levels = match ident {
+        "level" | "lvl" => true,
+        "xp" | "experience" => false,
+        _ => {
+            return Err(format!(
+                "A selector can only be `::` indexed with `lvl` or `xp`, not `{ident}`"
+            ))
+        }
     };
     match (op, right) {
         (Operation::AddEq | Operation::SubEq, Syntax::Integer(int)) => {
@@ -299,7 +305,7 @@ fn double_colon(
             amount: *amount,
             levels,
         }]),
-        _ => Err(format!("Can't operate on XP with `{op}` `{right:?}`")),
+        _ => Err(format!("Can't operate `{{XP}} {op} {right:?}`")),
     }
 }
 
@@ -328,9 +334,9 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<C
             src: NbtLocation::Storage(rhs_nbt.clone()),
         }]),
         (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
-            Ok(swap(lhs, NbtLocation::Storage(rhs_nbt.clone())))
+            Ok(swap_nbt(lhs, NbtLocation::Storage(rhs_nbt.clone())))
         }
-        (Operation::Swap, Syntax::SelectorNbt(sel, rhs_nbt)) => Ok(swap(
+        (Operation::Swap, Syntax::SelectorNbt(sel, rhs_nbt)) => Ok(swap_nbt(
             lhs,
             NbtLocation::Entity(sel.stringify()?, rhs_nbt.clone()),
         )),
@@ -338,7 +344,7 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<C
     }
 }
 
-fn swap(lhs: NbtLocation, rhs: NbtLocation) -> Vec<Command> {
+fn swap_nbt(lhs: NbtLocation, rhs: NbtLocation) -> Vec<Command> {
     vec![
         Command::DataSetFrom {
             target: NbtLocation::Storage(vec![NbtPathPart::Ident("%".into())]),
