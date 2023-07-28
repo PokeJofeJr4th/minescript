@@ -63,7 +63,6 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     Ok(compiled)
 }
 
-#[allow(clippy::too_many_lines)]
 fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRepr) -> SResult<()> {
     let mut tick_buf = String::new();
     let mut using_base_item_scores = BTreeSet::new();
@@ -98,104 +97,24 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
 
         // make the consume function
         if !item.on_consume.is_empty() {
-            let on_consume: RStr = format!("consume/{}", item.name).into();
-            let advancement_content = nbt!({
-              criteria: nbt!({
-                requirement: nbt!({
-                  trigger: "minecraft:consume_item",
-                  conditions: nbt!({
-                    item: nbt!({
-                      items: nbt!([
-                        format!("minecraft:{}", item.base)
-                      ]),
-                      nbt: item.nbt.to_json()
-                    })
-                  })
-                })
-              }),
-              rewards: nbt!({
-                function: format!("{namespace}:{on_consume}")
-              })
-            })
-            .to_json();
-            let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
-            for cmd in item.on_consume {
-                consume_fn.push('\n');
-                consume_fn.push_str(&cmd.stringify(namespace));
-            }
-            compiled
-                .advancements
-                .insert(format!("consume/{ident}").into(), advancement_content);
-            compiled.insert_fn(&on_consume, &consume_fn);
+            make_on_consume(&item, &ident, namespace, compiled);
         }
 
         // make the use function
         if !item.on_use.is_empty() {
-            let on_use = format!("use/{}", item.name);
-            let using_base = format!("use_{}", item.base);
-            let holding_item = format!("holding_{ident}");
-            let execute_fn = Command::execute(
-                vec![
-                    ExecuteOption::As {
-                        selector: Selector {
-                            selector_type: SelectorType::A,
-                            args: [
-                                ("tag".into(), holding_item.clone()),
-                                ("scores".into(), format!("{{{using_base}=1}}")),
-                            ]
-                            .into_iter()
-                            .collect(),
-                        },
-                    },
-                    ExecuteOption::At {
-                        selector: Selector::s(),
-                    },
-                ],
-                item.on_use.clone(),
-                &on_use,
+            make_on_use(
+                &item,
+                &ident,
+                &mut tick_buf,
+                namespace,
+                &mut using_base_item_scores,
                 src,
             );
-            tick_buf.push_str(&execute_fn.stringify(namespace));
-            tick_buf.push('\n');
-            tick_buf.push_str(&format!(
-                "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
-                item.base,
-                item.nbt
-            ));
-            using_base_item_scores.insert(using_base);
         }
 
         // make the while_using function
         if !item.while_using.is_empty() {
-            let while_using: RStr = format!("using/{}", item.name).into();
-            let advancement_content = nbt!({
-              criteria: nbt!({
-                requirement: nbt!({
-                  trigger: "minecraft:using_item",
-                  conditions: nbt!({
-                    item: nbt!({
-                      items: nbt!([
-                        format!("minecraft:{}", item.base)
-                      ]),
-                      nbt: item.nbt.clone()
-                    })
-                  })
-                })
-              }),
-              rewards: nbt!({
-                function: format!("{namespace}:{while_using}")
-              })
-            })
-            .to_json();
-            let mut fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
-            for cmd in item.while_using {
-                fn_content.push('\n');
-                fn_content.push_str(&cmd.stringify(namespace));
-            }
-            compiled
-                .advancements
-                .insert(format!("use/{ident}").into(), advancement_content);
-            compiled.insert_fn(&while_using, &fn_content);
+            make_while_using(&item, &ident, namespace, compiled);
         }
 
         // make the slot checks
@@ -233,4 +152,110 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         compiled.insert_fn("tick", &tick_buf);
     }
     Ok(())
+}
+
+fn make_on_consume(item: &Item, ident: &str, namespace: &str, compiled: &mut CompiledRepr) {
+    let on_consume: RStr = format!("consume/{}", item.name).into();
+    let advancement_content = nbt!({
+      criteria: nbt!({
+        requirement: nbt!({
+          trigger: "minecraft:consume_item",
+          conditions: nbt!({
+            item: nbt!({
+              items: nbt!([
+                format!("minecraft:{}", item.base)
+              ]),
+              nbt: item.nbt.to_json()
+            })
+          })
+        })
+      }),
+      rewards: nbt!({
+        function: format!("{namespace}:{on_consume}")
+      })
+    })
+    .to_json();
+    let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
+    for cmd in &item.on_consume {
+        consume_fn.push('\n');
+        consume_fn.push_str(&cmd.stringify(namespace));
+    }
+    compiled
+        .advancements
+        .insert(format!("consume/{ident}").into(), advancement_content);
+    compiled.insert_fn(&on_consume, &consume_fn);
+}
+
+fn make_on_use(
+    item: &Item,
+    ident: &str,
+    tick_buf: &mut String,
+    namespace: &str,
+    using_base_item_scores: &mut BTreeSet<String>,
+    src: &mut InterRepr,
+) {
+    let on_use = format!("use/{}", item.name);
+    let using_base = format!("use_{}", item.base);
+    let holding_item = format!("holding_{ident}");
+    let execute_fn = Command::execute(
+        vec![
+            ExecuteOption::As {
+                selector: Selector {
+                    selector_type: SelectorType::A,
+                    args: [
+                        ("tag".into(), holding_item.clone()),
+                        ("scores".into(), format!("{{{using_base}=1}}")),
+                    ]
+                    .into_iter()
+                    .collect(),
+                },
+            },
+            ExecuteOption::At {
+                selector: Selector::s(),
+            },
+        ],
+        item.on_use.clone(),
+        &on_use,
+        src,
+    );
+    tick_buf.push_str(&execute_fn.stringify(namespace));
+    tick_buf.push('\n');
+    tick_buf.push_str(&format!(
+                "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
+                item.base,
+                item.nbt
+            ));
+    using_base_item_scores.insert(using_base);
+}
+
+fn make_while_using(item: &Item, ident: &str, namespace: &str, compiled: &mut CompiledRepr) {
+    let while_using: RStr = format!("using/{}", item.name).into();
+    let advancement_content = nbt!({
+      criteria: nbt!({
+        requirement: nbt!({
+          trigger: "minecraft:using_item",
+          conditions: nbt!({
+            item: nbt!({
+              items: nbt!([
+                format!("minecraft:{}", item.base)
+              ]),
+              nbt: item.nbt.clone()
+            })
+          })
+        })
+      }),
+      rewards: nbt!({
+        function: format!("{namespace}:{while_using}")
+      })
+    })
+    .to_json();
+    let mut on_use_fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
+    for cmd in &item.while_using {
+        on_use_fn_content.push('\n');
+        on_use_fn_content.push_str(&cmd.stringify(namespace));
+    }
+    compiled
+        .advancements
+        .insert(format!("use/{ident}").into(), advancement_content);
+    compiled.insert_fn(&while_using, &on_use_fn_content);
 }

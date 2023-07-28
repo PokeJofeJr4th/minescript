@@ -6,7 +6,6 @@ use std::{
 use super::{inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*};
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn block(
     block_type: BlockType,
     lhs: &Syntax,
@@ -85,37 +84,7 @@ pub(super) fn block(
         }
         // async do_thing { ... }
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            let Syntax::Array(arr) = body else {
-                // just make it a normal function
-                let inner = inner_interpret(body, state, path, src_files)?;
-                state.functions.push((ident.clone(), inner));
-                return Ok(Vec::new());
-            };
-            let mut func = ident.clone();
-            let mut command_buf: Vec<Command> = Vec::new();
-            for cmd in arr.iter() {
-                if let Syntax::Macro(id, body) = cmd {
-                    if &**id == "delay" {
-                        let Syntax::Integer(time) = &**body else {
-                            return Err(format!("Expected an integer for delay; got `{body:?}`"))
-                        };
-                        let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
-                        command_buf.push(Command::Schedule {
-                            func: next_func.clone(),
-                            time: *time,
-                            replace: false,
-                        });
-                        state.functions.push((
-                            core::mem::replace(&mut func, next_func),
-                            core::mem::take(&mut command_buf),
-                        ));
-                        continue;
-                    }
-                }
-                command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
-            }
-            state.functions.push((func, command_buf));
-            Ok(Vec::new())
+            async_block(body, ident, state, path, src_files)
         }
         // on owner {...}
         (
@@ -129,42 +98,15 @@ pub(super) fn block(
             }
             if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, body) {
                 if let [yaw, pitch] = &arr[..] {
-                    let (yaw_rel, yaw) = match yaw {
-                        Syntax::Integer(int) => (false, *int as f32),
-                        Syntax::Float(fl) => (false, *fl),
-                        Syntax::WooglyCoord(fl) => (true, *fl),
-                        other => {
-                            return Err(format!(
-                            "Expected a number or relative rotation for `rotated`; got `{other:?}`"
-                        ))
-                        }
-                    };
-                    let (pitch_rel, pitch) = match pitch {
-                        Syntax::Integer(int) => (false, *int as f32),
-                        Syntax::Float(fl) => (false, *fl),
-                        Syntax::WooglyCoord(fl) => (true, *fl),
-                        other => {
-                            return Err(format!(
-                            "Expected a number or relative rotation for `rotated`; got `{other:?}`"
-                        ))
-                        }
-                    };
-                    return Ok(vec![Command::execute(
-                        vec![ExecuteOption::Rotated {
-                            yaw_rel,
-                            yaw,
-                            pitch_rel,
-                            pitch,
-                        }],
-                        inner_interpret(body, state, path, src_files)?,
-                        &format!("closure/rotated_{:x}", get_hash(body)),
-                        state,
-                    )]);
+                    rotated_block(yaw, pitch, body, state, path, src_files)
+                } else {
+                    Err(format!("Expected a `rotated [{{yaw}}, {{pitch}}]` or `rotated @[{{selector}}]`; got `rotated {arr:?}`"))
                 }
+            } else {
+                Err(format!(
+                    "Unsupported block invocation: `{block_type:?} {lhs:?} {body:?}`"
+                ))
             }
-            Err(format!(
-                "Unsupported block invocation: `{block_type:?} {lhs:?} {body:?}`"
-            ))
         }
     }
 }
@@ -235,7 +177,6 @@ fn loop_block(
 }
 
 /// get the command for an `if|unless` block
-#[allow(clippy::too_many_lines)]
 fn interpret_if(
     invert: bool,
     left: &OpLeft,
@@ -406,4 +347,85 @@ fn coord_block(
         &format!("closure/{block_type}_{:x}", get_hash(block)),
         state,
     )])
+}
+
+fn rotated_block(
+    yaw: &Syntax,
+    pitch: &Syntax,
+    body: &Syntax,
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> SResult<Vec<Command>> {
+    let (yaw_rel, yaw) = match yaw {
+        Syntax::Integer(int) => (false, *int as f32),
+        Syntax::Float(fl) => (false, *fl),
+        Syntax::WooglyCoord(fl) => (true, *fl),
+        other => {
+            return Err(format!(
+                "Expected a number or relative rotation for `rotated`; got `{other:?}`"
+            ))
+        }
+    };
+    let (pitch_rel, pitch) = match pitch {
+        Syntax::Integer(int) => (false, *int as f32),
+        Syntax::Float(fl) => (false, *fl),
+        Syntax::WooglyCoord(fl) => (true, *fl),
+        other => {
+            return Err(format!(
+                "Expected a number or relative rotation for `rotated`; got `{other:?}`"
+            ))
+        }
+    };
+    Ok(vec![Command::execute(
+        vec![ExecuteOption::Rotated {
+            yaw_rel,
+            yaw,
+            pitch_rel,
+            pitch,
+        }],
+        inner_interpret(body, state, path, src_files)?,
+        &format!("closure/rotated_{:x}", get_hash(body)),
+        state,
+    )])
+}
+
+fn async_block(
+    body: &Syntax,
+    ident: &RStr,
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> SResult<Vec<Command>> {
+    let Syntax::Array(arr) = body else {
+                // just make it a normal function
+                let inner = inner_interpret(body, state, path, src_files)?;
+                state.functions.push((ident.clone(), inner));
+                return Ok(Vec::new());
+            };
+    let mut func = ident.clone();
+    let mut command_buf: Vec<Command> = Vec::new();
+    for cmd in arr.iter() {
+        if let Syntax::Macro(id, body) = cmd {
+            if &**id == "delay" {
+                let Syntax::Integer(time) = &**body else {
+                            return Err(format!("Expected an integer for delay; got `{body:?}`"))
+                        };
+                let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
+                command_buf.push(Command::Schedule {
+                    func: next_func.clone(),
+                    time: *time,
+                    replace: false,
+                });
+                state.functions.push((
+                    core::mem::replace(&mut func, next_func),
+                    core::mem::take(&mut command_buf),
+                ));
+                continue;
+            }
+        }
+        command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
+    }
+    state.functions.push((func, command_buf));
+    Ok(Vec::new())
 }
