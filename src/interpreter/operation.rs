@@ -23,7 +23,7 @@ pub(super) fn operation(
             nbt_op(NbtLocation::Entity(sel.stringify()?, nbt.clone()), op, rhs)
         }
         (OpLeft::NbtStorage(nbt), _, _) => nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs),
-        // x | @s:score | const:x
+        // x | @s:score | var:x
         _ => simple_operation(lhs, op, rhs, state, path, src_files),
     }
 }
@@ -228,20 +228,14 @@ fn simple_operation(
         // x %= 2
         (op, Syntax::Integer(int)) => {
             state.objectives.insert("dummy".into(), "dummy".into());
-            Ok(vec![
-                Command::ScoreSet {
-                    target: "%".into(),
-                    objective: "dummy".into(),
-                    value: *int,
-                },
-                Command::ScoreOperation {
-                    target: target_name,
-                    target_objective,
-                    operation: op,
-                    source: "%".into(),
-                    source_objective: "dummy".into(),
-                },
-            ])
+            state.constants.insert(*int);
+            Ok(vec![Command::ScoreOperation {
+                target: target_name,
+                target_objective,
+                operation: op,
+                source: format!("%const_{int:x}").into(),
+                source_objective: "dummy".into(),
+            }])
         }
         (Operation::MulEq | Operation::DivEq, Syntax::Float(float)) => {
             let approx = farey_approximation(
@@ -252,29 +246,21 @@ fn simple_operation(
                 },
                 100,
             );
+            state.constants.insert(approx.0);
+            state.constants.insert(approx.1);
             Ok(vec![
-                Command::ScoreSet {
-                    target: "%".into(),
-                    objective: "dummy".into(),
-                    value: approx.0,
-                },
                 Command::ScoreOperation {
                     target: target_name.clone(),
                     target_objective: target_objective.clone(),
                     operation: Operation::MulEq,
-                    source: "%".into(),
+                    source: format!("%const_{:x}", approx.0).into(),
                     source_objective: "dummy".into(),
-                },
-                Command::ScoreSet {
-                    target: "%".into(),
-                    objective: "dummy".into(),
-                    value: approx.1,
                 },
                 Command::ScoreOperation {
                     target: target_name,
                     target_objective,
                     operation: Operation::DivEq,
-                    source: "%".into(),
+                    source: format!("%const_{:x}", approx.1).into(),
                     source_objective: "dummy".into(),
                 },
             ])

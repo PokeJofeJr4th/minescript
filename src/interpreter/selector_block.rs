@@ -196,7 +196,7 @@ fn selector_block(
     Ok(vec![Command::execute(
         res_buf,
         inner,
-        &format!("{:x}", get_hash(body)),
+        &format!("closure/{block_type}_{:x}", get_hash(body)),
         state,
     )])
 }

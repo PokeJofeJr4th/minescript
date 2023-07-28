@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File},
     io::Write,
 };
@@ -29,6 +29,7 @@ pub struct InterRepr {
     pub functions: Vec<(RStr, Vec<Command>)>,
     pub recipes: BTreeMap<RStr, (String, RStr)>,
     pub loot_tables: BTreeMap<RStr, RStr>,
+    pub constants: BTreeSet<i32>,
     // /// all of the standard library functions it uses
     // pub std_imports: BTreeSet<RStr>,
 }
@@ -42,6 +43,7 @@ impl InterRepr {
             functions: Vec::new(),
             recipes: BTreeMap::new(),
             loot_tables: BTreeMap::new(),
+            constants: BTreeSet::new(),
             // std_imports: BTreeSet::new(),
         }
     }

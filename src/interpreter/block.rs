@@ -23,7 +23,7 @@ pub(super) fn block(
             *op,
             right,
             inner_interpret(body, state, path, src_files)?,
-            &format!("{:x}", get_hash(body)),
+            &format!("closure/if_{:x}", get_hash(body)),
             state,
         ),
         // unless x=1 {}
@@ -33,7 +33,7 @@ pub(super) fn block(
             *op,
             right,
             inner_interpret(body, state, path, src_files)?,
-            &format!("{:x}", get_hash(body)),
+            &format!("closure/unless_{:x}", get_hash(body)),
             state,
         ),
         // for _ in 1..10 {}
@@ -48,7 +48,7 @@ pub(super) fn block(
         ) => loop_block(block_type, left, *op, right, body, state, path, src_files),
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
-            let switch_var: RStr = format!("switch_{:x}", get_hash(body)).into();
+            let switch_var: RStr = format!("closure/switch_{:x}", get_hash(body)).into();
             let mut cmd_buf = operation(
                 &OpLeft::Ident(switch_var.clone()),
                 Operation::Equal,
@@ -67,7 +67,7 @@ pub(super) fn block(
                     Operation::Equal,
                     match_value,
                     inner_interpret(body, state, path, src_files)?,
-                    &format!("case_{:x}", get_hash(body)),
+                    &format!("closure/case_{:x}", get_hash(body)),
                     state,
                 )?);
             }
@@ -157,7 +157,7 @@ pub(super) fn block(
                             pitch,
                         }],
                         inner_interpret(body, state, path, src_files)?,
-                        &format!("{:x}", get_hash(body)),
+                        &format!("closure/rotated_{:x}", get_hash(body)),
                         state,
                     )]);
                 }
@@ -380,19 +380,19 @@ fn ident_block(
         BlockType::On => Ok(vec![Command::execute(
             vec![ExecuteOption::On { ident }],
             content,
-            &format!("{:x}", get_hash(body)),
+            &format!("closure/on_{:x}", get_hash(body)),
             state,
         )]),
         BlockType::Summon => Ok(vec![Command::execute(
             vec![ExecuteOption::Summon { ident }],
             content,
-            &format!("{:x}", get_hash(body)),
+            &format!("closure/summon_{:x}", get_hash(body)),
             state,
         )]),
         BlockType::Anchored => Ok(vec![Command::execute(
             vec![ExecuteOption::Anchored { ident }],
             content,
-            &format!("{:x}", get_hash(body)),
+            &format!("closure/anchored_{:x}", get_hash(body)),
             state,
         )]),
         _ => unreachable!(),
@@ -416,7 +416,7 @@ fn coord_block(
     Ok(vec![Command::execute(
         opts,
         inner_interpret(block, state, path, src_files)?,
-        &format!("{:x}", get_hash(block)),
+        &format!("closure/{block_type}_{:x}", get_hash(block)),
         state,
     )])
 }

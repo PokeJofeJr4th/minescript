@@ -72,6 +72,12 @@ pub enum BlockType {
     While,
 }
 
+impl Display for BlockType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", format!("{self:?}").to_lowercase())
+    }
+}
+
 // this is fine because hash is deterministic and follows the relevant equality except for NaNs and I don't care about them
 #[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for Syntax {

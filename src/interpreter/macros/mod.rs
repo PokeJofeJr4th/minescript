@@ -290,7 +290,7 @@ fn raycast(
                 selector: Selector::s(),
             }],
             callback,
-            &format!("callback_{hash:x}"),
+            &format!("closure/callback_{hash:x}"),
             state,
         ),
         // kill @s

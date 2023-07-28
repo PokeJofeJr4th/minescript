@@ -224,7 +224,7 @@ impl Command {
                 )
             }
             Self::Kill { target } => format!("kill {target}"),
-            Self::Function { func } => format!("function {namespace}:{func}"),
+            Self::Function { func } => format!("function {namespace}:{}", fmt_mc_ident(func)),
             Self::Schedule { func, time, replace } => format!("schedule function {func} {time} {}", if *replace { "replace" } else { "append" }),
             // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
             //     "add"
@@ -306,7 +306,7 @@ impl Command {
                 }
             }
             _ => {
-                let func_name: RStr = format!("closure/{hash}").into();
+                let func_name: RStr = hash.into();
                 state.functions.push((func_name.clone(), cmd));
                 let func = Self::Function { func: func_name };
                 if options.is_empty() {

@@ -14,6 +14,12 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         load.push(' ');
         load.push_str(trigger);
     }
+    // add all the consts
+    for value in &src.constants {
+        load.push_str(&format!(
+            "\nscoreboard players set %const_{value:x} dummy {value}"
+        ));
+    }
     compiled.insert_fn("load", &load);
     compile_items(src, namespace, &mut compiled)?;
     // put all the functions in
@@ -213,7 +219,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     },
                 ],
                 fn_content.clone(),
-                &format!("{:x}", get_hash(fn_content)),
+                &format!("closure/slot_{slot:x}_{:x}", get_hash(fn_content)),
                 src,
             );
             tick_buf.push('\n');
