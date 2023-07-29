@@ -4,6 +4,8 @@ mod parser;
 
 mod interpreter;
 
+mod e2e;
+
 mod types {
     use crate::types::farey_approximation;
 
