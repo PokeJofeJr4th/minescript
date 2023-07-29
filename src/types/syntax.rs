@@ -4,11 +4,11 @@ use std::{
     hash::Hash,
     rc::Rc,
 };
-use strum_macros::EnumString;
+use strum_macros::{EnumIs, EnumString};
 
 use super::prelude::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, EnumIs)]
 pub enum Syntax {
     /// A floating piece of text
     Identifier(RStr),
