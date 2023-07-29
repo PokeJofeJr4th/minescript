@@ -94,7 +94,7 @@ impl<T: Display> Display for Selector<T> {
         if self.args.is_empty() {
             write!(f, "{}", self.selector_type)
         } else {
-            write!(f, "@{}", self.selector_type)?;
+            write!(f, "{}", self.selector_type)?;
             let mut args_buf = f.debug_list();
             for (k, v) in &self.args {
                 args_buf.entry(&format_args!("{k}={v}"));

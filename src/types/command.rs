@@ -393,13 +393,28 @@ impl TryFrom<&Syntax> for Coordinate {
 impl Display for Coordinate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::Linear(a, af, b, bf, c, cf) => {
+            Self::Linear(x_relative, x, y_relative, y, z_relative, z) => {
                 write!(
                     f,
-                    "{}{af} {}{bf} {}{cf}",
-                    if a { "~" } else { "" },
-                    if b { "~" } else { "" },
-                    if c { "~" } else { "" }
+                    "{}{} {}{} {}{}",
+                    if x_relative { "~" } else { "" },
+                    if x_relative && x == 0.0 {
+                        String::new()
+                    } else {
+                        x.to_string()
+                    },
+                    if y_relative { "~" } else { "" },
+                    if y_relative && y == 0.0 {
+                        String::new()
+                    } else {
+                        y.to_string()
+                    },
+                    if z_relative { "~" } else { "" },
+                    if z_relative && z == 0.0 {
+                        String::new()
+                    } else {
+                        z.to_string()
+                    }
                 )
             }
             Self::Angular(a, b, c) => {

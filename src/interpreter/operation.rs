@@ -269,7 +269,7 @@ fn integer_operation(
             source_objective: target_objective.clone(),
             target: target_name,
             target_objective,
-            operation: Operation::MulEq,
+            operation: Operation::AddEq,
         }]),
         // x %= 2
         (op, _) => {

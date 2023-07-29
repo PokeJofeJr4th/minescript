@@ -92,22 +92,21 @@ pub(super) fn block(
             Syntax::Identifier(ident) | Syntax::String(ident),
             _,
         ) => ident_block(block_type, ident.clone(), body, state, path, src_files),
-        _ => {
-            if let Ok(coord) = Coordinate::try_from(lhs) {
-                return coord_block(block_type, coord, body, state, path, src_files);
-            }
-            if let (BlockType::Rotated, Syntax::Array(arr)) = (block_type, body) {
-                if let [yaw, pitch] = &arr[..] {
-                    rotated_block(yaw, pitch, body, state, path, src_files)
-                } else {
-                    Err(format!("Expected a `rotated [{{yaw}}, {{pitch}}]` or `rotated @[{{selector}}]`; got `rotated {arr:?}`"))
-                }
+        (BlockType::Rotated, Syntax::Array(arr), _) => {
+            if let [yaw, pitch] = &arr[..] {
+                rotated_block(yaw, pitch, body, state, path, src_files)
             } else {
+                Err(format!("Expected a `rotated [{{yaw}}, {{pitch}}]` or `rotated @[{{selector}}]`; got `rotated {arr:?}`"))
+            }
+        }
+        _ => Coordinate::try_from(lhs).map_or_else(
+            |_| {
                 Err(format!(
                     "Unsupported block invocation: `{block_type:?} {lhs:?} {body:?}`"
                 ))
-            }
-        }
+            },
+            |coord| coord_block(block_type, coord, body, state, path, src_files),
+        ),
     }
 }
 

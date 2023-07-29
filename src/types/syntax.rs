@@ -99,6 +99,7 @@ pub enum BlockType {
     Summon,
     Switch,
     TellRaw,
+    #[strum(serialize = "tp", serialize = "teleport")]
     Tp,
     Unless,
     Until,

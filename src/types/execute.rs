@@ -165,9 +165,19 @@ impl ExecuteOption {
                 pitch_rel,
                 pitch,
             } => format!(
-                "rotated {}{yaw} {}{pitch}",
+                "rotated {}{} {}{}",
                 if *yaw_rel { "~" } else { " " },
-                if *pitch_rel { "~" } else { " " }
+                if *yaw == 0.0 && *yaw_rel {
+                    String::new()
+                } else {
+                    yaw.to_string()
+                },
+                if *pitch_rel { "~" } else { " " },
+                if *pitch == 0.0 && *pitch_rel {
+                    String::new()
+                } else {
+                    pitch.to_string()
+                },
             ),
             Self::Positioned { pos } => format!("positioned {pos}"),
             Self::FacingEntity { selector } => format!("facing entity {selector}"),
