@@ -54,7 +54,11 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
             score: nbt!({name: format!("%{ident}"), objective: "dummy"})
         })),
         // named score
-        Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
+        Syntax::BinaryOp {
+            lhs: OpLeft::Ident(ident),
+            operation: Operation::Colon,
+            rhs: syn,
+        } => {
             let Syntax::Identifier(objective) = &**syn else {
             return Err(format!("Expected score identifier, not `{syn:?}`"))
         };
@@ -93,7 +97,11 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
                         other => return Err(format!("Unsupported tellraw component: `{other}`")),
                     },
                     // key-value pair
-                    Syntax::BinaryOp(OpLeft::Ident(ident), Operation::Colon, syn) => {
+                    Syntax::BinaryOp {
+                        lhs: OpLeft::Ident(ident),
+                        operation: Operation::Colon,
+                        rhs: syn,
+                    } => {
                         let content = String::try_from(&**syn)?;
                         nbt_buf.insert(ident.clone(), content.into());
                     }
@@ -166,16 +174,12 @@ fn selector_block(
     let selector = selector.stringify()?;
     // special case for `as at`: as @p[..] at @s
     if block_type == BlockType::AsAt {
-        res_buf.push(ExecuteOption::As {
-            selector: selector.clone(),
-        });
+        res_buf.push(ExecuteOption::As(selector.clone()));
     }
     match block_type {
         // special case for `as at`: as @p[..] at @s
-        BlockType::AsAt => res_buf.push(ExecuteOption::At {
-            selector: Selector::s(),
-        }),
-        BlockType::At => res_buf.push(ExecuteOption::At { selector }),
+        BlockType::AsAt => res_buf.push(ExecuteOption::At(Selector::s())),
+        BlockType::At => res_buf.push(ExecuteOption::At(selector)),
         BlockType::If => res_buf.push(ExecuteOption::Entity {
             invert: false,
             selector,
@@ -184,9 +188,9 @@ fn selector_block(
             invert: true,
             selector,
         }),
-        BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity { selector }),
-        BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs { selector }),
-        BlockType::As => res_buf.push(ExecuteOption::As { selector }),
+        BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity(selector)),
+        BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs(selector)),
+        BlockType::As => res_buf.push(ExecuteOption::As(selector)),
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path, src_files)?;

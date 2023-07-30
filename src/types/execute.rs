@@ -29,11 +29,11 @@ pub enum ExecuteOption {
     /// store a result in a score
     StoreScore { target: RStr, objective: RStr },
     /// change who `@s` is
-    As { selector: Selector<String> },
+    As(Selector<String>),
     /// change where the command executes
-    At { selector: Selector<String> },
+    At(Selector<String>),
     /// get rotation from an entity
-    RotatedAs { selector: Selector<String> },
+    RotatedAs(Selector<String>),
     /// specific rotation
     Rotated {
         yaw_rel: bool,
@@ -42,13 +42,13 @@ pub enum ExecuteOption {
         pitch: f32,
     },
     /// choose a specific position
-    Positioned { pos: Coordinate },
+    Positioned(Coordinate),
     /// anchored eyes|feet
-    Anchored { ident: RStr },
+    Anchored(RStr),
     /// facing an entity
-    FacingEntity { selector: Selector<String> },
+    FacingEntity(Selector<String>),
     /// facing a position
-    FacingPos { pos: Coordinate },
+    FacingPos(Coordinate),
     /// Block matches id or tag
     Block {
         invert: bool,
@@ -56,9 +56,9 @@ pub enum ExecuteOption {
         value: RStr,
     },
     /// Change `@s` to an entity with a certain relationship to current `@s`
-    On { ident: RStr },
+    On(RStr),
     /// summon an entity of type `ident` and set it to `@s`
-    Summon { ident: RStr },
+    Summon(RStr),
 }
 
 impl Hash for ExecuteOption {
@@ -90,19 +90,19 @@ impl Hash for ExecuteOption {
                 .hash(state),
             Self::Entity { invert, selector } => (invert, selector).hash(state),
             Self::StoreScore { target, objective } => (target, objective).hash(state),
-            Self::As { selector }
-            | Self::At { selector }
-            | Self::RotatedAs { selector }
-            | Self::FacingEntity { selector } => selector.hash(state),
+            Self::As(selector)
+            | Self::At(selector)
+            | Self::RotatedAs(selector)
+            | Self::FacingEntity(selector) => selector.hash(state),
             Self::Rotated {
                 yaw_rel,
                 yaw,
                 pitch_rel,
                 pitch,
             } => (yaw_rel, yaw.to_bits(), pitch_rel, pitch.to_bits()).hash(state),
-            Self::FacingPos { pos } | Self::Positioned { pos } => pos.hash(state),
+            Self::FacingPos(pos) | Self::Positioned(pos) => pos.hash(state),
             Self::Block { invert, pos, value } => (invert, pos, value).hash(state),
-            Self::Anchored { ident } | Self::On { ident } | Self::Summon { ident } => {
+            Self::Anchored(ident) | Self::On(ident) | Self::Summon(ident) => {
                 ident.hash(state);
             }
         }
@@ -156,9 +156,9 @@ impl ExecuteOption {
                 "{} block {pos} {value}",
                 if *invert { "unless" } else { "if" }
             ),
-            Self::As { selector } => format!("as {selector}"),
-            Self::At { selector } => format!("at {selector}"),
-            Self::RotatedAs { selector } => format!("rotated as {selector}"),
+            Self::As(selector) => format!("as {selector}"),
+            Self::At(selector) => format!("at {selector}"),
+            Self::RotatedAs(selector) => format!("rotated as {selector}"),
             Self::Rotated {
                 yaw_rel,
                 yaw,
@@ -179,12 +179,12 @@ impl ExecuteOption {
                     pitch.to_string()
                 },
             ),
-            Self::Positioned { pos } => format!("positioned {pos}"),
-            Self::FacingEntity { selector } => format!("facing entity {selector}"),
-            Self::FacingPos { pos } => format!("facing {pos}"),
-            Self::Anchored { ident } => format!("anchored {ident}"),
-            Self::On { ident } => format!("on {ident}"),
-            Self::Summon { ident } => format!("summon {ident}"),
+            Self::Positioned(pos) => format!("positioned {pos}"),
+            Self::FacingEntity(selector) => format!("facing entity {selector}"),
+            Self::FacingPos(pos) => format!("facing {pos}"),
+            Self::Anchored(ident) => format!("anchored {ident}"),
+            Self::On(ident) => format!("on {ident}"),
+            Self::Summon(ident) => format!("summon {ident}"),
         }
     }
 }

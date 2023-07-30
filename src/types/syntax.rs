@@ -29,7 +29,11 @@ pub enum Syntax {
     /// An identifier with an NBT path on the end
     NbtStorage(NbtPath),
     /// A binary operation like x += 2
-    BinaryOp(OpLeft, Operation, Box<Syntax>),
+    BinaryOp {
+        lhs: OpLeft,
+        operation: Operation,
+        rhs: Box<Syntax>,
+    },
     /// A block of the form `positioned @s { ... }`
     Block(BlockType, Box<Syntax>, Box<Syntax>),
     /// A string literal
@@ -60,7 +64,11 @@ impl Debug for Syntax {
             Self::SelectorDoubleColon(sel, ident) => write!(f, "{sel:?}::{ident}"),
             Self::SelectorNbt(sel, nbt) => write!(f, "{sel:?}.{}", fmt_nbt_path(nbt)),
             Self::NbtStorage(nbt) => write!(f, "{}", fmt_nbt_path(nbt)),
-            Self::BinaryOp(lhs, op, rhs) => write!(f, "{lhs:?} {op} {rhs:?}"),
+            Self::BinaryOp {
+                lhs,
+                operation: op,
+                rhs,
+            } => write!(f, "{lhs:?} {op} {rhs:?}"),
             Self::Block(block_type, lhs, rhs) => write!(f, "{block_type} ({lhs:?}) {rhs:?}"),
             Self::String(str) => write!(f, "\"{str}\""),
             Self::Integer(int) => write!(f, "{int}"),
@@ -99,6 +107,7 @@ pub enum BlockType {
     Summon,
     Switch,
     TellRaw,
+    // allow both versions to work
     #[strum(serialize = "tp", serialize = "teleport")]
     Tp,
     Unless,
@@ -138,7 +147,11 @@ impl Hash for Syntax {
             Self::NbtStorage(nbt) => {
                 nbt.hash(state);
             }
-            Self::BinaryOp(left, op, right) => {
+            Self::BinaryOp {
+                lhs: left,
+                operation: op,
+                rhs: right,
+            } => {
                 left.hash(state);
                 op.hash(state);
                 right.hash(state);

@@ -9,9 +9,7 @@ fn function() {
             "function".into(),
             Box::new(Syntax::String("give/berry".into()))
         )),
-        Ok(vec![Command::Function {
-            func: "give/berry".into()
-        }])
+        Ok(vec![Command::Function("give/berry".into())])
     );
 }
 
@@ -33,12 +31,8 @@ fn tp_s_up() {
         )),
         Ok(vec![Command::Execute {
             options: vec![
-                ExecuteOption::As {
-                    selector: Selector::r()
-                },
-                ExecuteOption::At {
-                    selector: Selector::s()
-                }
+                ExecuteOption::As(Selector::r()),
+                ExecuteOption::At(Selector::s())
             ],
             cmd: Box::new(Command::Teleport {
                 target: Selector::s(),
@@ -59,11 +53,11 @@ fn as_s_if_score() {
                 Box::new(Syntax::Identifier("owner".into())),
                 Box::new(Syntax::Block(
                     BlockType::If,
-                    Box::new(Syntax::BinaryOp(
-                        OpLeft::SelectorColon(Selector::s(), "count".into()),
-                        Operation::RCaretEq,
-                        Box::new(Syntax::Integer(3)),
-                    )),
+                    Box::new(Syntax::BinaryOp {
+                        lhs: OpLeft::SelectorColon(Selector::s(), "count".into()),
+                        operation: Operation::RCaretEq,
+                        rhs: Box::new(Syntax::Integer(3))
+                    }),
                     Box::new(Syntax::Macro(
                         "function".into(),
                         Box::new(Syntax::String("give/my_item".into()))
@@ -73,12 +67,8 @@ fn as_s_if_score() {
         )),
         Ok(vec![Command::Execute {
             options: vec![
-                ExecuteOption::As {
-                    selector: Selector::r()
-                },
-                ExecuteOption::On {
-                    ident: "owner".into()
-                },
+                ExecuteOption::As(Selector::r()),
+                ExecuteOption::On("owner".into()),
                 ExecuteOption::ScoreMatches {
                     invert: false,
                     target: "@s".into(),
@@ -87,9 +77,7 @@ fn as_s_if_score() {
                     upper: None
                 }
             ],
-            cmd: Box::new(Command::Function {
-                func: "give/my_item".into()
-            })
+            cmd: Box::new(Command::Function("give/my_item".into()))
         }])
     );
 }
@@ -124,11 +112,11 @@ fn tellraw() {
 #[test]
 fn xp_ops() {
     assert_eq!(
-        test_interpret(&Syntax::BinaryOp(
-            OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
-            Operation::AddEq,
-            Box::new(Syntax::Integer(2))
-        )),
+        test_interpret(&Syntax::BinaryOp {
+            lhs: OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
+            operation: Operation::AddEq,
+            rhs: Box::new(Syntax::Integer(2))
+        }),
         Ok(vec![Command::XpAdd {
             target: Selector::s(),
             amount: 2,
@@ -136,11 +124,11 @@ fn xp_ops() {
         }])
     );
     assert_eq!(
-        test_interpret(&Syntax::BinaryOp(
-            OpLeft::Ident("x".into()),
-            Operation::MulEq,
-            Box::new(Syntax::SelectorDoubleColon(Selector::s(), "lvl".into()))
-        )),
+        test_interpret(&Syntax::BinaryOp {
+            lhs: OpLeft::Ident("x".into()),
+            operation: Operation::MulEq,
+            rhs: Box::new(Syntax::SelectorDoubleColon(Selector::s(), "lvl".into()))
+        }),
         Ok(vec![
             Command::Execute {
                 options: vec![ExecuteOption::StoreScore {

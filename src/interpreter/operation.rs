@@ -88,9 +88,7 @@ fn simple_operation(
                 target: target_name,
                 objective: target_objective,
             }],
-            cmd: Box::new(Command::DataGet {
-                target: NbtLocation::Entity(selector.stringify()?, nbt.clone()),
-            }),
+            cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
         }]),
         (op, Syntax::SelectorNbt(selector, nbt)) => {
             let mut cmd_buf = vec![Command::Execute {
@@ -98,9 +96,7 @@ fn simple_operation(
                     target: "%".into(),
                     objective: "dummy".into(),
                 }],
-                cmd: Box::new(Command::DataGet {
-                    target: NbtLocation::Entity(selector.stringify()?, nbt.clone()),
-                }),
+                cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
             }];
             cmd_buf.extend(simple_operation(
                 target,
@@ -145,11 +141,7 @@ fn simple_operation(
             inner_interpret(
                 &Syntax::Macro(
                     mac.clone(),
-                    Box::new(Syntax::BinaryOp(
-                        target.clone(),
-                        Operation::In,
-                        bound.clone(),
-                    )),
+                    Box::new(Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }),
                 ),
                 state,
                 path,
@@ -167,11 +159,7 @@ fn simple_operation(
             let mut cmd_buf = inner_interpret(
                 &Syntax::Macro(
                     mac.clone(),
-                    Box::new(Syntax::BinaryOp(
-                        OpLeft::Ident("%".into()),
-                        Operation::In,
-                        bound.clone(),
-                    )),
+                    Box::new(Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }),
                 ),
                 state,
                 path,

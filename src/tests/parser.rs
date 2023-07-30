@@ -27,17 +27,17 @@ fn score_op() {
             .into_iter()
             .peekable()
         ),
-        Ok(Syntax::BinaryOp(
-            OpLeft::SelectorColon(
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::SelectorColon(
                 Selector {
                     selector_type: SelectorType::A,
                     args: BTreeMap::new()
                 },
                 "x".into()
             ),
-            Operation::AddEq,
-            Box::new(Syntax::Integer(2))
-        ))
+            operation: Operation::AddEq,
+            rhs: Box::new(Syntax::Integer(2))
+        })
     );
 }
 
@@ -54,11 +54,11 @@ fn in_range() {
             .into_iter()
             .peekable()
         ),
-        Ok(Syntax::BinaryOp(
-            OpLeft::Ident("x".into()),
-            Operation::In,
-            Box::new(Syntax::Range(Some(0), Some(10)))
-        ))
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::Ident("x".into()),
+            operation: Operation::In,
+            rhs: Box::new(Syntax::Range(Some(0), Some(10)))
+        })
     );
 }
 
@@ -80,11 +80,11 @@ fn for_loop() {
         ),
         Ok(Syntax::Block(
             BlockType::For,
-            Box::new(Syntax::BinaryOp(
-                OpLeft::Ident("x".into()),
-                Operation::In,
-                Box::new(Syntax::Range(Some(0), Some(10))),
-            )),
+            Box::new(Syntax::BinaryOp {
+                lhs: OpLeft::Ident("x".into()),
+                operation: Operation::In,
+                rhs: Box::new(Syntax::Range(Some(0), Some(10)))
+            }),
             Box::new(Syntax::Unit)
         ))
     );
@@ -174,11 +174,11 @@ fn xp_op() {
             .into_iter()
             .peekable()
         ),
-        Ok(Syntax::BinaryOp(
-            OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
-            Operation::AddEq,
-            Box::new(Syntax::Integer(1))
-        ))
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
+            operation: Operation::AddEq,
+            rhs: Box::new(Syntax::Integer(1))
+        })
     );
 }
 
@@ -202,16 +202,16 @@ fn do_until() {
         ),
         Ok(Syntax::Block(
             BlockType::DoUntil,
-            Box::new(Syntax::BinaryOp(
-                OpLeft::Ident("x".into()),
-                Operation::Equal,
-                Box::new(Syntax::Integer(10)),
-            )),
-            Box::new(Syntax::Array(Rc::from([Syntax::BinaryOp(
-                OpLeft::Ident("x".into()),
-                Operation::AddEq,
-                Box::new(Syntax::Integer(1))
-            )])))
+            Box::new(Syntax::BinaryOp {
+                lhs: OpLeft::Ident("x".into()),
+                operation: Operation::Equal,
+                rhs: Box::new(Syntax::Integer(10))
+            }),
+            Box::new(Syntax::Array(Rc::from([Syntax::BinaryOp {
+                lhs: OpLeft::Ident("x".into()),
+                operation: Operation::AddEq,
+                rhs: Box::new(Syntax::Integer(1))
+            }])))
         ))
     );
 }

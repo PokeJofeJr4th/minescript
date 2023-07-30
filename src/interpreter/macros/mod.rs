@@ -14,7 +14,7 @@ mod item;
 macro_rules! interpret_fn {
     ($fn_buf: ident, $value: expr, $state: expr, $path: expr, $src_files: expr) => {
         match $value {
-            Syntax::String(str) => $fn_buf.push(Command::Function { func: str.clone() }),
+            Syntax::String(str) => $fn_buf.push(Command::Function (str.clone() )),
             Syntax::Block(BlockType::Function, name, body) => {
                 let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                                 $fn_buf.extend(inner_interpret($value, $state, $path, $src_files)?);
@@ -22,7 +22,7 @@ macro_rules! interpret_fn {
                             };
                 let new_body = inner_interpret(body, $state, $path, $src_files)?;
                 $state.functions.push((name.clone(), new_body));
-                $fn_buf.push(Command::Function { func: name.clone() });
+                $fn_buf.push(Command::Function (name.clone() ));
             }
             other => $fn_buf.extend(inner_interpret(other, $state, $path, $src_files)?),
         }
@@ -43,7 +43,7 @@ pub(super) fn macros(
         "function" => {
             let func = RStr::try_from(properties)
                 .map_err(|e| format!("Function macro should have a string; {e}"))?;
-            return Ok(vec![Command::Function { func }]);
+            return Ok(vec![Command::Function(func)]);
         }
         "import" => {
             let Syntax::String(str) = properties else {
@@ -223,26 +223,18 @@ fn raycast(
         },
         // at @s function loop
         Command::Execute {
-            options: vec![ExecuteOption::At {
-                selector: Selector::s(),
-            }],
-            cmd: Box::new(Command::Function {
-                func: loop_name.clone(),
-            }),
+            options: vec![ExecuteOption::At(Selector::s())],
+            cmd: Box::new(Command::Function(loop_name.clone())),
         },
         // at @s {callback}
         Command::execute(
-            vec![ExecuteOption::At {
-                selector: Selector::s(),
-            }],
+            vec![ExecuteOption::At(Selector::s())],
             callback,
             &format!("closure/callback_{hash:x}"),
             state,
         ),
         // kill @s
-        Command::Kill {
-            target: Selector::s(),
-        },
+        Command::Kill(Selector::s()),
     ];
     state.functions.push((closure_name.clone(), closure_fn));
 
@@ -268,32 +260,26 @@ fn raycast(
                     lower: None,
                     upper: Some(max),
                 },
-                ExecuteOption::At {
-                    selector: Selector::s(),
-                },
+                ExecuteOption::At(Selector::s()),
                 ExecuteOption::Block {
                     invert: false,
                     pos: Coordinate::here(),
                     value: "air".into(),
                 },
             ],
-            cmd: Box::new(Command::Function {
-                func: loop_name.clone(),
-            }),
+            cmd: Box::new(Command::Function(loop_name.clone())),
         },
     ]);
     state.functions.push((loop_name, each));
 
     Ok(vec![Command::Execute {
-        options: vec![ExecuteOption::Summon {
-            ident: "marker".into(),
-        }],
-        cmd: Box::new(Command::Function { func: closure_name }),
+        options: vec![ExecuteOption::Summon("marker".into())],
+        cmd: Box::new(Command::Function(closure_name)),
     }])
 }
 
 fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>> {
-    let Syntax::BinaryOp(lhs, Operation::In, properties) = properties else {
+    let Syntax::BinaryOp { lhs, operation: Operation::In, rhs: properties } = properties else {
         return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
     };
     let (min, max) = match &**properties {

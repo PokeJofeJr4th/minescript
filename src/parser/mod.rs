@@ -72,16 +72,20 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
                     _ => unreachable!(),
                 }
             };
-            return Ok(Syntax::BinaryOp(left, op, Box::new(right)));
+            return Ok(Syntax::BinaryOp {
+                lhs: left,
+                operation: op,
+                rhs: Box::new(right),
+            });
         }
     } else if let Syntax::NbtStorage(nbt) = &first {
         if Some(&Token::Equal) == tokens.peek() {
             tokens.next();
-            return Ok(Syntax::BinaryOp(
-                OpLeft::NbtStorage(nbt.clone()),
-                Operation::Equal,
-                Box::new(parse(tokens)?),
-            ));
+            return Ok(Syntax::BinaryOp {
+                lhs: OpLeft::NbtStorage(nbt.clone()),
+                operation: Operation::Equal,
+                rhs: Box::new(parse(tokens)?),
+            });
         }
     }
     // println!("{first:?}");
@@ -180,9 +184,11 @@ fn parse_block<T: Iterator<Item = Token>>(
     statements_buf
         .iter()
         .map(|syn| match syn {
-            Syntax::BinaryOp(OpLeft::Ident(k), Operation::Colon, v) => {
-                Some((k.clone(), *(*v).clone()))
-            }
+            Syntax::BinaryOp {
+                lhs: OpLeft::Ident(k),
+                operation: Operation::Colon,
+                rhs: v,
+            } => Some((k.clone(), *(*v).clone())),
             _ => None,
         })
         .collect::<Option<BTreeMap<_, _>>>()

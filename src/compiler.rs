@@ -121,21 +121,14 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         for (slot, fn_content) in &item.slot_checks {
             let cmd = Command::execute(
                 vec![
-                    ExecuteOption::As {
-                        selector: Selector::a().with_property(
+                    ExecuteOption::As(
+                        Selector::a().with_property(
                             "nbt",
-                            nbt!({
-                                Inventory: nbt!([nbt!({
-                                    slot: *slot,
-                                    tag: item.nbt.clone()
-                                })])
-                            })
-                            .to_string(),
+                            nbt!({ Inventory: nbt!([nbt!({slot: *slot,tag:item.nbt.clone()})]) })
+                                .to_string(),
                         ),
-                    },
-                    ExecuteOption::At {
-                        selector: Selector::s(),
-                    },
+                    ),
+                    ExecuteOption::At(Selector::s()),
                 ],
                 fn_content.clone(),
                 &format!("closure/slot_{slot:x}_{:x}", get_hash(fn_content)),
@@ -199,20 +192,16 @@ fn make_on_use(
     let holding_item = format!("holding_{ident}");
     let execute_fn = Command::execute(
         vec![
-            ExecuteOption::As {
-                selector: Selector {
-                    selector_type: SelectorType::A,
-                    args: [
-                        ("tag".into(), holding_item.clone()),
-                        ("scores".into(), format!("{{{using_base}=1}}")),
-                    ]
-                    .into_iter()
-                    .collect(),
-                },
-            },
-            ExecuteOption::At {
-                selector: Selector::s(),
-            },
+            ExecuteOption::As(Selector {
+                selector_type: SelectorType::A,
+                args: [
+                    ("tag".into(), holding_item.clone()),
+                    ("scores".into(), format!("{{{using_base}=1}}")),
+                ]
+                .into_iter()
+                .collect(),
+            }),
+            ExecuteOption::At(Selector::s()),
         ],
         item.on_use.clone(),
         &on_use,

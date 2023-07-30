@@ -17,9 +17,9 @@ pub enum Command {
         level: i32,
     },
     /// kill the target
-    Kill { target: Selector<String> },
+    Kill(Selector<String>),
     /// call a function
-    Function { func: RStr },
+    Function(RStr),
     /// schedule a function to execute at a later time
     Schedule {
         func: RStr,
@@ -69,7 +69,7 @@ pub enum Command {
         src: NbtLocation,
     },
     /// get NBT data
-    DataGet { target: NbtLocation },
+    DataGet(NbtLocation),
     /// set NBT data to a constant
     DataSetValue { target: NbtLocation, value: RStr },
     /// execute a command with certain options
@@ -116,7 +116,7 @@ impl Hash for Command {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
         match self {
-            Self::Raw(str) | Self::Function { func: str } => str.hash(state),
+            Self::Raw(str) | Self::Function(str) => str.hash(state),
             Self::TellRaw(sel, content) => (sel, content).hash(state),
             Self::EffectGive {
                 target,
@@ -124,7 +124,7 @@ impl Hash for Command {
                 duration,
                 level,
             } => (target, effect, duration, level).hash(state),
-            Self::Kill { target } => target.hash(state),
+            Self::Kill(target) => target.hash(state),
             Self::Schedule {
                 func,
                 time,
@@ -166,7 +166,7 @@ impl Hash for Command {
             } => (target, amount, levels).hash(state),
             Self::XpGet { target, levels } => (target, levels).hash(state),
             Self::DataSetFrom { target, src } => (target, src).hash(state),
-            Self::DataGet { target } => target.hash(state),
+            Self::DataGet(target) => target.hash(state),
             Self::DataSetValue { target, value } => (target, value).hash(state),
             Self::Execute { options, cmd } => (options, cmd).hash(state),
             Self::Teleport {
@@ -222,8 +222,8 @@ impl Command {
                     duration.map_or_else(|| String::from("infinite"), |num| format!("{num}"))
                 )
             }
-            Self::Kill { target } => format!("kill {target}"),
-            Self::Function { func } => format!("function {namespace}:{}", fmt_mc_ident(func)),
+            Self::Kill (target) => format!("kill {target}"),
+            Self::Function (func) => format!("function {namespace}:{}", fmt_mc_ident(func)),
             Self::Schedule { func, time, replace } => format!("schedule function {func} {time} {}", if *replace { "replace" } else { "append" }),
             // Self::Tag { target, add, tag } => format!("tag {} {target} {tag}", if *add {
             //     "add"
@@ -268,7 +268,7 @@ impl Command {
             Self::XpGet { target, levels } => format!("xp query {target} {}", if *levels { "levels"} else {"points"}),
             Self::DataSetFrom { target, src } => format!("data modify {} set from {}", target.stringify(namespace), src.stringify(namespace)),
             Self::DataSetValue { target, value } => format!("data modify {} set value {value}", target.stringify(namespace)),
-            Self::DataGet { target } => format!("data get {}", target.stringify(namespace))
+            Self::DataGet (target) => format!("data get {}", target.stringify(namespace))
         }
     }
 
@@ -307,7 +307,7 @@ impl Command {
             _ => {
                 let func_name: RStr = hash.into();
                 state.functions.push((func_name.clone(), cmd));
-                let func = Self::Function { func: func_name };
+                let func = Self::Function(func_name);
                 if options.is_empty() {
                     func
                 } else {

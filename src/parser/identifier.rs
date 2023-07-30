@@ -10,25 +10,25 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
     id: RStr,
 ) -> SResult<Syntax> {
     if let Some(op) = get_op(tokens) {
-        Ok(Syntax::BinaryOp(
-            OpLeft::Ident(id),
-            op,
-            Box::new(parse(tokens)?),
-        ))
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::Ident(id),
+            operation: op,
+            rhs: Box::new(parse(tokens)?),
+        })
     } else if tokens.peek() == Some(&Token::PlusPlus) {
         tokens.next();
-        Ok(Syntax::BinaryOp(
-            OpLeft::Ident(id),
-            Operation::AddEq,
-            Box::new(Syntax::Integer(1)),
-        ))
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::Ident(id),
+            operation: Operation::AddEq,
+            rhs: Box::new(Syntax::Integer(1)),
+        })
     } else if tokens.peek() == Some(&Token::TackTack) {
         tokens.next();
-        Ok(Syntax::BinaryOp(
-            OpLeft::Ident(id),
-            Operation::SubEq,
-            Box::new(Syntax::Integer(1)),
-        ))
+        Ok(Syntax::BinaryOp {
+            lhs: OpLeft::Ident(id),
+            operation: Operation::SubEq,
+            rhs: Box::new(Syntax::Integer(1)),
+        })
     } else if tokens.peek() == Some(&Token::Dot) {
         let mut path = vec![NbtPathPart::Ident(id)];
         path.extend(parse_nbt_path(tokens)?);

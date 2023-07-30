@@ -48,9 +48,7 @@ pub(super) fn item(
                 item.nbt = name;
             }
             "on_consume" => match value {
-                Syntax::String(str) => item
-                    .on_consume
-                    .push(Command::Function { func: str.clone() }),
+                Syntax::String(str) => item.on_consume.push(Command::Function(str.clone())),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.on_consume.extend(inner_interpret(value, state, path, src_files)?);
@@ -58,8 +56,7 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_consume
-                        .push(Command::Function { func: name.clone() });
+                    item.on_consume.push(Command::Function(name.clone()));
                 }
                 other => {
                     item.on_consume
@@ -67,7 +64,7 @@ pub(super) fn item(
                 }
             },
             "on_use" => match value {
-                Syntax::String(str) => item.on_use.push(Command::Function { func: str.clone() }),
+                Syntax::String(str) => item.on_use.push(Command::Function(str.clone())),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.on_use.extend(inner_interpret(value, state, path, src_files)?);
@@ -75,16 +72,14 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_use.push(Command::Function { func: name.clone() });
+                    item.on_use.push(Command::Function(name.clone()));
                 }
                 other => item
                     .on_use
                     .extend(inner_interpret(other, state, path, src_files)?),
             },
             "while_using" => match value {
-                Syntax::String(str) => item
-                    .while_using
-                    .push(Command::Function { func: str.clone() }),
+                Syntax::String(str) => item.while_using.push(Command::Function(str.clone())),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.while_using.extend(inner_interpret(value, state, path, src_files)?);
@@ -92,8 +87,7 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.while_using
-                        .push(Command::Function { func: name.clone() });
+                    item.while_using.push(Command::Function(name.clone()));
                 }
                 other => {
                     item.while_using

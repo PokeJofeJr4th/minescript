@@ -6,6 +6,7 @@ use std::{
 use super::{inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*};
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn block(
     block_type: BlockType,
     lhs: &Syntax,
@@ -16,7 +17,15 @@ pub(super) fn block(
 ) -> SResult<Vec<Command>> {
     match (block_type, lhs, body) {
         // if x=1 {}
-        (BlockType::If, Syntax::BinaryOp(left, op, right), _) => interpret_if(
+        (
+            BlockType::If,
+            Syntax::BinaryOp {
+                lhs: left,
+                operation: op,
+                rhs: right,
+            },
+            _,
+        ) => interpret_if(
             false,
             left,
             *op,
@@ -26,7 +35,15 @@ pub(super) fn block(
             state,
         ),
         // unless x=1 {}
-        (BlockType::Unless, Syntax::BinaryOp(left, op, right), _) => interpret_if(
+        (
+            BlockType::Unless,
+            Syntax::BinaryOp {
+                lhs: left,
+                operation: op,
+                rhs: right,
+            },
+            _,
+        ) => interpret_if(
             true,
             left,
             *op,
@@ -42,7 +59,11 @@ pub(super) fn block(
             | BlockType::Until
             | BlockType::DoWhile
             | BlockType::DoUntil,
-            Syntax::BinaryOp(left, op, right),
+            Syntax::BinaryOp {
+                lhs: left,
+                operation: op,
+                rhs: right,
+            },
             _,
         ) => loop_block(block_type, left, *op, right, body, state, path, src_files),
         // switch _ { case _ { ...}* }
@@ -140,9 +161,7 @@ fn loop_block(
             &left,
             op,
             right,
-            vec![Command::Function {
-                func: fn_name.clone(),
-            }],
+            vec![Command::Function (fn_name.clone())],
             "",
             state,
         )?[..] else {
@@ -165,9 +184,7 @@ fn loop_block(
         block_type,
         BlockType::DoWhile | BlockType::DoUntil | BlockType::For
     ) {
-        body.push(Command::Function {
-            func: fn_name.clone(),
-        });
+        body.push(Command::Function(fn_name.clone()));
     } else {
         body.push(goto_fn.clone());
     }
@@ -191,10 +208,20 @@ fn interpret_if(
     let target_player = left.stringify_scoreboard_target()?;
     let target_objective = left.stringify_scoreboard_objective()?;
     let options = match right {
-        Syntax::Identifier(_) | Syntax::BinaryOp(_, _, _) | Syntax::SelectorColon(_, _) => {
+        Syntax::Identifier(_)
+        | Syntax::BinaryOp {
+            lhs: _,
+            operation: _,
+            rhs: _,
+        }
+        | Syntax::SelectorColon(_, _) => {
             let (source, source_objective) = match right {
                 Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
-                Syntax::BinaryOp(left, Operation::Colon, right) => match &**right {
+                Syntax::BinaryOp {
+                    lhs: left,
+                    operation: Operation::Colon,
+                    rhs: right,
+                } => match &**right {
                     Syntax::Identifier(ident) => {
                         (left.stringify_scoreboard_target()?, ident.clone())
                     }
@@ -310,15 +337,15 @@ fn ident_block(
 
     let (options, hash) = match block_type {
         BlockType::On => (
-            ExecuteOption::On { ident },
+            ExecuteOption::On(ident),
             format!("closure/on_{:x}", get_hash(body)),
         ),
         BlockType::Summon => (
-            ExecuteOption::Summon { ident },
+            ExecuteOption::Summon(ident),
             format!("closure/summon_{:x}", get_hash(body)),
         ),
         BlockType::Anchored => (
-            ExecuteOption::Anchored { ident },
+            ExecuteOption::Anchored(ident),
             format!("closure/anchored_{:x}", get_hash(body)),
         ),
         _ => unreachable!(),
@@ -336,8 +363,8 @@ fn coord_block(
 ) -> SResult<Vec<Command>> {
     let mut opts = Vec::new();
     match block_type {
-        BlockType::Facing => opts.push(ExecuteOption::FacingPos { pos: coord }),
-        BlockType::Positioned => opts.push(ExecuteOption::Positioned { pos: coord }),
+        BlockType::Facing => opts.push(ExecuteOption::FacingPos(coord)),
+        BlockType::Positioned => opts.push(ExecuteOption::Positioned(coord)),
         _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
     }
     Ok(vec![Command::execute(

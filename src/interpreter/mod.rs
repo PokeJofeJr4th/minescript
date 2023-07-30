@@ -39,9 +39,11 @@ fn inner_interpret(
             }
             return Ok(commands_buf);
         }
-        Syntax::BinaryOp(lhs, op, rhs) => {
-            return operation::operation(lhs, *op, rhs, state, path, src_files)
-        }
+        Syntax::BinaryOp {
+            lhs,
+            operation: op,
+            rhs,
+        } => return operation::operation(lhs, *op, rhs, state, path, src_files),
         Syntax::Block(block_type, lhs, rhs) => {
             return block::block(*block_type, lhs, rhs, state, path, src_files)
         }
