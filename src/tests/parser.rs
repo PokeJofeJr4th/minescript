@@ -72,8 +72,8 @@ fn for_loop() {
                 Token::Identifier("x".into()),
                 Token::Identifier("in".into()),
                 Token::Range(Some(0), Some(10)),
-                Token::LSquirrely,
-                Token::RSquirrely
+                Token::LParen,
+                Token::RParen
             ]
             .into_iter()
             .peekable()
@@ -145,8 +145,8 @@ fn tp() {
                 Token::Identifier("as".into()),
                 Token::At,
                 Token::Identifier("s".into()),
-                Token::LSquirrely,
-                Token::RSquirrely
+                Token::LParen,
+                Token::RParen
             ]
             .into_iter()
             .peekable()

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::Peekable};
+use std::{collections::BTreeMap, iter::Peekable, rc::Rc};
 
 use crate::types::prelude::*;
 
@@ -23,9 +23,13 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             _ => Err(String::from("Expected a number or float after `-`")),
         },
         Some(Token::Identifier(id)) => identifier::parse_identifier(tokens, id),
-        Some(Token::LSquirrely) => parse_block(tokens, &Token::RSquirrely),
-        Some(Token::LSquare) => parse_block(tokens, &Token::RSquare),
-        Some(Token::LParen) => parse_block(tokens, &Token::RParen),
+        Some(Token::LSquirrely) => parse_block(tokens, &Token::RSquirrely, || {
+            Syntax::Object(BTreeMap::new())
+        }),
+        Some(Token::LSquare) => {
+            parse_block(tokens, &Token::RSquare, || Syntax::Array(Rc::from([])))
+        }
+        Some(Token::LParen) => parse_block(tokens, &Token::RParen, || Syntax::Unit),
         Some(Token::At) => parse_macro(tokens),
         Some(Token::UCaret) => Ok(Syntax::CaretCoord(extract_float(tokens)?)),
         Some(Token::Woogly) => Ok(Syntax::WooglyCoord(extract_float(tokens)?)),
@@ -162,11 +166,12 @@ fn extract_float<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult
 fn parse_block<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     closing: &Token,
+    default: impl Fn() -> Syntax,
 ) -> SResult<Syntax> {
     let mut statements_buf = Vec::new();
     if tokens.peek() == Some(closing) {
         tokens.next();
-        return Ok(Syntax::Unit);
+        return Ok(default());
     }
     statements_buf.push(parse(tokens)?);
 

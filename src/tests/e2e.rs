@@ -81,7 +81,7 @@ fn variables() {
 #[test]
 fn nbt() {
     assert_e2e!("@s.Inventory = @p.Inventory" => "data modify entity @s Inventory set from entity @p Inventory");
-    // assert_e2e!("@s.Inventory = []" => "data modify entity @s Inventory set value []");
+    assert_e2e!("@s.Inventory = []" => "data modify entity @s Inventory set value []");
     assert_e2e!("@e[type=cow].CustomName = \"Gregory\"" => "data modify entity @e[type=cow] CustomName set value \"Gregory\"");
     // assert_e2e!("@s.Health += 1" => "");
     assert_e2e!("@s:score += @p.Health" 
