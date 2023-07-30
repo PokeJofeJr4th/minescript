@@ -210,14 +210,16 @@ fn raycast(
         return Err(String::from("Raycast requires a hit/callback function"));
     };
 
-    let closure_name: RStr = format!("closure/{hash:x}").into();
-    let loop_name: RStr = format!("closure/loop_{hash:x}").into();
+    let hash: RStr = format!("{hash:x}").into();
+    let score_name: RStr = format!("%timer_{hash}").into();
+    let closure_name: RStr = format!("closure/{hash}").into();
+    let loop_name: RStr = format!("closure/loop_{hash}").into();
 
     let closure_fn = vec![
-        Command::Raw("execute at @s rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
+        Command::Raw("execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
         // scoreboard players reset %timer dummy
         Command::ScoreSet {
-            target: "%timer".into(),
+            target: score_name.clone(),
             objective: "dummy".into(),
             value: 0,
         },
@@ -230,7 +232,7 @@ fn raycast(
         Command::execute(
             vec![ExecuteOption::At(Selector::s())],
             callback,
-            &format!("closure/callback_{hash:x}"),
+            &format!("closure/callback_{hash}"),
             state,
         ),
         // kill @s
@@ -246,7 +248,7 @@ fn raycast(
         },
         // timer ++
         Command::ScoreAdd {
-            target: "%timer".into(),
+            target: score_name.clone(),
             objective: "dummy".into(),
             value: 1,
         },
@@ -255,7 +257,7 @@ fn raycast(
             options: vec![
                 ExecuteOption::ScoreMatches {
                     invert: false,
-                    target: "%timer".into(),
+                    target: score_name,
                     objective: "dummy".into(),
                     lower: None,
                     upper: Some(max),

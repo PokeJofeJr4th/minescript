@@ -167,16 +167,24 @@ fn loop_block(
         )?[..] else {
             return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
         };
+    // this is the code that runs on each loop
     let mut body = inner_interpret(block, state, path, src_files)?;
+    // this is the code that runs to enter the loop
+    let mut initial = Vec::new();
     if block_type == BlockType::For {
         // reset value at start of for loop
         let &Syntax::Range(start, _) = right else {
                 return Err(format!("Expected `for {{variable}} in {{range}}`; got `{right:?}`"))
             };
-        body.push(Command::ScoreSet {
+        initial.push(Command::ScoreSet {
             target: left.stringify_scoreboard_target()?,
             objective: left.stringify_scoreboard_objective()?,
             value: start.unwrap_or(0),
+        });
+        body.push(Command::ScoreAdd {
+            target: left.stringify_scoreboard_target()?,
+            objective: left.stringify_scoreboard_objective()?,
+            value: 1,
         });
     }
     // don't perform the initial check for do-while, do-until, or for loops
@@ -184,12 +192,14 @@ fn loop_block(
         block_type,
         BlockType::DoWhile | BlockType::DoUntil | BlockType::For
     ) {
-        body.push(Command::Function(fn_name.clone()));
+        initial.push(Command::Function(fn_name.clone()));
     } else {
-        body.push(goto_fn.clone());
+        initial.push(goto_fn.clone());
     }
+    // always check to restart loop at the end
+    body.push(goto_fn.clone());
     state.functions.push((fn_name, body));
-    Ok(vec![goto_fn.clone()])
+    Ok(initial)
 }
 
 /// get the command for an `if|unless` block

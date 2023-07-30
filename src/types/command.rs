@@ -418,7 +418,25 @@ impl Display for Coordinate {
                 )
             }
             Self::Angular(a, b, c) => {
-                write!(f, "^{a} ^{b} ^{c}")
+                write!(
+                    f,
+                    "^{} ^{} ^{}",
+                    if a == 0.0 {
+                        String::new()
+                    } else {
+                        a.to_string()
+                    },
+                    if b == 0.0 {
+                        String::new()
+                    } else {
+                        b.to_string()
+                    },
+                    if c == 0.0 {
+                        String::new()
+                    } else {
+                        c.to_string()
+                    }
+                )
             }
         }
     }
