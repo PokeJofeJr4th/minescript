@@ -13,7 +13,7 @@ pub(super) fn block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match block_type {
         BlockType::Tp => teleport(selector, body),
         BlockType::Damage => damage(selector, body),
@@ -23,7 +23,7 @@ pub(super) fn block(
 }
 
 /// interpret a tellraw block like `tellraw @a {...}`
-fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
+fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> {
     let mut nbt_buf: Vec<Nbt> = Vec::new();
 
     let arr = if let Syntax::Array(arr) = properties {
@@ -39,7 +39,8 @@ fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Comm
     Ok(vec![Command::TellRaw(
         selector.stringify()?,
         Nbt::Array(nbt_buf).to_json().into(),
-    )])
+    )]
+    .into())
 }
 
 /// get a tellraw component
@@ -116,7 +117,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
 }
 
 /// interpret a block of type `damage @p {...}`
-fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Command>> {
+fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> {
     let mut amount = 1;
     let mut damage_type: RStr = "entity-attack".into();
     let mut attacker: Selector<Syntax> = Selector::s();
@@ -158,7 +159,8 @@ fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<Vec<Comma
         amount,
         damage_type,
         attacker: attacker.stringify()?,
-    }])
+    }]
+    .into())
 }
 
 /// interpret a block of the form `at @s {...}`
@@ -169,7 +171,7 @@ fn selector_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let mut res_buf = Vec::new();
     let selector = selector.stringify()?;
     // special case for `as at`: as @p[..] at @s
@@ -194,30 +196,34 @@ fn selector_block(
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path, src_files)?;
-    Ok(vec![Command::execute(
-        res_buf,
-        inner,
-        &format!("closure/{block_type}_{:x}", get_hash(body)),
-        state,
-    )])
+    Ok(inner.map(|cmds| {
+        vec![Command::execute(
+            res_buf,
+            cmds,
+            &format!("closure/{block_type}_{:x}", get_hash(body)),
+            state,
+        )]
+    }))
 }
 
 /// interpret a teleport block
 /// `tp @s @p`
 /// `tp @s (~ ~ ~)`
-fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<Vec<Command>> {
+fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<VecCmd> {
     let target = selector.stringify()?;
 
     if let Ok(destination) = Coordinate::try_from(body) {
         Ok(vec![Command::Teleport {
             target,
             destination,
-        }])
+        }]
+        .into())
     } else if let Syntax::Selector(sel) = body {
         Ok(vec![Command::TeleportTo {
             target,
             destination: sel.stringify()?,
-        }])
+        }]
+        .into())
     } else {
         Err(format!(
             "Expected coordinates or target for `tp` body; got `{body:?}`"

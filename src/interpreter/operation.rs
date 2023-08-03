@@ -14,7 +14,7 @@ pub(super) fn operation(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match (lhs, op, rhs) {
         // @s::xp
         (OpLeft::SelectorDoubleColon(sel, ident), _, _) => double_colon(sel, ident, op, rhs),
@@ -40,7 +40,7 @@ fn simple_operation(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let target_objective = target.stringify_scoreboard_objective()?;
     let target_name = target.stringify_scoreboard_target()?;
     if !state.objectives.contains_key(&target_objective) {
@@ -62,7 +62,7 @@ fn simple_operation(
                 ));
             };
             // get experience into variable
-            let mut vec = vec![Command::Execute {
+            let mut vec: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
                     objective: "dummy".into(),
@@ -71,7 +71,7 @@ fn simple_operation(
                     target: sel.stringify()?,
                     levels,
                 }),
-            }];
+            }].into();
             // operate on the variable
             vec.extend(simple_operation(
                 target,
@@ -89,15 +89,15 @@ fn simple_operation(
                 objective: target_objective,
             }],
             cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
-        }]),
+        }].into()),
         (op, Syntax::SelectorNbt(selector, nbt)) => {
-            let mut cmd_buf = vec![Command::Execute {
+            let mut cmd_buf: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
                     objective: "dummy".into(),
                 }],
                 cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
-            }];
+            }].into();
             cmd_buf.extend(simple_operation(
                 target,
                 op,
@@ -121,7 +121,7 @@ fn simple_operation(
                 operation: op,
                 source: format!("%{ident}").into(),
                 source_objective: "dummy".into(),
-            }])
+            }].into())
         }
         // x = @r:y
         (op, Syntax::SelectorColon(selector, ident)) => Ok(vec![Command::ScoreOperation {
@@ -130,7 +130,7 @@ fn simple_operation(
             operation: op,
             source: format!("{}", selector.stringify()?).into(),
             source_objective: ident.clone(),
-        }]),
+        }].into()),
         // x = @rand ...
         (Operation::Equal, Syntax::Macro(mac, bound)) => {
             if !matches!(&**mac, "rand" | "random") {
@@ -172,7 +172,7 @@ fn simple_operation(
                 operation: op,
                 source: "%%".into(),
                 source_objective: "dummy".into(),
-            });
+            }.into());
             Ok(cmd_buf)
         }
         (Operation::MulEq | Operation::DivEq, Syntax::Float(float)) => {
@@ -201,7 +201,7 @@ fn simple_operation(
                     source: format!("%const_{:x}", approx.1).into(),
                     source_objective: "dummy".into(),
                 },
-            ])
+            ].into())
         }
         // x += 0.1 => complain
         (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication and division.")),
@@ -216,14 +216,15 @@ fn integer_operation(
     op: Operation,
     value: i32,
     state: &mut InterRepr,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match (op, value) {
         // x *= 0 => set to 0
         (Operation::MulEq, 0) => Ok(vec![Command::ScoreSet {
             target: target_name,
             objective: target_objective,
             value: 0,
-        }]),
+        }]
+        .into()),
         // x /= 0
         (Operation::DivEq | Operation::ModEq, 0) => Err(String::from("Can't divide by zero")),
         // x = 2
@@ -231,16 +232,18 @@ fn integer_operation(
             target: target_name,
             objective: target_objective,
             value,
-        }]),
+        }]
+        .into()),
         // x *= 1 => nop
         (Operation::MulEq | Operation::DivEq | Operation::ModEq, 1)
-        | (Operation::AddEq | Operation::SubEq, 0) => Ok(Vec::new()),
+        | (Operation::AddEq | Operation::SubEq, 0) => Ok(VecCmd::default()),
         // x += 2
         (Operation::AddEq, _) => Ok(vec![Command::ScoreAdd {
             target: target_name,
             objective: target_objective,
             value,
-        }]),
+        }]
+        .into()),
         // x >< 1 => complain
         (Operation::Swap, _) => Err(String::from(
             "Can't apply `><` (the swap operator) to an integer; did you mean `=`, `>`, or `<`?",
@@ -250,7 +253,8 @@ fn integer_operation(
             target: target_name,
             objective: target_objective,
             value: -value,
-        }]),
+        }]
+        .into()),
         // x *= 2 => x += x
         (Operation::MulEq, 2) => Ok(vec![Command::ScoreOperation {
             source: target_name.clone(),
@@ -258,7 +262,8 @@ fn integer_operation(
             target: target_name,
             target_objective,
             operation: Operation::AddEq,
-        }]),
+        }]
+        .into()),
         // x %= 2
         (op, _) => {
             state.objectives.insert("dummy".into(), "dummy".into());
@@ -269,7 +274,8 @@ fn integer_operation(
                 operation: op,
                 source: format!("%const_{value:x}").into(),
                 source_objective: "dummy".into(),
-            }])
+            }]
+            .into())
         }
     }
 }
@@ -280,7 +286,7 @@ fn double_colon(
     ident: &str,
     op: Operation,
     right: &Syntax,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let levels = match ident {
         "level" | "lvl" => true,
         "xp" | "experience" => false,
@@ -297,19 +303,21 @@ fn double_colon(
                 target: selector.stringify()?,
                 amount,
                 levels,
-            }])
+            }]
+            .into())
         }
         (Operation::Equal, Syntax::Integer(amount)) => Ok(vec![Command::XpSet {
             target: selector.stringify()?,
             amount: *amount,
             levels,
-        }]),
+        }]
+        .into()),
         _ => Err(format!("Can't operate `{{XP}} {op} {right:?}`")),
     }
 }
 
 /// apply an operation where the left is a selector with an nbt path
-fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<Command>> {
+fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<VecCmd> {
     match (operation, rhs) {
         (
             Operation::Equal,
@@ -321,17 +329,20 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<C
         ) => Ok(vec![Command::DataSetValue {
             target: lhs,
             value: Nbt::try_from(rhs)?.to_string().into(),
-        }]),
+        }]
+        .into()),
         (Operation::Equal, Syntax::SelectorNbt(rhs_sel, rhs_nbt)) => {
             Ok(vec![Command::DataSetFrom {
                 target: lhs,
                 src: NbtLocation::Entity(rhs_sel.stringify()?, rhs_nbt.clone()),
-            }])
+            }]
+            .into())
         }
         (Operation::Equal, Syntax::NbtStorage(rhs_nbt)) => Ok(vec![Command::DataSetFrom {
             target: lhs,
             src: NbtLocation::Storage(rhs_nbt.clone()),
-        }]),
+        }]
+        .into()),
         (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
             Ok(swap_nbt(lhs, NbtLocation::Storage(rhs_nbt.clone())))
         }
@@ -343,7 +354,7 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<Vec<C
     }
 }
 
-fn swap_nbt(lhs: NbtLocation, rhs: NbtLocation) -> Vec<Command> {
+fn swap_nbt(lhs: NbtLocation, rhs: NbtLocation) -> VecCmd {
     vec![
         Command::DataSetFrom {
             target: NbtLocation::Storage(vec![NbtPathPart::Ident("%".into())]),
@@ -358,4 +369,5 @@ fn swap_nbt(lhs: NbtLocation, rhs: NbtLocation) -> Vec<Command> {
             src: NbtLocation::Storage(vec![NbtPathPart::Ident("%".into())]),
         },
     ]
+    .into()
 }

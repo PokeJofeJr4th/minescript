@@ -26,7 +26,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     for (name, statements) in &src.functions {
         let name: RStr = fmt_mc_ident(name).into();
         let mut fn_buf = String::new();
-        for statement in statements {
+        for statement in statements.get(0) {
             fn_buf.push('\n');
             fn_buf.push_str(&statement.stringify(namespace));
         }
@@ -130,7 +130,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     ),
                     ExecuteOption::At(Selector::s()),
                 ],
-                fn_content.clone(),
+                fn_content.get(0).clone(),
                 &format!("closure/slot_{slot:x}_{:x}", get_hash(fn_content)),
                 src,
             );
@@ -169,7 +169,7 @@ fn make_on_consume(item: &Item, ident: &str, namespace: &str, compiled: &mut Com
     })
     .to_json();
     let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
-    for cmd in &item.on_consume {
+    for cmd in item.on_consume.get(0) {
         consume_fn.push('\n');
         consume_fn.push_str(&cmd.stringify(namespace));
     }
@@ -203,7 +203,7 @@ fn make_on_use(
             }),
             ExecuteOption::At(Selector::s()),
         ],
-        item.on_use.clone(),
+        item.on_use.get(0).clone(),
         &on_use,
         src,
     );
@@ -239,7 +239,7 @@ fn make_while_using(item: &Item, ident: &str, namespace: &str, compiled: &mut Co
     })
     .to_json();
     let mut on_use_fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
-    for cmd in &item.while_using {
+    for cmd in item.while_using.get(0) {
         on_use_fn_content.push('\n');
         on_use_fn_content.push_str(&cmd.stringify(namespace));
     }

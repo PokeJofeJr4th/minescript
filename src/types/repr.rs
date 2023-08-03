@@ -12,13 +12,27 @@ pub struct Item {
     pub base: RStr,
     pub nbt: Nbt,
     /// function that runs when the item is consumed
-    pub on_consume: Vec<Command>,
+    pub on_consume: VecCmd,
     /// function that runs when the item is used
-    pub on_use: Vec<Command>,
+    pub on_use: VecCmd,
     /// function that runs every tick while the item is being used
-    pub while_using: Vec<Command>,
+    pub while_using: VecCmd,
     // function that runs every tick while the item is in the given slot
-    pub slot_checks: Vec<(i32, Vec<Command>)>,
+    pub slot_checks: Vec<(i32, VecCmd)>,
+}
+
+impl Default for Item {
+    fn default() -> Self {
+        Self {
+            name: String::new().into(),
+            base: String::new().into(),
+            nbt: Nbt::default(),
+            on_consume: VecCmd::default(),
+            on_use: VecCmd::default(),
+            while_using: VecCmd::default(),
+            slot_checks: Vec::new(),
+        }
+    }
 }
 
 /// intermediate representation of most items and functions
@@ -26,7 +40,7 @@ pub struct Item {
 pub struct InterRepr {
     pub items: Vec<Item>,
     pub objectives: BTreeMap<RStr, RStr>,
-    pub functions: Vec<(RStr, Vec<Command>)>,
+    pub functions: Vec<(RStr, VecCmd)>,
     pub recipes: BTreeMap<RStr, (String, RStr)>,
     pub loot_tables: BTreeMap<RStr, RStr>,
     pub constants: BTreeSet<i32>,

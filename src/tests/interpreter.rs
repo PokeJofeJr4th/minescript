@@ -9,7 +9,7 @@ fn function() {
             "function".into(),
             Box::new(Syntax::String("give/berry".into()))
         )),
-        Ok(vec![Command::Function("give/berry".into())])
+        vec![Command::Function("give/berry".into())]
     );
 }
 
@@ -29,7 +29,7 @@ fn tp_s_up() {
                 ])))
             ))
         )),
-        Ok(vec![Command::Execute {
+        vec![Command::Execute {
             options: vec![
                 ExecuteOption::As(Selector::r()),
                 ExecuteOption::At(Selector::s())
@@ -38,7 +38,7 @@ fn tp_s_up() {
                 target: Selector::s(),
                 destination: Coordinate::Linear(true, 0.0, true, 10.0, true, 0.0)
             })
-        }])
+        }]
     );
 }
 
@@ -65,7 +65,7 @@ fn as_s_if_score() {
                 ))
             ))
         )),
-        Ok(vec![Command::Execute {
+        vec![Command::Execute {
             options: vec![
                 ExecuteOption::As(Selector::r()),
                 ExecuteOption::On("owner".into()),
@@ -78,7 +78,7 @@ fn as_s_if_score() {
                 }
             ],
             cmd: Box::new(Command::Function("give/my_item".into()))
-        }])
+        }]
     );
 }
 
@@ -97,7 +97,7 @@ fn tellraw() {
                 Syntax::String("plain".into())
             ])))
         )),
-        Ok(vec![Command::TellRaw(
+        vec![Command::TellRaw(
             Selector::a(),
             nbt!([
                 nbt!({text: "hello world", italic: true}),
@@ -105,7 +105,7 @@ fn tellraw() {
             ])
             .to_json()
             .into()
-        )])
+        )]
     );
 }
 
@@ -117,11 +117,11 @@ fn xp_ops() {
             operation: Operation::AddEq,
             rhs: Box::new(Syntax::Integer(2))
         }),
-        Ok(vec![Command::XpAdd {
+        vec![Command::XpAdd {
             target: Selector::s(),
             amount: 2,
             levels: true
-        }])
+        }]
     );
     assert_eq!(
         test_interpret(&Syntax::BinaryOp {
@@ -129,7 +129,7 @@ fn xp_ops() {
             operation: Operation::MulEq,
             rhs: Box::new(Syntax::SelectorDoubleColon(Selector::s(), "lvl".into()))
         }),
-        Ok(vec![
+        vec![
             Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
@@ -147,6 +147,6 @@ fn xp_ops() {
                 source: "%".into(),
                 source_objective: "dummy".into()
             }
-        ])
+        ]
     );
 }

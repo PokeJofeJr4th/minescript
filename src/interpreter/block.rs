@@ -14,7 +14,7 @@ pub(super) fn block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match (block_type, lhs, body) {
         // if x=1 {}
         (
@@ -25,15 +25,19 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => interpret_if(
-            false,
-            left,
-            *op,
-            right,
-            inner_interpret(body, state, path, src_files)?,
-            &format!("closure/if_{:x}", get_hash(body)),
-            state,
-        ),
+        ) => inner_interpret(body, state, path, src_files)?
+            .map(|cmds| {
+                interpret_if(
+                    false,
+                    left,
+                    *op,
+                    right,
+                    cmds,
+                    &format!("closure/if_{:x}", get_hash(body)),
+                    state,
+                )
+            })
+            .all(),
         // unless x=1 {}
         (
             BlockType::Unless,
@@ -43,15 +47,19 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => interpret_if(
-            true,
-            left,
-            *op,
-            right,
-            inner_interpret(body, state, path, src_files)?,
-            &format!("closure/unless_{:x}", get_hash(body)),
-            state,
-        ),
+        ) => inner_interpret(body, state, path, src_files)?
+            .map(|cmds| {
+                interpret_if(
+                    true,
+                    left,
+                    *op,
+                    right,
+                    cmds,
+                    &format!("closure/unless_{:x}", get_hash(body)),
+                    state,
+                )
+            })
+            .all(),
         // for _ in 1..10 {}
         (
             BlockType::For
@@ -81,15 +89,21 @@ pub(super) fn block(
                 let Syntax::Block(BlockType::Case, match_value, body) = syn else {
                     return Err(format!("Expected `case` statement; got `{syn:?}`"))
                 };
-                cmd_buf.extend(interpret_if(
-                    false,
-                    &OpLeft::Ident(switch_var.clone()),
-                    Operation::Equal,
-                    match_value,
-                    inner_interpret(body, state, path, src_files)?,
-                    &format!("closure/case_{:x}", get_hash(body)),
-                    state,
-                )?);
+                cmd_buf.extend(
+                    inner_interpret(body, state, path, src_files)?
+                        .map(|cmds| {
+                            interpret_if(
+                                false,
+                                &OpLeft::Ident(switch_var.clone()),
+                                Operation::Equal,
+                                match_value,
+                                cmds,
+                                &format!("closure/case_{:x}", get_hash(body)),
+                                state,
+                            )
+                        })
+                        .all()?,
+                );
             }
             Ok(cmd_buf)
         }
@@ -101,7 +115,7 @@ pub(super) fn block(
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             let inner = inner_interpret(body, state, path, src_files)?;
             state.functions.push((ident.clone(), inner));
-            Ok(Vec::new())
+            Ok(VecCmd::default())
         }
         // async do_thing { ... }
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
@@ -143,7 +157,7 @@ fn loop_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let invert = match block_type {
         BlockType::For | BlockType::DoWhile | BlockType::While => false,
         BlockType::DoUntil | BlockType::Until => true,
@@ -170,34 +184,40 @@ fn loop_block(
     // this is the code that runs on each loop
     let mut body = inner_interpret(block, state, path, src_files)?;
     // this is the code that runs to enter the loop
-    let mut initial = Vec::new();
+    let mut initial = VecCmd::default();
     if block_type == BlockType::For {
         // reset value at start of for loop
         let &Syntax::Range(start, _) = right else {
                 return Err(format!("Expected `for {{variable}} in {{range}}`; got `{right:?}`"))
             };
-        initial.push(Command::ScoreSet {
-            target: left.stringify_scoreboard_target()?,
-            objective: left.stringify_scoreboard_objective()?,
-            value: start.unwrap_or(0),
-        });
-        body.push(Command::ScoreAdd {
-            target: left.stringify_scoreboard_target()?,
-            objective: left.stringify_scoreboard_objective()?,
-            value: 1,
-        });
+        initial.push(
+            Command::ScoreSet {
+                target: left.stringify_scoreboard_target()?,
+                objective: left.stringify_scoreboard_objective()?,
+                value: start.unwrap_or(0),
+            }
+            .into(),
+        );
+        body.push(
+            Command::ScoreAdd {
+                target: left.stringify_scoreboard_target()?,
+                objective: left.stringify_scoreboard_objective()?,
+                value: 1,
+            }
+            .into(),
+        );
     }
     // don't perform the initial check for do-while, do-until, or for loops
     if matches!(
         block_type,
         BlockType::DoWhile | BlockType::DoUntil | BlockType::For
     ) {
-        initial.push(Command::Function(fn_name.clone()));
+        initial.push(Command::Function(fn_name.clone()).into());
     } else {
-        initial.push(goto_fn.clone());
+        initial.push(goto_fn.clone().into());
     }
     // always check to restart loop at the end
-    body.push(goto_fn.clone());
+    body.push(goto_fn.clone().into());
     state.functions.push((fn_name, body));
     Ok(initial)
 }
@@ -326,7 +346,7 @@ fn ident_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     if block_type == BlockType::On
         && !matches!(
             &*ident,
@@ -360,7 +380,7 @@ fn ident_block(
         ),
         _ => unreachable!(),
     };
-    Ok(vec![Command::execute(vec![options], content, &hash, state)])
+    Ok(content.map(|cmds| vec![Command::execute(vec![options], cmds, &hash, state)]))
 }
 
 fn coord_block(
@@ -370,19 +390,21 @@ fn coord_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let mut opts = Vec::new();
     match block_type {
         BlockType::Facing => opts.push(ExecuteOption::FacingPos(coord)),
         BlockType::Positioned => opts.push(ExecuteOption::Positioned(coord)),
         _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
     }
-    Ok(vec![Command::execute(
-        opts,
-        inner_interpret(block, state, path, src_files)?,
-        &format!("closure/{block_type}_{:x}", get_hash(block)),
-        state,
-    )])
+    Ok(inner_interpret(block, state, path, src_files)?.map(|cmds| {
+        vec![Command::execute(
+            opts,
+            cmds,
+            &format!("closure/{block_type}_{:x}", get_hash(block)),
+            state,
+        )]
+    }))
 }
 
 fn rotated_block(
@@ -392,7 +414,7 @@ fn rotated_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let (yaw_rel, yaw) = match yaw {
         Syntax::Integer(int) => (false, *int as f32),
         Syntax::Float(fl) => (false, *fl),
@@ -413,17 +435,20 @@ fn rotated_block(
             ))
         }
     };
-    Ok(vec![Command::execute(
-        vec![ExecuteOption::Rotated {
-            yaw_rel,
-            yaw,
-            pitch_rel,
-            pitch,
-        }],
-        inner_interpret(body, state, path, src_files)?,
-        &format!("closure/rotated_{:x}", get_hash(body)),
-        state,
-    )])
+    let hash = format!("closure/rotated_{:x}", get_hash(body));
+    Ok(inner_interpret(body, state, path, src_files)?.map(|cmds| {
+        vec![Command::execute(
+            vec![ExecuteOption::Rotated {
+                yaw_rel,
+                yaw,
+                pitch_rel,
+                pitch,
+            }],
+            cmds,
+            &hash,
+            state,
+        )]
+    }))
 }
 
 fn async_block(
@@ -432,15 +457,15 @@ fn async_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let Syntax::Array(arr) = body else {
                 // just make it a normal function
                 let inner = inner_interpret(body, state, path, src_files)?;
                 state.functions.push((ident.clone(), inner));
-                return Ok(Vec::new());
+                return Ok(VecCmd::default());
             };
     let mut func = ident.clone();
-    let mut command_buf: Vec<Command> = Vec::new();
+    let mut command_buf = VecCmd::default();
     for cmd in arr.iter() {
         if let Syntax::Macro(id, body) = cmd {
             if &**id == "delay" {
@@ -448,11 +473,14 @@ fn async_block(
                             return Err(format!("Expected an integer for delay; got `{body:?}`"))
                         };
                 let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
-                command_buf.push(Command::Schedule {
-                    func: next_func.clone(),
-                    time: *time,
-                    replace: false,
-                });
+                command_buf.push(
+                    Command::Schedule {
+                        func: next_func.clone(),
+                        time: *time,
+                        replace: false,
+                    }
+                    .into(),
+                );
                 state.functions.push((
                     core::mem::replace(&mut func, next_func),
                     core::mem::take(&mut command_buf),
@@ -463,5 +491,5 @@ fn async_block(
         command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
     }
     state.functions.push((func, command_buf));
-    Ok(Vec::new())
+    Ok(VecCmd::default())
 }

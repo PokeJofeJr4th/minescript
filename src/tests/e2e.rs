@@ -6,7 +6,7 @@ macro_rules! assert_e2e {
     ($src: expr => $output: expr) => {{
         let tokens = $crate::lexer::tokenize(&format!("[{}]", $src)).unwrap();
         let syntax = $crate::parser::parse(&mut tokens.into_iter().peekable()).unwrap();
-        let output = $crate::interpreter::test_interpret(&syntax).unwrap();
+        let output = $crate::interpreter::test_interpret(&syntax);
         let output_txt = output
             .into_iter()
             .map(|cmd| format!("\n{}", cmd.stringify("test")))

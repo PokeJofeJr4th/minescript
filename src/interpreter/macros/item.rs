@@ -17,15 +17,7 @@ pub(super) fn item(
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
     };
-    let mut item = Item {
-        name: String::new().into(),
-        base: String::new().into(),
-        nbt: Nbt::default(),
-        on_consume: Vec::new(),
-        on_use: Vec::new(),
-        while_using: Vec::new(),
-        slot_checks: Vec::new(),
-    };
+    let mut item = Item::default();
     let mut recipe_buf = Vec::new();
     for (prop, value) in src.iter() {
         match prop.as_ref() {
@@ -48,7 +40,7 @@ pub(super) fn item(
                 item.nbt = name;
             }
             "on_consume" => match value {
-                Syntax::String(str) => item.on_consume.push(Command::Function(str.clone())),
+                Syntax::String(str) => item.on_consume.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.on_consume.extend(inner_interpret(value, state, path, src_files)?);
@@ -56,7 +48,7 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_consume.push(Command::Function(name.clone()));
+                    item.on_consume.push(Command::Function(name.clone()).into());
                 }
                 other => {
                     item.on_consume
@@ -64,7 +56,7 @@ pub(super) fn item(
                 }
             },
             "on_use" => match value {
-                Syntax::String(str) => item.on_use.push(Command::Function(str.clone())),
+                Syntax::String(str) => item.on_use.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.on_use.extend(inner_interpret(value, state, path, src_files)?);
@@ -72,14 +64,14 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.on_use.push(Command::Function(name.clone()));
+                    item.on_use.push(Command::Function(name.clone()).into());
                 }
                 other => item
                     .on_use
                     .extend(inner_interpret(other, state, path, src_files)?),
             },
             "while_using" => match value {
-                Syntax::String(str) => item.while_using.push(Command::Function(str.clone())),
+                Syntax::String(str) => item.while_using.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                         item.while_using.extend(inner_interpret(value, state, path, src_files)?);
@@ -87,7 +79,7 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.while_using.push(Command::Function(name.clone()));
+                    item.while_using.push(Command::Function(name.clone()).into());
                 }
                 other => {
                     item.while_using
