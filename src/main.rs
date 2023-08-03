@@ -16,6 +16,7 @@ mod compiler;
 mod interpreter;
 /// transforms a string into a stream of `Token`s
 mod lexer;
+#[cfg(never)]
 /// turns text into json
 mod md_to_json;
 /// transforms a stream of `Token`s into a syntax tree
