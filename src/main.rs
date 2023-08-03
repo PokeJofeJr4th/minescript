@@ -2,13 +2,13 @@
 #![allow(clippy::module_name_repetitions, clippy::cast_precision_loss)]
 
 use std::collections::BTreeSet;
-use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, fs, thread};
 
 use clap::Parser;
 use dotenvy::dotenv;
+use types::SResult;
 
 /// transforms an `InterRepr` into a set of files that need to be written to a datapack
 mod compiler;
@@ -52,7 +52,7 @@ struct Args {
     world: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> SResult<()> {
     let args = Args::parse();
     let path = PathBuf::from(args.path);
     // load environment variables from `.env` file
@@ -128,9 +128,13 @@ fn build(
     namespace: &str,
     verbose: bool,
     src_files: &mut BTreeSet<PathBuf>,
-) -> Result<(), Box<dyn Error>> {
+) -> SResult<()> {
     // read the contents of the primary source file
-    let file = format!("[{}]", fs::read_to_string(path)?);
+    let file = format!(
+        "[{}]",
+        fs::read_to_string(path)
+            .map_err(|err| format!("Error opening {}: {err}", path.display()))?
+    );
     // tokenize the raw source
     let tokens = lexer::tokenize(&file)?;
     if verbose {
@@ -156,6 +160,7 @@ fn build(
     if verbose {
         println!("{compiled:#?}");
     }
-    compiled.write(parent, namespace)?;
-    Ok(())
+    compiled
+        .write(parent, namespace)
+        .map_err(|err| format!("Error writing compiled datapack: {err}"))
 }
