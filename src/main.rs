@@ -160,7 +160,6 @@ fn build(
     if verbose {
         println!("{compiled:#?}");
     }
-    compiled
-        .write(parent, namespace)
+    compiler::write(&compiled, parent, namespace)
         .map_err(|err| format!("Error writing compiled datapack: {err}"))
 }

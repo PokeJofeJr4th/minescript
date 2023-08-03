@@ -1,9 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs::{self, File},
+    io::Write,
+};
 
 use crate::types::prelude::*;
 
 pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
-    let mut compiled = CompiledRepr::new(namespace, core::mem::take(&mut src.loot_tables));
+    let mut compiled = CompiledRepr::new(core::mem::take(&mut src.loot_tables));
 
     let mut load = format!("say {namespace}, a datapack created with MineScript");
     // add all the scoreboard objectives
@@ -20,7 +24,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             "\nscoreboard players set %const_{value:x} dummy {value}"
         ));
     }
-    compiled.insert_fn("load", &load);
+    compiled.insert_fn("load", load.into());
     compile_items(src, namespace, &mut compiled)?;
     // put all the functions in
     for (name, statements) in &src.functions {
@@ -30,7 +34,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             fn_buf.push('\n');
             fn_buf.push_str(&statement.stringify(namespace));
         }
-        compiled.insert_fn(&name, &fn_buf);
+        compiled.insert_fn(&name, fn_buf.into());
     }
     // make all the recipes
     for (name, (content, item_name)) in &src.recipes {
@@ -54,11 +58,15 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
             })
             .to_json(),
         );
+        let give_fn = compiled
+            .functions
+            .get::<str>(&format!("give/{item_name}"))
+            .unwrap()
+            .clone();
         compiled.insert_fn(
           &format!("craft/{name}"),
-          &format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
-          give=compiled.functions.get::<RStr>(&format!("give/{item_name}").into()).ok_or_else(|| String::from("Some kind of weird internal error happened with the recipe :("))?)
-        );
+          give_fn.map(|give| format!("clear @s knowledge_book 1\nadvancement revoke @s only {namespace}:craft/{name}\n{give}", 
+                  ))        );
     }
     Ok(compiled)
 }
@@ -88,11 +96,12 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         // make the give function
         compiled.insert_fn(
             &format!("give/{ident}"),
-            &format!(
+            format!(
                 "give @s minecraft:{base}{nbt}",
                 base = item.base,
                 nbt = Nbt::Object(give_obj)
-            ),
+            )
+            .into(),
         );
 
         // make the consume function
@@ -142,7 +151,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         tick_buf.push_str(&format!("scoreboard players reset @a {base_score}\n"));
     }
     if !tick_buf.is_empty() {
-        compiled.insert_fn("tick", &tick_buf);
+        compiled.insert_fn("tick", tick_buf.into());
     }
     Ok(())
 }
@@ -176,7 +185,7 @@ fn make_on_consume(item: &Item, ident: &str, namespace: &str, compiled: &mut Com
     compiled
         .advancements
         .insert(format!("consume/{ident}").into(), advancement_content);
-    compiled.insert_fn(&on_consume, &consume_fn);
+    compiled.insert_fn(&on_consume, consume_fn.into());
 }
 
 fn make_on_use(
@@ -246,5 +255,81 @@ fn make_while_using(item: &Item, ident: &str, namespace: &str, compiled: &mut Co
     compiled
         .advancements
         .insert(format!("use/{ident}").into(), advancement_content);
-    compiled.insert_fn(&while_using, &on_use_fn_content);
+    compiled.insert_fn(&while_using, on_use_fn_content.into());
+}
+
+pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::io::Error> {
+    let _ = fs::remove_dir_all(&format!("{parent}{nmsp}"));
+    let mut versions = BTreeSet::new();
+    for (path, contents) in &repr.functions {
+        let mut file = create_file_with_parent_dirs(&format!(
+            "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
+        ))?;
+        write!(file, "{}", contents.get(0))?;
+        if &**path == "tick" {
+            let mut tick = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/minecraft/tags/functions/tick.json"
+            ))?;
+            write!(tick, "{{\"values\":[\"{nmsp}:tick\"]}}")?;
+        }
+        if &**path == "load" {
+            let mut load = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/minecraft/tags/functions/load.json"
+            ))?;
+            write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
+        }
+        for (num, content) in contents.versions() {
+            versions.insert(*num);
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/{num}/data/{nmsp}/functions/{path}.mcfunction"
+            ))?;
+            write!(file, "{content}")?;
+        }
+    }
+    for (path, contents) in &repr.advancements {
+        let mut file = create_file_with_parent_dirs(&format!(
+            "{parent}{nmsp}/data/{nmsp}/advancements/{path}.json"
+        ))?;
+        write!(file, "{contents}")?;
+    }
+    for (path, contents) in &repr.recipes {
+        let mut file = create_file_with_parent_dirs(&format!(
+            "{parent}{nmsp}/data/{nmsp}/recipes/{path}.json"
+        ))?;
+        write!(file, "{contents}")?;
+    }
+    for (path, contents) in &repr.loot_tables {
+        let mut file = create_file_with_parent_dirs(&format!(
+            "{parent}{nmsp}/data/{nmsp}/loot_tables/{path}.json"
+        ))?;
+        write!(file, "{contents}")?;
+    }
+    let mut mcmeta = create_file_with_parent_dirs(&format!("{parent}{nmsp}/pack.mcmeta"))?;
+    #[allow(clippy::cast_lossless)]
+    let overlays_nbt = versions
+        .into_iter()
+        .map(|version| {
+            nbt!({
+                directory: format!("fmt_{version}"),
+                formats: nbt!({min_inclusive: version as i32})
+            })
+        })
+        .rev()
+        .collect::<Vec<Nbt>>();
+    write!(
+        mcmeta,
+        "{}",
+        nbt!({
+            pack: nbt!({pack_format: 15, description: format!("{nmsp}, made with MineScript"), overlays: overlays_nbt})
+        })
+        .to_json()
+    )?;
+    Ok(())
+}
+
+fn create_file_with_parent_dirs(filename: &str) -> Result<File, std::io::Error> {
+    let parent_dir = std::path::Path::new(filename).parent().unwrap();
+    fs::create_dir_all(parent_dir)?;
+
+    File::create(filename)
 }

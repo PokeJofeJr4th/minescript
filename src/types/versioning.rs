@@ -7,36 +7,8 @@ pub struct Versioned<T> {
 }
 
 impl<T: Clone> Versioned<Vec<T>> {
-    pub fn extend<I: IntoIterator<Item = T> + Clone>(&mut self, mut iter: Versioned<I>) {
-        let all_mods: Vec<u8> = self
-            .mods
-            .keys()
-            .copied()
-            .collect::<BTreeSet<_>>()
-            .union(&iter.mods.keys().copied().collect())
-            .copied()
-            .collect();
-        for version in all_mods {
-            match (self.mods.contains_key(&version), iter.mods.remove(&version)) {
-                //  if we both do, just append
-                (true, Some(theirs)) => self.mods.get_mut(&version).unwrap().extend(theirs),
-                //  if I do but they don't, use their last mod?
-                (true, None) => self
-                    .mods
-                    .get_mut(&version)
-                    .unwrap()
-                    .extend(iter.get(version).clone()),
-                //  if I don't have it but they do, clone my base and add as a mod
-                (false, Some(theirs)) => {
-                    let mut mine = self.get(version).clone();
-                    mine.extend(theirs);
-                    self.mods.insert(version, mine);
-                }
-                // if we both don't, it won't be in `all_mods`
-                (false, None) => unreachable!(),
-            }
-        }
-        self.base.extend(iter.base);
+    pub fn extend<I: IntoIterator<Item = T> + Clone>(&mut self, other: Versioned<I>) {
+        self.map_with(std::iter::Extend::extend, other);
     }
 
     pub fn push(&mut self, other: Versioned<T>) {
@@ -65,6 +37,11 @@ impl<T> Versioned<T> {
         })
     }
 
+    #[cfg(test)]
+    pub const fn base(&self) -> &T {
+        &self.base
+    }
+
     // pub fn get_mut(&mut self, version: u8) -> &mut T {
     //     if self.mods.contains_key(&version) {
     //         self.mods.get_mut(&version).unwrap()
@@ -78,6 +55,49 @@ impl<T> Versioned<T> {
     // pub fn add_version(&mut self, version: u8, item: T) -> Option<T> {
     //     self.mods.insert(version, item)
     // }
+
+    pub const fn versions(&self) -> &BTreeMap<u8, T> {
+        &self.mods
+    }
+}
+
+impl<T: Clone> Versioned<T> {
+    pub fn map_with<O: Clone, F>(&mut self, func: F, mut other: Versioned<O>)
+    where
+        F: Fn(&mut T, O),
+    {
+        let all_mods: Vec<u8> = self
+            .mods
+            .keys()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .union(&other.mods.keys().copied().collect())
+            .copied()
+            .collect();
+        for version in all_mods {
+            match (
+                self.mods.contains_key(&version),
+                other.mods.remove(&version),
+            ) {
+                (true, Some(other)) => func(self.mods.get_mut(&version).unwrap(), other),
+                (true, None) => func(
+                    self.mods.get_mut(&version).unwrap(),
+                    other.get(version).clone(),
+                ),
+                (false, Some(other)) => {
+                    let mut new = self.get(version).clone();
+                    func(&mut new, other);
+                    self.mods.insert(version, new);
+                }
+                (false, None) => {
+                    let mut new = self.get(version).clone();
+                    func(&mut new, other.get(version).clone());
+                    self.mods.insert(version, new);
+                }
+            }
+        }
+        func(&mut self.base, other.base);
+    }
 }
 
 impl<T, E> Versioned<Result<T, E>> {
