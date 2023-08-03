@@ -198,7 +198,7 @@ fn selector_block(
     let inner = inner_interpret(body, state, path, src_files)?;
     Ok(inner.map(|cmds| {
         vec![Command::execute(
-            res_buf,
+            res_buf.clone(),
             cmds,
             &format!("closure/{block_type}_{:x}", get_hash(body)),
             state,

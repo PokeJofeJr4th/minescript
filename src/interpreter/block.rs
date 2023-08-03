@@ -380,7 +380,7 @@ fn ident_block(
         ),
         _ => unreachable!(),
     };
-    Ok(content.map(|cmds| vec![Command::execute(vec![options], cmds, &hash, state)]))
+    Ok(content.map(|cmds| vec![Command::execute(vec![options.clone()], cmds, &hash, state)]))
 }
 
 fn coord_block(
@@ -399,7 +399,7 @@ fn coord_block(
     }
     Ok(inner_interpret(block, state, path, src_files)?.map(|cmds| {
         vec![Command::execute(
-            opts,
+            opts.clone(),
             cmds,
             &format!("closure/{block_type}_{:x}", get_hash(block)),
             state,

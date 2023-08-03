@@ -217,32 +217,32 @@ fn raycast(
     let closure_name: RStr = format!("closure/{hash}").into();
     let loop_name: RStr = format!("closure/loop_{hash}").into();
 
-    let closure_fn = callback.map(|cmds| vec![
-        Command::Raw("execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
-        // scoreboard players reset %timer dummy
-        Command::ScoreSet {
-            target: score_name.clone(),
-            objective: "dummy".into(),
-            value: 0,
-        },
-        // at @s function loop
-        Command::Execute {
-            options: vec![ExecuteOption::At(Selector::s())],
-            cmd: Box::new(Command::Function(loop_name.clone())),
-        },
-        // at @s {callback}
-        Command::execute(
-            vec![ExecuteOption::At(Selector::s())],
-            cmds,
-            &format!("closure/callback_{hash}"),
-            state,
-        ),
-        // kill @s
-        Command::Kill(Selector::s()),
-    ]);
-    state
-        .functions
-        .push((closure_name.clone(), closure_fn.into()));
+    let closure_fn = callback.map(|cmds| {
+        vec![
+            Command::Raw("execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
+            // scoreboard players reset %timer dummy
+            Command::ScoreSet {
+                target: score_name.clone(),
+                objective: "dummy".into(),
+                value: 0,
+            },
+            // at @s function loop
+            Command::Execute {
+                options: vec![ExecuteOption::At(Selector::s())],
+                cmd: Box::new(Command::Function(loop_name.clone())),
+            },
+            // at @s {callback}
+            Command::execute(
+                vec![ExecuteOption::At(Selector::s())],
+                cmds,
+                &format!("closure/callback_{hash}"),
+                state,
+            ),
+            // kill @s
+            Command::Kill(Selector::s()),
+        ]
+    });
+    state.functions.push((closure_name.clone(), closure_fn));
 
     each.extend(
         [
@@ -279,7 +279,7 @@ fn raycast(
         ]
         .into(),
     );
-    state.functions.push((loop_name, each.into()));
+    state.functions.push((loop_name, each));
 
     Ok(vec![Command::Execute {
         options: vec![ExecuteOption::Summon("marker".into())],

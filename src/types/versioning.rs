@@ -49,7 +49,7 @@ impl<T: Clone> Versioned<Vec<T>> {
 }
 
 impl<T> Versioned<T> {
-    pub fn map<F: Fn(T) -> O, O>(self, func: F) -> Versioned<O> {
+    pub fn map<F: FnMut(T) -> O, O>(self, mut func: F) -> Versioned<O> {
         Versioned {
             base: func(self.base),
             mods: self.mods.into_iter().map(|(k, v)| (k, func(v))).collect(),
@@ -65,19 +65,19 @@ impl<T> Versioned<T> {
         })
     }
 
-    pub fn get_mut(&mut self, version: u8) -> &mut T {
-        if self.mods.contains_key(&version) {
-            self.mods.get_mut(&version).unwrap()
-        } else if let Some((_, v)) = self.mods.range_mut(..version).next_back() {
-            v
-        } else {
-            &mut self.base
-        }
-    }
+    // pub fn get_mut(&mut self, version: u8) -> &mut T {
+    //     if self.mods.contains_key(&version) {
+    //         self.mods.get_mut(&version).unwrap()
+    //     } else if let Some((_, v)) = self.mods.range_mut(..version).next_back() {
+    //         v
+    //     } else {
+    //         &mut self.base
+    //     }
+    // }
 
-    pub fn add_version(&mut self, version: u8, item: T) -> Option<T> {
-        self.mods.insert(version, item)
-    }
+    // pub fn add_version(&mut self, version: u8, item: T) -> Option<T> {
+    //     self.mods.insert(version, item)
+    // }
 }
 
 impl<T, E> Versioned<Result<T, E>> {
