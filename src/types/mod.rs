@@ -12,6 +12,7 @@ mod selector;
 mod syntax;
 /// the `Token` type
 mod token;
+mod versioning;
 
 pub use prelude::*;
 
@@ -27,11 +28,13 @@ pub mod prelude {
     pub use super::selector::{Selector, SelectorType};
     pub use super::syntax::{BlockType, OpLeft, Operation, Syntax};
     pub use super::token::Token;
+    pub use super::versioning::Versioned;
     pub use crate::nbt;
 
     pub type SResult<T> = Result<T, String>;
     pub type RStr = Rc<str>;
     pub type NbtPath = Vec<NbtPathPart>;
+    pub type VecCmd = Versioned<Vec<Command>>;
 
     pub fn fmt_mc_ident(ident: &str) -> String {
         ident.to_lowercase().replace(' ', "_")

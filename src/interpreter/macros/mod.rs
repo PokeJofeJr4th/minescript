@@ -14,7 +14,7 @@ mod item;
 macro_rules! interpret_fn {
     ($fn_buf: ident, $value: expr, $state: expr, $path: expr, $src_files: expr) => {
         match $value {
-            Syntax::String(str) => $fn_buf.push(Command::Function (str.clone() )),
+            Syntax::String(str) => $fn_buf.push(Command::Function (str.clone() ).into()),
             Syntax::Block(BlockType::Function, name, body) => {
                 let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
                                 $fn_buf.extend(inner_interpret($value, $state, $path, $src_files)?);
@@ -22,7 +22,7 @@ macro_rules! interpret_fn {
                             };
                 let new_body = inner_interpret(body, $state, $path, $src_files)?;
                 $state.functions.push((name.clone(), new_body));
-                $fn_buf.push(Command::Function (name.clone() ));
+                $fn_buf.push(Command::Function (name.clone() ).into());
             }
             other => $fn_buf.extend(inner_interpret(other, $state, $path, $src_files)?),
         }
@@ -35,7 +35,7 @@ pub(super) fn macros(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match name {
         "effect" => {
             return effect::effect(properties);
@@ -43,7 +43,7 @@ pub(super) fn macros(
         "function" => {
             let func = RStr::try_from(properties)
                 .map_err(|e| format!("Function macro should have a string; {e}"))?;
-            return Ok(vec![Command::Function(func)]);
+            return Ok(vec![Command::Function(func)].into());
         }
         "import" => {
             let Syntax::String(str) = properties else {
@@ -65,7 +65,7 @@ pub(super) fn macros(
             state.items.push(item);
         }
         "raw" => match properties {
-            Syntax::String(cmd) => return Ok(vec![Command::Raw(cmd.clone())]),
+            Syntax::String(cmd) => return Ok(vec![Command::Raw(cmd.clone())].into()),
             Syntax::Array(arr) => {
                 return arr
                     .iter()
@@ -78,7 +78,8 @@ pub(super) fn macros(
                             ))
                         }
                     })
-                    .collect::<SResult<Vec<Command>>>();
+                    .collect::<SResult<Vec<Command>>>()
+                    .map(Into::into);
             }
             other => {
                 return Err(format!(
@@ -93,10 +94,10 @@ pub(super) fn macros(
         "random" | "rand" => return random(properties, state),
         other => return Err(format!("Unexpected macro invocation `{other}`")),
     }
-    Ok(Vec::new())
+    Ok(VecCmd::default())
 }
 
-fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
+fn sound(properties: &Syntax) -> SResult<VecCmd> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Sound macro expects an object, not {properties:?}"))
     };
@@ -165,7 +166,8 @@ fn sound(properties: &Syntax) -> SResult<Vec<Command>> {
         volume,
         pitch,
         min_volume,
-    }])
+    }]
+    .into())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -174,14 +176,14 @@ fn raycast(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Raycast macro expects an object, not {properties:?}"))
     };
     let mut max = 0;
     let mut step = 0.0;
-    let mut callback = Vec::new();
-    let mut each = Vec::new();
+    let mut callback = VecCmd::default();
+    let mut each = VecCmd::default();
     for (k, v) in obj {
         match &**k {
             "max" => {
@@ -215,72 +217,78 @@ fn raycast(
     let closure_name: RStr = format!("closure/{hash}").into();
     let loop_name: RStr = format!("closure/loop_{hash}").into();
 
-    let closure_fn = vec![
-        Command::Raw("execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
-        // scoreboard players reset %timer dummy
-        Command::ScoreSet {
-            target: score_name.clone(),
-            objective: "dummy".into(),
-            value: 0,
-        },
-        // at @s function loop
-        Command::Execute {
-            options: vec![ExecuteOption::At(Selector::s())],
-            cmd: Box::new(Command::Function(loop_name.clone())),
-        },
-        // at @s {callback}
-        Command::execute(
-            vec![ExecuteOption::At(Selector::s())],
-            callback,
-            &format!("closure/callback_{hash}"),
-            state,
-        ),
-        // kill @s
-        Command::Kill(Selector::s()),
-    ];
+    let closure_fn = callback.map(|cmds| {
+        vec![
+            Command::Raw("execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~".into()),
+            // scoreboard players reset %timer dummy
+            Command::ScoreSet {
+                target: score_name.clone(),
+                objective: "dummy".into(),
+                value: 0,
+            },
+            // at @s function loop
+            Command::Execute {
+                options: vec![ExecuteOption::At(Selector::s())],
+                cmd: Box::new(Command::Function(loop_name.clone())),
+            },
+            // at @s {callback}
+            Command::execute(
+                vec![ExecuteOption::At(Selector::s())],
+                cmds,
+                &format!("closure/callback_{hash}"),
+                state,
+            ),
+            // kill @s
+            Command::Kill(Selector::s()),
+        ]
+    });
     state.functions.push((closure_name.clone(), closure_fn));
 
-    each.extend([
-        // tp @s ^ ^ ^1
-        Command::Teleport {
-            target: Selector::s(),
-            destination: Coordinate::Angular(0.0, 0.0, step),
-        },
-        // timer ++
-        Command::ScoreAdd {
-            target: score_name.clone(),
-            objective: "dummy".into(),
-            value: 1,
-        },
-        // execute unless %timer < max at @s if block ~ ~ ~ air run loop
-        Command::Execute {
-            options: vec![
-                ExecuteOption::ScoreMatches {
-                    invert: false,
-                    target: score_name,
-                    objective: "dummy".into(),
-                    lower: None,
-                    upper: Some(max),
-                },
-                ExecuteOption::At(Selector::s()),
-                ExecuteOption::Block {
-                    invert: false,
-                    pos: Coordinate::here(),
-                    value: "air".into(),
-                },
-            ],
-            cmd: Box::new(Command::Function(loop_name.clone())),
-        },
-    ]);
+    each.extend(
+        [
+            // tp @s ^ ^ ^1
+            Command::Teleport {
+                target: Selector::s(),
+                destination: Coordinate::Angular(0.0, 0.0, step),
+            },
+            // timer ++
+            Command::ScoreAdd {
+                target: score_name.clone(),
+                objective: "dummy".into(),
+                value: 1,
+            },
+            // execute unless %timer < max at @s if block ~ ~ ~ air run loop
+            Command::Execute {
+                options: vec![
+                    ExecuteOption::ScoreMatches {
+                        invert: false,
+                        target: score_name,
+                        objective: "dummy".into(),
+                        lower: None,
+                        upper: Some(max),
+                    },
+                    ExecuteOption::At(Selector::s()),
+                    ExecuteOption::Block {
+                        invert: false,
+                        pos: Coordinate::here(),
+                        value: "air".into(),
+                    },
+                ],
+                cmd: Box::new(Command::Function(loop_name.clone())),
+            },
+        ]
+        .into(),
+    );
     state.functions.push((loop_name, each));
 
     Ok(vec![Command::Execute {
         options: vec![ExecuteOption::Summon("marker".into())],
         cmd: Box::new(Command::Function(closure_name)),
-    }])
+    }]
+    .into())
 }
 
-fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>> {
+fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
     let Syntax::BinaryOp { lhs, operation: Operation::In, rhs: properties } = properties else {
         return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
     };
@@ -327,5 +335,6 @@ fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<Vec<Command>> {
         )],
         "",
         state,
-    )])
+    )]
+    .into())
 }

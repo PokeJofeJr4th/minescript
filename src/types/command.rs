@@ -306,7 +306,9 @@ impl Command {
             }
             _ => {
                 let func_name: RStr = hash.into();
-                state.functions.push((func_name.clone(), cmd));
+                // TODO: This does not work. It will overshadow different versions because this fn has historically been called
+                // once per version. I should probably make a map internally or something but that seems really hard.
+                state.functions.push((func_name.clone(), cmd.into()));
                 let func = Self::Function(func_name);
                 if options.is_empty() {
                     func

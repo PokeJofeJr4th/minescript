@@ -29,11 +29,11 @@ fn inner_interpret(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     match src {
         // []
         Syntax::Array(statements) => {
-            let mut commands_buf = Vec::new();
+            let mut commands_buf = VecCmd::default();
             for statement in statements.iter() {
                 commands_buf.extend(inner_interpret(statement, state, path, src_files)?);
             }
@@ -54,7 +54,7 @@ fn inner_interpret(
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
-    Ok(Vec::new())
+    Ok(VecCmd::default())
 }
 
 /// ## Testing Only
@@ -62,11 +62,11 @@ fn inner_interpret(
 ///
 /// It should normally not be used, since the side effects on the state are vital to the project's function
 #[cfg(test)]
-pub fn test_interpret(src: &Syntax) -> SResult<Vec<Command>> {
+pub fn test_interpret(src: &Syntax) -> Vec<Command> {
     inner_interpret(
         src,
         &mut InterRepr::new(),
         Path::new(""),
         &mut BTreeSet::new(),
-    )
+    ).unwrap().get(0).clone()
 }

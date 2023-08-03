@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::types::prelude::*;
 
-pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
+pub(super) fn effect(src: &Syntax) -> SResult<VecCmd> {
     let mut selector: Option<Selector<String>> = None;
     let mut effect = None;
     let mut duration = None;
@@ -70,5 +70,6 @@ pub(super) fn effect(src: &Syntax) -> SResult<Vec<Command>> {
         effect,
         duration,
         level,
-    }])
+    }]
+    .into())
 }
