@@ -23,9 +23,9 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             _ => Err(String::from("Expected a number or float after `-`")),
         },
         Some(Token::Identifier(id)) => identifier::parse_identifier(tokens, id),
-        Some(Token::LCurly) => parse_block(tokens, &Token::RCurly, || {
-            Syntax::Object(BTreeMap::new())
-        }),
+        Some(Token::LCurly) => {
+            parse_block(tokens, &Token::RCurly, || Syntax::Object(BTreeMap::new()))
+        }
         Some(Token::LSquare) => {
             parse_block(tokens, &Token::RSquare, || Syntax::Array(Rc::from([])))
         }
@@ -33,6 +33,15 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
         Some(Token::At) => parse_macro(tokens),
         Some(Token::UCaret) => Ok(Syntax::CaretCoord(extract_float(tokens)?)),
         Some(Token::Woogly) => Ok(Syntax::WooglyCoord(extract_float(tokens)?)),
+        Some(Token::Bang) => {
+            if let Some(Token::Identifier(ident)) = tokens.next() {
+                Ok(Syntax::Identifier(format!("!{ident}").into()))
+            } else {
+                Err(String::from(
+                    "Unexpected token `!`. Try appending an identifier, like `@s[type=!player]`.",
+                ))
+            }
+        }
         other => Err(format!("Unexpected token `{other:?}`")),
     }?;
     if let Syntax::Selector(sel) = &first {

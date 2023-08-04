@@ -132,6 +132,11 @@ fn build(
     verbose: bool,
     src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<()> {
+    // get the current folder so that imports work
+    let folder = path
+        .parent()
+        .ok_or_else(|| String::from("Bad source path"))?;
+    src_files.insert(PathBuf::from(path));
     // read the contents of the primary source file
     let file = format!(
         "[{}]",
@@ -148,11 +153,6 @@ fn build(
     if verbose {
         println!("{syntax:#?}");
     }
-    // get the current folder so that imports work
-    let folder = path
-        .parent()
-        .ok_or_else(|| String::from("Bad source path"))?;
-    src_files.insert(PathBuf::from(path));
     // interpret the syntax
     let mut state = interpreter::interpret(&syntax, folder, src_files)?;
     if verbose {
