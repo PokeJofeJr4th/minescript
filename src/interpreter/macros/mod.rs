@@ -229,7 +229,7 @@ fn raycast(
             // scoreboard players reset %timer dummy
             Command::ScoreSet {
                 target: score_name.clone(),
-                objective: "dummy".into(),
+                objective: DUMMY.into(),
                 value: 0,
             },
             // at @s function loop
@@ -255,7 +255,7 @@ fn raycast(
             // timer ++
             Command::ScoreAdd {
                 target: score_name.clone(),
-                objective: "dummy".into(),
+                objective: DUMMY.into(),
                 value: 1,
             },
             // execute unless %timer < max at @s if block ~ ~ ~ air run loop
@@ -264,7 +264,7 @@ fn raycast(
                     ExecuteOption::ScoreMatches {
                         invert: false,
                         target: score_name,
-                        objective: "dummy".into(),
+                        objective: DUMMY.into(),
                         lower: None,
                         upper: Some(max),
                     },

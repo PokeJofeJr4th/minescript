@@ -133,7 +133,7 @@ fn xp_ops() {
             Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
-                    objective: "dummy".into()
+                    objective: DUMMY.into()
                 }],
                 cmd: Box::new(Command::XpGet {
                     target: Selector::s(),
@@ -142,10 +142,10 @@ fn xp_ops() {
             },
             Command::ScoreOperation {
                 target: "%x".into(),
-                target_objective: "dummy".into(),
+                target_objective: DUMMY.into(),
                 operation: Operation::MulEq,
                 source: "%".into(),
-                source_objective: "dummy".into()
+                source_objective: DUMMY.into()
             }
         ]
     );

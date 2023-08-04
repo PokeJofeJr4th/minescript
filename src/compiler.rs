@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs::{self, File},
     io::Write,
 };
@@ -83,7 +83,6 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
 
         let mut give_obj = match &item.nbt {
             Nbt::Object(obj) => obj.clone(),
-            Nbt::Unit => BTreeMap::new(),
             other => return Err(format!("Expected NBT object; got {other}")),
         };
 

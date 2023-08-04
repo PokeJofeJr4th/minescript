@@ -233,7 +233,7 @@ fn interpret_if(
         }
         | Syntax::SelectorColon(_, _) => {
             let (source, source_objective) = match right {
-                Syntax::Identifier(ident) => (ident.clone(), "dummy".into()),
+                Syntax::Identifier(ident) => (ident.clone(), DUMMY.into()),
                 Syntax::BinaryOp {
                     lhs: left,
                     operation: Operation::Colon,

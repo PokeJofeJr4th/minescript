@@ -210,7 +210,7 @@ impl OpLeft {
 
     pub fn stringify_scoreboard_objective(&self) -> SResult<RStr> {
         match self {
-            Self::Ident(_) | Self::Selector(_) => Ok("dummy".into()),
+            Self::Ident(_) | Self::Selector(_) => Ok(DUMMY.into()),
             Self::Colon(_, score) | Self::SelectorColon(_, score) => Ok(score.clone()),
             Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) | Self::NbtStorage(_) => {
                 Err(format!(

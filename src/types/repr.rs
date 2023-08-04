@@ -46,10 +46,12 @@ pub struct InterRepr {
 
 impl InterRepr {
     /// Create a new, empty Intermediate Representation
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+        let mut objectives = BTreeMap::new();
+        objectives.insert(DUMMY.into(), "dummy".into());
         Self {
             items: Vec::new(),
-            objectives: BTreeMap::new(),
+            objectives,
             functions: Vec::new(),
             recipes: BTreeMap::new(),
             loot_tables: BTreeMap::new(),

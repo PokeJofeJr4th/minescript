@@ -46,7 +46,7 @@ fn simple_operation(
     if !state.objectives.contains_key(&target_objective) {
         state
             .objectives
-            .insert(target_objective.clone(), "dummy".into());
+            .insert(target_objective.clone(), DUMMY.into());
     }
     match (op, syn) {
         (_, Syntax::Integer(value)) => integer_operation(target_name, target_objective, op, *value, state),
@@ -65,7 +65,7 @@ fn simple_operation(
             let mut vec: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
-                    objective: "dummy".into(),
+                    objective: DUMMY.into(),
                 }],
                 cmd: Box::new(Command::XpGet {
                     target: sel.stringify()?,
@@ -94,7 +94,7 @@ fn simple_operation(
             let mut cmd_buf: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
-                    objective: "dummy".into(),
+                    objective: DUMMY.into(),
                 }],
                 cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
             }].into();
@@ -113,14 +113,14 @@ fn simple_operation(
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
-                    .insert(target_objective.clone(), "dummy".into());
+                    .insert(target_objective.clone(), DUMMY.into());
             }
             Ok(vec![Command::ScoreOperation {
                 target: target_name,
                 target_objective,
                 operation: op,
                 source: format!("%{ident}").into(),
-                source_objective: "dummy".into(),
+                source_objective: DUMMY.into(),
             }].into())
         }
         // x = @r:y
@@ -171,7 +171,7 @@ fn simple_operation(
                 target_objective: target.stringify_scoreboard_objective()?,
                 operation: op,
                 source: "%%".into(),
-                source_objective: "dummy".into(),
+                source_objective: DUMMY.into(),
             }.into());
             Ok(cmd_buf)
         }
@@ -192,14 +192,14 @@ fn simple_operation(
                     target_objective: target_objective.clone(),
                     operation: Operation::MulEq,
                     source: format!("%const_{:x}", approx.0).into(),
-                    source_objective: "dummy".into(),
+                    source_objective: DUMMY.into(),
                 },
                 Command::ScoreOperation {
                     target: target_name,
                     target_objective,
                     operation: Operation::DivEq,
                     source: format!("%const_{:x}", approx.1).into(),
-                    source_objective: "dummy".into(),
+                    source_objective: DUMMY.into(),
                 },
             ].into())
         }
@@ -266,14 +266,13 @@ fn integer_operation(
         .into()),
         // x %= 2
         (op, _) => {
-            state.objectives.insert("dummy".into(), "dummy".into());
             state.constants.insert(value);
             Ok(vec![Command::ScoreOperation {
                 target: target_name,
                 target_objective,
                 operation: op,
                 source: format!("%const_{value:x}").into(),
-                source_objective: "dummy".into(),
+                source_objective: DUMMY.into(),
             }]
             .into())
         }

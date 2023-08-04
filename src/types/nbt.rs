@@ -29,12 +29,11 @@ pub enum Nbt {
     Integer(i32),
     Float(f32),
     Boolean(bool),
-    Unit,
 }
 
 impl Default for Nbt {
     fn default() -> Self {
-        Self::Unit
+        Self::Object(BTreeMap::new())
     }
 }
 
@@ -59,7 +58,6 @@ impl Display for Nbt {
             Self::Integer(num) => write!(f, "{num}"),
             Self::Float(float) => write!(f, "{float}"),
             Self::Boolean(bool) => write!(f, "{bool}"),
-            Self::Unit => write!(f, "{{}}"),
         }
     }
 }
@@ -74,7 +72,6 @@ impl Hash for Nbt {
             Self::Integer(int) => int.hash(state),
             Self::Float(float) => float.to_bits().hash(state),
             Self::Boolean(bool) => bool.hash(state),
-            Self::Unit => {}
         }
     }
 }
@@ -119,7 +116,6 @@ impl Nbt {
             Self::Integer(num) => format!("{num}"),
             Self::Float(float) => format!("{float}"),
             Self::Boolean(bool) => format!("{bool}"),
-            Self::Unit => String::from("{}"),
         }
     }
 
@@ -236,7 +232,6 @@ impl TryFrom<Syntax> for Nbt {
             )),
             Syntax::String(str) | Syntax::Identifier(str) => Ok(Self::String(str)),
             Syntax::Integer(num) => Ok(Self::Integer(num)),
-            Syntax::Unit => Ok(Self::Unit),
             _ => Err(format!("Can't turn `{value:?}` into Nbt")),
         }
     }

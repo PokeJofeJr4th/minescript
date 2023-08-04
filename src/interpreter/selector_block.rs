@@ -52,7 +52,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
         Syntax::String(str) => Ok(nbt!({ text: str })),
         // dummy score value
         Syntax::Identifier(ident) => Ok(nbt!({
-            score: nbt!({name: format!("%{ident}"), objective: "dummy"})
+            score: nbt!({name: format!("%{ident}"), objective: DUMMY})
         })),
         // named score
         Syntax::BinaryOp {

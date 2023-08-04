@@ -34,10 +34,10 @@ pub(super) fn item(
                 item.base = name;
             }
             "nbt" => {
-                let Ok(name) = Nbt::try_from(value) else {
-                    return Err(String::from("Item nbt must be nbt data"))
+                let Ok(obj @ Nbt::Object(_)) = Nbt::try_from(value) else {
+                    return Err(format!("Item nbt must be nbt data; got `{value:?}`"))
                 };
-                item.nbt = name;
+                item.nbt = obj;
             }
             "on_consume" => match value {
                 Syntax::String(str) => item.on_consume.push(Command::Function(str.clone()).into()),
@@ -79,7 +79,8 @@ pub(super) fn item(
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
                     state.functions.push((name.clone(), new_body));
-                    item.while_using.push(Command::Function(name.clone()).into());
+                    item.while_using
+                        .push(Command::Function(name.clone()).into());
                 }
                 other => {
                     item.while_using
@@ -158,6 +159,22 @@ pub(super) fn item(
                 format!("{}_{:x}", item.name, get_hash(&recipe)).into(),
                 (recipe.to_json(), item.name.clone()),
             );
+        }
+    }
+    let Nbt::Object(ref mut obj) = item.nbt else {
+        panic!()
+    };
+    match obj.get_mut("tag") {
+        Some(Nbt::Object(ref mut inner)) => {
+            inner.insert("_is_minescript".into(), item.name.clone().into());
+        }
+        Some(other) => {
+            return Err(format!(
+                "Item nbt should be of form `nbt:{{tag:{{...}}}}`; got `nbt:{{tag:{other:?}}}`"
+            ))
+        }
+        None => {
+            obj.insert("tag".into(), nbt!({_is_minescript: item.name.clone()}));
         }
     }
     if item.base.is_empty() {
