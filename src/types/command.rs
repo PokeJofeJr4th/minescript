@@ -243,7 +243,7 @@ impl Command {
                 target: player,
                 objective: score,
                 value,
-            } => format!("scoreboard players add {player} {score} {value}"),
+            } => format!("scoreboard players {} {player} {score} {}", if value.is_negative() { "remove" } else { "add" }, value.abs()),
             Self::ScoreOperation {
                 target,
                 target_objective,
