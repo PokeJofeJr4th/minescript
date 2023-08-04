@@ -96,7 +96,9 @@ impl Nbt {
                     buf.push(',');
                 }
                 // remove the last comma
-                buf.pop();
+                if !obj.is_empty() {
+                    buf.pop();
+                }
                 buf.push('}');
                 buf
             }
