@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::types::prelude::*;
+use crate::MAX_VERSION;
 
 pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     let mut compiled = CompiledRepr::new(core::mem::take(&mut src.loot_tables));
@@ -287,10 +288,10 @@ pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::i
             ))?;
             write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
         }
-        for (num, content) in contents.versions() {
-            versions.insert(*num);
+        for (version, content) in contents.versions() {
+            versions.insert(*version);
             let mut file = create_file_with_parent_dirs(&format!(
-                "{parent}{nmsp}/{num}/data/{nmsp}/functions/{path}.mcfunction"
+                "{parent}{nmsp}/fmt_{version}/data/{nmsp}/functions/{path}.mcfunction"
             ))?;
             write!(file, "{content}")?;
         }
@@ -329,7 +330,9 @@ pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::i
         mcmeta,
         "{}",
         nbt!({
-            pack: nbt!({pack_format: 15, description: format!("{nmsp}, made with MineScript"), overlays: overlays_nbt})
+            pack: nbt!({pack_format: 15, description: format!("{nmsp}, made with MineScript"), overlays: overlays_nbt, supported_formats: nbt!({
+                min_inclusive: 15, max_inclusive: MAX_VERSION as i32
+            })})
         })
         .to_json()
     )?;

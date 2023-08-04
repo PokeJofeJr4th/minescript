@@ -27,6 +27,8 @@ mod types;
 #[cfg(test)]
 mod tests;
 
+pub const MAX_VERSION: u8 = 16;
+
 macro_rules! input {
     ($msg: expr) => {{
         println!($msg);

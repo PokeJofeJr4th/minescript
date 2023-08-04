@@ -326,15 +326,19 @@ fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
             .to_json()
             .into()
         });
+    let mut rng_cmd: Versioned<Command> =
+        Command::Raw(format!("loot spawn 0 -256 0 loot <NAMESPACE>:{loot_table_name}").into())
+            .into();
+    rng_cmd.add_version(
+        16,
+        Command::Raw(format!("random value {min}..{max}").into()),
+    );
     Ok(Command::execute(
         vec![ExecuteOption::StoreScore {
             target: lhs.stringify_scoreboard_target()?,
             objective: lhs.stringify_scoreboard_objective()?,
         }],
-        vec![Command::Raw(
-            format!("loot spawn 0 -256 0 loot <NAMESPACE>:{loot_table_name}").into(),
-        )]
-        .into(),
+        rng_cmd.into_vec(),
         "",
         state,
     )
