@@ -29,11 +29,11 @@ fn for_loop() {
             Token::Identifier("x".into()),
             Token::Identifier("in".into()),
             Token::Range(Some(1), Some(10)),
-            Token::LSquirrely,
+            Token::LCurly,
             Token::At,
             Token::Identifier("function".into()),
             Token::String("tick".into()),
-            Token::RSquirrely
+            Token::RCurly
         ])
     );
 }

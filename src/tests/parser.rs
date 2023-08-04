@@ -192,10 +192,10 @@ fn do_until() {
                 Token::Identifier("x".into()),
                 Token::Equal,
                 Token::Integer(10),
-                Token::LSquirrely,
+                Token::LCurly,
                 Token::Identifier("x".into()),
                 Token::PlusPlus,
-                Token::RSquirrely
+                Token::RCurly
             ]
             .into_iter()
             .peekable()

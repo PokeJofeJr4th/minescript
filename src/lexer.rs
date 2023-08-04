@@ -36,8 +36,8 @@ fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<
         return Err("Unexpected end of file".into())
     };
     Ok(Some(match char {
-        '{' => Token::LSquirrely,
-        '}' => Token::RSquirrely,
+        '{' => Token::LCurly,
+        '}' => Token::RCurly,
         '(' => Token::LParen,
         ')' => Token::RParen,
         '[' => Token::LSquare,

@@ -23,7 +23,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             _ => Err(String::from("Expected a number or float after `-`")),
         },
         Some(Token::Identifier(id)) => identifier::parse_identifier(tokens, id),
-        Some(Token::LSquirrely) => parse_block(tokens, &Token::RSquirrely, || {
+        Some(Token::LCurly) => parse_block(tokens, &Token::RCurly, || {
             Syntax::Object(BTreeMap::new())
         }),
         Some(Token::LSquare) => {
@@ -182,7 +182,7 @@ fn parse_block<T: Iterator<Item = Token>>(
         } else if tok == &Token::Comma || tok == &Token::SemiColon {
             tokens.next();
         } else {
-            // println!("Squirrely Object");
+            // println!("Curly Object");
             statements_buf.push(parse(tokens)?);
         }
     }
