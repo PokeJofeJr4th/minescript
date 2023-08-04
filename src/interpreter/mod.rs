@@ -68,5 +68,5 @@ pub fn test_interpret(src: &Syntax) -> Vec<Command> {
         &mut InterRepr::new(),
         Path::new(""),
         &mut BTreeSet::new(),
-    ).unwrap().get(0).clone()
+    ).unwrap().base().clone()
 }

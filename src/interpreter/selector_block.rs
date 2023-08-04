@@ -196,14 +196,13 @@ fn selector_block(
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path, src_files)?;
-    Ok(inner.map(|cmds| {
-        vec![Command::execute(
-            res_buf.clone(),
-            cmds,
-            &format!("closure/{block_type}_{:x}", get_hash(body)),
-            state,
-        )]
-    }))
+    Ok(Command::execute(
+        res_buf.clone(),
+        inner,
+        &format!("closure/{block_type}_{:x}", get_hash(body)),
+        state,
+    )
+    .into_vec())
 }
 
 /// interpret a teleport block

@@ -29,12 +29,15 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     // put all the functions in
     for (name, statements) in &src.functions {
         let name: RStr = fmt_mc_ident(name).into();
-        let mut fn_buf = String::new();
-        for statement in statements.get(0) {
-            fn_buf.push('\n');
-            fn_buf.push_str(&statement.stringify(namespace));
-        }
-        compiled.insert_fn(&name, fn_buf.into());
+        let fn_buf = statements.map_ref(|func| {
+            let mut fn_buf = String::new();
+            for statement in func {
+                fn_buf.push('\n');
+                fn_buf.push_str(&statement.stringify(namespace));
+            }
+            fn_buf
+        });
+        compiled.insert_fn(&name, fn_buf);
     }
     // make all the recipes
     for (name, (content, item_name)) in &src.recipes {
@@ -72,7 +75,7 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
 }
 
 fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRepr) -> SResult<()> {
-    let mut tick_buf = String::new();
+    let mut tick_buf = Versioned::default();
     let mut using_base_item_scores = BTreeSet::new();
     for item in src.items.clone() {
         let ident = fmt_mc_ident(&item.name);
@@ -139,19 +142,19 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     ),
                     ExecuteOption::At(Selector::s()),
                 ],
-                fn_content.get(0).clone(),
+                fn_content.clone(),
                 &format!("closure/slot_{slot:x}_{:x}", get_hash(fn_content)),
                 src,
             );
             tick_buf.push('\n');
-            tick_buf.push_str(&cmd.stringify(namespace));
+            tick_buf.push_str_v(cmd.map(|cmd| cmd.stringify(namespace)));
         }
     }
     for base_score in using_base_item_scores {
         tick_buf.push_str(&format!("scoreboard players reset @a {base_score}\n"));
     }
     if !tick_buf.is_empty() {
-        compiled.insert_fn("tick", tick_buf.into());
+        compiled.insert_fn("tick", tick_buf);
     }
     Ok(())
 }
@@ -177,21 +180,24 @@ fn make_on_consume(item: &Item, ident: &str, namespace: &str, compiled: &mut Com
       })
     })
     .to_json();
-    let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
-    for cmd in item.on_consume.get(0) {
-        consume_fn.push('\n');
-        consume_fn.push_str(&cmd.stringify(namespace));
-    }
+    let consume_fn = item.on_consume.map_ref(|func| {
+        let mut consume_fn = format!("advancement revoke @s only {namespace}:consume/{ident}");
+        for cmd in func {
+            consume_fn.push('\n');
+            consume_fn.push_str(&cmd.stringify(namespace));
+        }
+        consume_fn
+    });
     compiled
         .advancements
         .insert(format!("consume/{ident}").into(), advancement_content);
-    compiled.insert_fn(&on_consume, consume_fn.into());
+    compiled.insert_fn(&on_consume, consume_fn);
 }
 
 fn make_on_use(
     item: &Item,
     ident: &str,
-    tick_buf: &mut String,
+    tick_buf: &mut Versioned<String>,
     namespace: &str,
     using_base_item_scores: &mut BTreeSet<String>,
     src: &mut InterRepr,
@@ -212,11 +218,11 @@ fn make_on_use(
             }),
             ExecuteOption::At(Selector::s()),
         ],
-        item.on_use.get(0).clone(),
+        item.on_use.clone(),
         &on_use,
         src,
     );
-    tick_buf.push_str(&execute_fn.stringify(namespace));
+    tick_buf.push_str_v(execute_fn.map(|cmd| cmd.stringify(namespace)));
     tick_buf.push('\n');
     tick_buf.push_str(&format!(
                 "tag @a remove {holding_item}\ntag @a[nbt={{SelectedItem:{{id:\"minecraft:{}\",tag:{}}}}}] add {holding_item}\n",
@@ -247,15 +253,18 @@ fn make_while_using(item: &Item, ident: &str, namespace: &str, compiled: &mut Co
       })
     })
     .to_json();
-    let mut on_use_fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
-    for cmd in item.while_using.get(0) {
-        on_use_fn_content.push('\n');
-        on_use_fn_content.push_str(&cmd.stringify(namespace));
-    }
+    let on_use_fn = item.while_using.map_ref(|func| {
+        let mut on_use_fn_content = format!("advancement revoke @s only {namespace}:use/{ident}");
+        for cmd in func {
+            on_use_fn_content.push('\n');
+            on_use_fn_content.push_str(&cmd.stringify(namespace));
+        }
+        on_use_fn_content
+    });
     compiled
         .advancements
         .insert(format!("use/{ident}").into(), advancement_content);
-    compiled.insert_fn(&while_using, on_use_fn_content.into());
+    compiled.insert_fn(&while_using, on_use_fn);
 }
 
 pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::io::Error> {

@@ -25,19 +25,15 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => inner_interpret(body, state, path, src_files)?
-            .map(|cmds| {
-                interpret_if(
-                    false,
-                    left,
-                    *op,
-                    right,
-                    cmds,
-                    &format!("closure/if_{:x}", get_hash(body)),
-                    state,
-                )
-            })
-            .all(),
+        ) => interpret_if(
+            false,
+            left,
+            *op,
+            right,
+            inner_interpret(body, state, path, src_files)?,
+            &format!("closure/if_{:x}", get_hash(body)),
+            state,
+        ),
         // unless x=1 {}
         (
             BlockType::Unless,
@@ -47,19 +43,15 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => inner_interpret(body, state, path, src_files)?
-            .map(|cmds| {
-                interpret_if(
-                    true,
-                    left,
-                    *op,
-                    right,
-                    cmds,
-                    &format!("closure/unless_{:x}", get_hash(body)),
-                    state,
-                )
-            })
-            .all(),
+        ) => interpret_if(
+            true,
+            left,
+            *op,
+            right,
+            inner_interpret(body, state, path, src_files)?,
+            &format!("closure/unless_{:x}", get_hash(body)),
+            state,
+        ),
         // for _ in 1..10 {}
         (
             BlockType::For
@@ -89,21 +81,15 @@ pub(super) fn block(
                 let Syntax::Block(BlockType::Case, match_value, body) = syn else {
                     return Err(format!("Expected `case` statement; got `{syn:?}`"))
                 };
-                cmd_buf.extend(
-                    inner_interpret(body, state, path, src_files)?
-                        .map(|cmds| {
-                            interpret_if(
-                                false,
-                                &OpLeft::Ident(switch_var.clone()),
-                                Operation::Equal,
-                                match_value,
-                                cmds,
-                                &format!("closure/case_{:x}", get_hash(body)),
-                                state,
-                            )
-                        })
-                        .all()?,
-                );
+                cmd_buf.extend(interpret_if(
+                    false,
+                    &OpLeft::Ident(switch_var.clone()),
+                    Operation::Equal,
+                    match_value,
+                    inner_interpret(body, state, path, src_files)?,
+                    &format!("closure/case_{:x}", get_hash(body)),
+                    state,
+                )?);
             }
             Ok(cmd_buf)
         }
@@ -170,15 +156,16 @@ fn loop_block(
     } else {
         left.clone()
     };
-    let [goto_fn] = &interpret_if(
+    let binding = interpret_if(
         invert,
-            &left,
-            op,
-            right,
-            vec![Command::Function (fn_name.clone())],
-            "",
-            state,
-        )?[..] else {
+        &left,
+        op,
+        right,
+        vec![Command::Function(fn_name.clone())].into(),
+        "",
+        state,
+    )?;
+    let [goto_fn] = &binding.base()[..] else {
             return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
         };
     // this is the code that runs on each loop
@@ -228,10 +215,10 @@ fn interpret_if(
     left: &OpLeft,
     op: Operation,
     right: &Syntax,
-    content: Vec<Command>,
+    content: VecCmd,
     hash: &str,
     state: &mut InterRepr,
-) -> SResult<Vec<Command>> {
+) -> SResult<VecCmd> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
     }
@@ -336,7 +323,7 @@ fn interpret_if(
         }
         _ => return Err(format!("Can't check if `{{...}} {op} {right:?}`")),
     };
-    Ok(vec![Command::execute(options, content, hash, state)])
+    Ok(Command::execute(options, content, hash, state).into_vec())
 }
 
 fn ident_block(
@@ -380,7 +367,7 @@ fn ident_block(
         ),
         _ => unreachable!(),
     };
-    Ok(content.map(|cmds| vec![Command::execute(vec![options.clone()], cmds, &hash, state)]))
+    Ok(Command::execute(vec![options], content, &hash, state).into_vec())
 }
 
 fn coord_block(
@@ -397,14 +384,13 @@ fn coord_block(
         BlockType::Positioned => opts.push(ExecuteOption::Positioned(coord)),
         _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
     }
-    Ok(inner_interpret(block, state, path, src_files)?.map(|cmds| {
-        vec![Command::execute(
-            opts.clone(),
-            cmds,
-            &format!("closure/{block_type}_{:x}", get_hash(block)),
-            state,
-        )]
-    }))
+    Ok(Command::execute(
+        opts.clone(),
+        inner_interpret(block, state, path, src_files)?,
+        &format!("closure/{block_type}_{:x}", get_hash(block)),
+        state,
+    )
+    .map(|c| vec![c]))
 }
 
 fn rotated_block(
@@ -436,19 +422,18 @@ fn rotated_block(
         }
     };
     let hash = format!("closure/rotated_{:x}", get_hash(body));
-    Ok(inner_interpret(body, state, path, src_files)?.map(|cmds| {
-        vec![Command::execute(
-            vec![ExecuteOption::Rotated {
-                yaw_rel,
-                yaw,
-                pitch_rel,
-                pitch,
-            }],
-            cmds,
-            &hash,
-            state,
-        )]
-    }))
+    Ok(Command::execute(
+        vec![ExecuteOption::Rotated {
+            yaw_rel,
+            yaw,
+            pitch_rel,
+            pitch,
+        }],
+        inner_interpret(body, state, path, src_files)?,
+        &hash,
+        state,
+    )
+    .into_vec())
 }
 
 fn async_block(

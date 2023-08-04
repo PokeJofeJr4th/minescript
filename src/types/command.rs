@@ -278,48 +278,57 @@ impl Command {
     /// If there are no execute subcommands, it returns the given command.
     /// If there is more than one given command, it returns a function call and inserts the function into the state
     pub fn execute(
-        mut options: Vec<ExecuteOption>,
-        cmd: Vec<Self>,
+        options: Vec<ExecuteOption>,
+        cmd: VecCmd,
         hash: &str,
         state: &mut InterRepr,
-    ) -> Self {
-        match &cmd[..] {
-            [Self::Execute {
-                options: inner_options,
-                cmd,
-            }] => {
-                options.extend(inner_options.clone());
-                Self::Execute {
-                    options,
-                    cmd: cmd.clone(),
-                }
-            }
-            [cmd] => {
-                if options.is_empty() {
-                    cmd.clone()
-                } else {
-                    Self::Execute {
-                        options,
-                        cmd: Box::new(cmd.clone()),
+    ) -> Versioned<Self> {
+        let (output, inner) = cmd
+            .map(|cmd| {
+                let mut inner = Vec::new();
+                let output = match &cmd[..] {
+                    [Self::Execute {
+                        options: inner_options,
+                        cmd,
+                    }] => {
+                        let mut opts = options.clone();
+                        opts.extend(inner_options.clone());
+                        Self::Execute {
+                            options: opts,
+                            cmd: cmd.clone(),
+                        }
                     }
-                }
-            }
-            _ => {
-                let func_name: RStr = hash.into();
-                // TODO: This does not work. It will overshadow different versions because this fn has historically been called
-                // once per version. I should probably make a map internally or something but that seems really hard.
-                state.functions.push((func_name.clone(), cmd.into()));
-                let func = Self::Function(func_name);
-                if options.is_empty() {
-                    func
-                } else {
-                    Self::Execute {
-                        options,
-                        cmd: Box::new(func),
+                    [cmd] => {
+                        if options.is_empty() {
+                            cmd.clone()
+                        } else {
+                            Self::Execute {
+                                options: options.clone(),
+                                cmd: Box::new(cmd.clone()),
+                            }
+                        }
                     }
-                }
-            }
-        }
+                    _ => {
+                        let func_name: RStr = hash.into();
+                        // TODO: This does not work. It will overshadow different versions because this fn has historically been called
+                        // once per version. I should probably make a map internally or something but that seems really hard.
+                        inner = cmd.clone();
+                        let func = Self::Function(func_name);
+                        if options.is_empty() {
+                            func
+                        } else {
+                            Self::Execute {
+                                options: options.clone(),
+                                cmd: Box::new(func),
+                            }
+                        }
+                    }
+                };
+                (output, inner)
+            })
+            .unzip();
+        state.functions.push((hash.into(), inner));
+        output
     }
 }
 
