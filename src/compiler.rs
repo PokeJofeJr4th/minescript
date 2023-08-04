@@ -151,7 +151,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         }
     }
     for base_score in using_base_item_scores {
-        tick_buf.push_str(&format!("scoreboard players reset @a {base_score}\n"));
+        tick_buf.push_str(&format!("\nscoreboard players reset @a {base_score}\n"));
     }
     if !tick_buf.is_empty() {
         compiled.insert_fn("tick", tick_buf);
@@ -222,6 +222,7 @@ fn make_on_use(
         &on_use,
         src,
     );
+    tick_buf.push('\n');
     tick_buf.push_str_v(execute_fn.map(|cmd| cmd.stringify(namespace)));
     tick_buf.push('\n');
     tick_buf.push_str(&format!(
@@ -271,21 +272,23 @@ pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::i
     let _ = fs::remove_dir_all(&format!("{parent}{nmsp}"));
     let mut versions = BTreeSet::new();
     for (path, contents) in &repr.functions {
-        let mut file = create_file_with_parent_dirs(&format!(
-            "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
-        ))?;
-        write!(file, "{}", contents.get(0))?;
-        if &**path == "tick" {
-            let mut tick = create_file_with_parent_dirs(&format!(
-                "{parent}{nmsp}/data/minecraft/tags/functions/tick.json"
+        if !contents.base().is_empty() {
+            let mut file = create_file_with_parent_dirs(&format!(
+                "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
             ))?;
-            write!(tick, "{{\"values\":[\"{nmsp}:tick\"]}}")?;
-        }
-        if &**path == "load" {
-            let mut load = create_file_with_parent_dirs(&format!(
-                "{parent}{nmsp}/data/minecraft/tags/functions/load.json"
-            ))?;
-            write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
+            write!(file, "{}", contents.base())?;
+            if &**path == "tick" {
+                let mut tick = create_file_with_parent_dirs(&format!(
+                    "{parent}{nmsp}/data/minecraft/tags/functions/tick.json"
+                ))?;
+                write!(tick, "{{\"values\":[\"{nmsp}:tick\"]}}")?;
+            }
+            if &**path == "load" {
+                let mut load = create_file_with_parent_dirs(&format!(
+                    "{parent}{nmsp}/data/minecraft/tags/functions/load.json"
+                ))?;
+                write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
+            }
         }
         for (version, content) in contents.versions() {
             versions.insert(*version);
