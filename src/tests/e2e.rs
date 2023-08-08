@@ -42,6 +42,8 @@ fn control_flow() {
     assert_e2e!("unless x > 1 @raw \"...\"" => "execute if score %x dummy matches ..1 run ...");
     assert_e2e!("if @s[type=cow] @raw \"...\"" =>"execute if entity @s[type=cow] run ...");
     assert_e2e!("unless @s[type=cow] @raw \"...\"" => "execute unless entity @s[type=cow] run ...");
+    assert_e2e!("if @s::lvl > 10 @raw \"...\""
+    => "execute store result score % dummy run xp query @s levels\nexecute unless score % dummy matches ..10 run ...");
 }
 
 #[test]
@@ -179,7 +181,11 @@ fn variables() {
     assert_e2e!("x += 1" => "scoreboard players add %x dummy 1");
 
     assert_e2e!("@p::lvl += 1" => "xp add @p 1 levels");
-    assert_e2e!("@p.Motion[0] = xvec" => "execute store result entity @p Motion[0] run scoreboard players get %xvec dummy");
+    assert_e2e!("@p.Motion[0] = xvec" => "execute store result entity @p Motion[0] int 1 run scoreboard players get %xvec dummy");
+
+    assert_e2e!("success ?= @raw \"kill @r\"" => "execute store success score %success dummy run kill @r");
+    assert_e2e!("orbs := @raw \"kill @e[type=xp_orb,distance=..2]\""
+    => "execute store result score %orbs dummy run kill @e[type=xp_orb,distance=..2]");
 }
 
 #[test]

@@ -11,7 +11,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
         Some(Token::Integer(num)) => Ok(Syntax::Integer(num)),
         Some(Token::Float(num)) => Ok(Syntax::Float(num)),
         Some(Token::Range(l, r)) => Ok(Syntax::Range(l, r)),
-        Some(Token::Doot) => {
+        Some(Token::DotDot) => {
             let Some(Token::Integer(num)) = tokens.next() else {
                 return Err(String::from("Expected number after `..`"))
             };
@@ -220,13 +220,17 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
         Some(Token::Equal) => Some(Operation::Equal),
         Some(Token::LCaretEq) => Some(Operation::LCaretEq),
         Some(Token::RCaretEq) => Some(Operation::RCaretEq),
+        Some(Token::LCaret) => Some(Operation::LCaret),
+        Some(Token::RCaret) => Some(Operation::RCaret),
+        Some(Token::RLCaret) => Some(Operation::Swap),
         Some(Token::BangEq) => Some(Operation::BangEq),
         Some(Token::PlusEq) => Some(Operation::AddEq),
         Some(Token::TackEq) => Some(Operation::SubEq),
         Some(Token::StarEq) => Some(Operation::MulEq),
         Some(Token::SlashEq) => Some(Operation::DivEq),
         Some(Token::PercEq) => Some(Operation::ModEq),
-        Some(Token::LCaret) => Some(Operation::LCaret),
+        Some(Token::ColonEq) => Some(Operation::ColonEq),
+        Some(Token::QuestionEq) => Some(Operation::QuestionEq),
         Some(Token::Identifier(ident)) => {
             if ident.as_ref() == "in" {
                 Some(Operation::In)
@@ -234,17 +238,9 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
                 None
             }
         }
-        Some(Token::RCaret) => {
-            tokens.next();
-            match tokens.peek() {
-                Some(Token::LCaret) => Some(Operation::Swap),
-                _ => Some(Operation::RCaret),
-            }
-        }
         _ => None,
     };
-    // the `>` already consumes the next token
-    if val.is_some() && val != Some(Operation::RCaret) {
+    if val.is_some() {
         tokens.next();
     }
     val

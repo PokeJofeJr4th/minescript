@@ -54,10 +54,15 @@ fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<
         '/' => multi_character_pattern!(chars Token::Slash; {'=' => Token::SlashEq}),
         '%' => multi_character_pattern!(chars Token::Percent; {'=' => Token::PercEq}),
         '!' => multi_character_pattern!(chars Token::Bang; {'=' => Token::BangEq}),
+        '?' => multi_character_pattern!(chars Token::Question; {'=' => Token::QuestionEq}),
         '<' => multi_character_pattern!(chars Token::LCaret; {'=' => Token::LCaretEq}),
-        '>' => multi_character_pattern!(chars Token::RCaret; {'=' => Token::RCaretEq}),
-        '.' => multi_character_pattern!(chars Token::Dot; {'.' => Token::Doot}),
-        ':' => multi_character_pattern!(chars Token::Colon; {':' => Token::DoubleColon}),
+        '>' => {
+            multi_character_pattern!(chars Token::RCaret; {'=' => Token::RCaretEq, '<' => Token::RLCaret})
+        }
+        '.' => multi_character_pattern!(chars Token::Dot; {'.' => Token::DotDot}),
+        ':' => {
+            multi_character_pattern!(chars Token::Colon; {':' => Token::DoubleColon, '=' => Token::ColonEq})
+        }
         ';' => Token::SemiColon,
         ',' => Token::Comma,
         '^' => Token::UCaret,

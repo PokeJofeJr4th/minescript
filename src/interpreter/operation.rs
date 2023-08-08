@@ -57,30 +57,39 @@ fn simple_operation(
                     "A selector can only be `::` indexed with `lvl` or `xp`, not `{ident}`"
                 ));
             };
+            let (xp_target, xp_objective) = if op == Operation::Equal {
+                (target.stringify_scoreboard_target()?, target.stringify_scoreboard_objective()?)
+            } else {
+                ("%".into(), DUMMY.into())
+            };
             // get experience into variable
             let mut vec: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
-                    target: "%".into(),
-                    objective: DUMMY.into(),
+                    target: xp_target,
+                    objective: xp_objective,
+                    is_success: false,
                 }],
                 cmd: Box::new(Command::XpGet {
                     target: sel.stringify()?,
                     levels,
                 }),
             }].into();
-            // operate on the variable
-            vec.extend(simple_operation(
-                target,
-                op,
-                &Syntax::Identifier("".into()),
-                state,
-            )?);
+            if op != Operation::Equal {
+                // operate on the variable
+                vec.extend(simple_operation(
+                    target,
+                    op,
+                    &Syntax::Identifier("".into()),
+                    state,
+                )?);
+            }
             Ok(vec)
         }
         (Operation::Equal, Syntax::SelectorNbt(selector, nbt)) => Ok(vec![Command::Execute {
             options: vec![ExecuteOption::StoreScore {
                 target: target_name,
                 objective: target_objective,
+                is_success: false,
             }],
             cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
         }].into()),
@@ -89,6 +98,7 @@ fn simple_operation(
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
                     objective: DUMMY.into(),
+                    is_success: false
                 }],
                 cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
             }].into();
@@ -336,10 +346,16 @@ fn nbt_op(
                 _ => Err(format!("Can't operate `{{NBT}} = {syn:?}`")),
             }?;
             let hash = format!("{:x}", get_hash(&(&lhs, syn)));
-            Ok(
-                Command::execute(vec![ExecuteOption::StoreNBT(lhs)], cmd.into(), &hash, state)
-                    .into_vec(),
+            Ok(Command::execute(
+                vec![ExecuteOption::StoreNBT {
+                    location: lhs,
+                    is_success: false,
+                }],
+                cmd.into(),
+                &hash,
+                state,
             )
+            .into_vec())
         }
         (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
             Ok(swap_nbt(lhs, NbtLocation::Storage(rhs_nbt.clone())))

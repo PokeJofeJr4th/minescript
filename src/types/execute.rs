@@ -27,9 +27,16 @@ pub enum ExecuteOption {
         selector: Selector<String>,
     },
     /// store a result in a score
-    StoreScore { target: RStr, objective: RStr },
+    StoreScore {
+        target: RStr,
+        objective: RStr,
+        is_success: bool,
+    },
     /// store a result in NBT
-    StoreNBT(NbtLocation),
+    StoreNBT {
+        location: NbtLocation,
+        is_success: bool,
+    },
     /// change who `@s` is
     As(Selector<String>),
     /// change where the command executes
@@ -91,8 +98,15 @@ impl Hash for ExecuteOption {
             )
                 .hash(state),
             Self::Entity { invert, selector } => (invert, selector).hash(state),
-            Self::StoreScore { target, objective } => (target, objective).hash(state),
-            Self::StoreNBT(nbt_location) => nbt_location.hash(state),
+            Self::StoreScore {
+                target,
+                objective,
+                is_success,
+            } => (target, objective, is_success).hash(state),
+            Self::StoreNBT {
+                location,
+                is_success,
+            } => (location, is_success).hash(state),
             Self::As(selector)
             | Self::At(selector)
             | Self::RotatedAs(selector)
@@ -152,11 +166,25 @@ impl ExecuteOption {
                 "{} entity {selector}",
                 if *invert { "unless" } else { "if" }
             ),
-            Self::StoreScore { target, objective } => {
-                format!("store result score {target} {objective}")
+            Self::StoreScore {
+                target,
+                objective,
+                is_success,
+            } => {
+                format!(
+                    "store {} score {target} {objective}",
+                    if *is_success { "success" } else { "result" }
+                )
             }
-            Self::StoreNBT(nbt_location) => {
-                format!("store result {} int 1", nbt_location.stringify(namespace))
+            Self::StoreNBT {
+                location,
+                is_success,
+            } => {
+                format!(
+                    "store {} {} int 1",
+                    if *is_success { "success" } else { "result" },
+                    location.stringify(namespace)
+                )
             }
             Self::Block { invert, pos, value } => format!(
                 "{} block {pos} {value}",

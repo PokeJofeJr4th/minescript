@@ -274,6 +274,10 @@ pub enum Operation {
     Dot,
     /// check equality or assign value
     Equal,
+    /// execute store result
+    ColonEq,
+    /// execute store success
+    QuestionEq,
     /// less than
     LCaret,
     /// less than or equal
@@ -310,6 +314,8 @@ impl Display for Operation {
                 Self::DoubleColon => "::",
                 Self::Dot => ".",
                 Self::Equal => "=",
+                Self::ColonEq => ":=",
+                Self::QuestionEq => "?=",
                 Self::LCaretEq => "<=",
                 Self::RCaretEq => ">=",
                 Self::BangEq => "!=",
@@ -372,7 +378,6 @@ impl TryFrom<&Syntax> for RStr {
         match value {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(str.clone()),
             Syntax::Integer(num) => Ok(format!("{num}").into()),
-            Syntax::Float(float) => Ok(format!("{float}").into()),
             _ => Err(format!("Can't get a string from {value:?}")),
         }
     }

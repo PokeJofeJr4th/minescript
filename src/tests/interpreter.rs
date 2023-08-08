@@ -133,7 +133,8 @@ fn xp_ops() {
             Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
-                    objective: DUMMY.into()
+                    objective: DUMMY.into(),
+                    is_success: false,
                 }],
                 cmd: Box::new(Command::XpGet {
                     target: Selector::s(),

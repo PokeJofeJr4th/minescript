@@ -13,6 +13,8 @@ mod macros;
 mod operation;
 /// handles selector blocks like `as @s {...}`
 mod selector_block;
+/// handles operations like `counter := @function "get_count"` or `success ?= @function "try_something"`
+mod store;
 
 pub fn interpret(
     src: &Syntax,
@@ -38,6 +40,19 @@ fn inner_interpret(
                 commands_buf.extend(inner_interpret(statement, state, path, src_files)?);
             }
             return Ok(commands_buf);
+        }
+        Syntax::BinaryOp {
+            lhs,
+            operation: operation @ (Operation::ColonEq | Operation::QuestionEq),
+            rhs,
+        } => {
+            return store::storage_op(
+                lhs,
+                *operation == Operation::QuestionEq,
+                inner_interpret(rhs, state, path, src_files)?,
+                &format!("closure/{:x}", get_hash(rhs)),
+                state,
+            )
         }
         Syntax::BinaryOp {
             lhs,

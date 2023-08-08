@@ -337,6 +337,7 @@ pub fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
         vec![ExecuteOption::StoreScore {
             target: lhs.stringify_scoreboard_target()?,
             objective: lhs.stringify_scoreboard_objective()?,
+            is_success: false,
         }],
         rng_cmd.into_vec(),
         "",
