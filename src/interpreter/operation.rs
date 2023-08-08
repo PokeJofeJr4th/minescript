@@ -364,13 +364,11 @@ fn nbt_op(
                 }]),
                 _ => Err(format!("Can't operate `{{NBT}} = {syn:?}`")),
             }?;
-            Ok(Command::execute(
-                vec![ExecuteOption::StoreNBT(lhs)],
-                cmd.into(),
-                &format!("{:x}", get_hash(&())),
-                state,
+            let hash = format!("{:x}", get_hash(&(&lhs, syn)));
+            Ok(
+                Command::execute(vec![ExecuteOption::StoreNBT(lhs)], cmd.into(), &hash, state)
+                    .into_vec(),
             )
-            .into_vec())
         }
         (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
             Ok(swap_nbt(lhs, NbtLocation::Storage(rhs_nbt.clone())))
