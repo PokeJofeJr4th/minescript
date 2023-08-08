@@ -84,6 +84,24 @@ impl Debug for Syntax {
     }
 }
 
+impl From<OpLeft> for Syntax {
+    fn from(value: OpLeft) -> Self {
+        match value {
+            OpLeft::Ident(id) => Self::Identifier(id),
+            OpLeft::Colon(lhs, rhs) => Self::BinaryOp {
+                lhs: OpLeft::Ident(lhs),
+                operation: Operation::Equal,
+                rhs: Box::new(Self::Identifier(rhs)),
+            },
+            OpLeft::Selector(sel) => Self::Selector(sel),
+            OpLeft::SelectorColon(sel, id) => Self::SelectorColon(sel, id),
+            OpLeft::SelectorDoubleColon(sel, id) => Self::SelectorDoubleColon(sel, id),
+            OpLeft::SelectorNbt(sel, nbt) => Self::SelectorNbt(sel, nbt),
+            OpLeft::NbtStorage(storage) => Self::NbtStorage(storage),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
 pub enum BlockType {
@@ -221,6 +239,31 @@ impl OpLeft {
     }
 }
 
+impl TryFrom<Syntax> for OpLeft {
+    type Error = ();
+    fn try_from(value: Syntax) -> Result<Self, Self::Error> {
+        match value {
+            Syntax::Identifier(ident) => Ok(Self::Ident(ident)),
+            Syntax::BinaryOp {
+                lhs: Self::Ident(lhs),
+                operation: Operation::Equal,
+                rhs,
+            } => {
+                let Syntax::Identifier(rhs) = *rhs else {
+                    return Err(())
+                };
+                Ok(Self::Colon(lhs, rhs))
+            }
+            Syntax::Selector(sel) => Ok(Self::Selector(sel)),
+            Syntax::SelectorColon(sel, ident) => Ok(Self::SelectorColon(sel, ident)),
+            Syntax::SelectorDoubleColon(sel, ident) => Ok(Self::SelectorDoubleColon(sel, ident)),
+            Syntax::SelectorNbt(sel, nbt) => Ok(Self::SelectorNbt(sel, nbt)),
+            Syntax::NbtStorage(storage) => Ok(Self::NbtStorage(storage)),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Operation {
     /// key-value pair
@@ -291,11 +334,33 @@ impl TryFrom<&Syntax> for String {
         match value {
             Syntax::Identifier(str) | Syntax::String(str) => Ok(Self::from(&**str)),
             Syntax::Integer(num) => Ok(format!("{num}")),
-            Syntax::Float(float) => Ok(format!("{float}")),
-            Syntax::Range(None, Some(rhs)) => Ok(format!("..{rhs}")),
-            Syntax::Range(Some(lhs), None) => Ok(format!("{lhs}..")),
-            Syntax::Range(Some(lhs), Some(rhs)) => Ok(format!("{lhs}..{rhs}")),
             _ => Err(format!("Can't get a string from {value:?}")),
+        }
+    }
+}
+
+impl Syntax {
+    pub fn to_selector_body(&self) -> SResult<String> {
+        match self {
+            Self::Identifier(str) | Self::String(str) => Ok(String::from(&**str)),
+            Self::Integer(num) => Ok(format!("{num}")),
+            Self::Float(float) => Ok(format!("{float}")),
+            Self::Range(None, Some(rhs)) => Ok(format!("..{rhs}")),
+            Self::Range(Some(lhs), None) => Ok(format!("{lhs}..")),
+            Self::Range(Some(lhs), Some(rhs)) => Ok(format!("{lhs}..{rhs}")),
+            Self::Object(obj) => {
+                let mut buf = String::from('{');
+                for (k, v) in obj {
+                    buf.push_str(k);
+                    buf.push('=');
+                    buf.push_str(&v.to_selector_body()?);
+                }
+                if !obj.is_empty() {
+                    buf.pop();
+                }
+                Ok(buf)
+            }
+            _ => Err(format!("Can't get a string from {self:?}")),
         }
     }
 }

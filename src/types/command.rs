@@ -32,6 +32,8 @@ pub enum Command {
         objective: RStr,
         value: i32,
     },
+    /// get a score
+    ScoreGet { target: RStr, objective: RStr },
     /// add to a score
     ScoreAdd {
         target: RStr,
@@ -140,6 +142,7 @@ impl Hash for Command {
                 objective,
                 value,
             } => (target, objective, value).hash(state),
+            Self::ScoreGet { target, objective } => (target, objective).hash(state),
             Self::ScoreOperation {
                 target,
                 target_objective,
@@ -244,6 +247,7 @@ impl Command {
                 objective: score,
                 value,
             } => format!("scoreboard players {} {player} {score} {}", if value.is_negative() { "remove" } else { "add" }, value.abs()),
+            Self::ScoreGet { target, objective } => format!("scoreboard players get {target} {objective}"),
             Self::ScoreOperation {
                 target,
                 target_objective,

@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use super::{Coordinate, Operation, RStr, Selector};
+use super::{Coordinate, NbtLocation, Operation, RStr, Selector};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExecuteOption {
@@ -28,6 +28,8 @@ pub enum ExecuteOption {
     },
     /// store a result in a score
     StoreScore { target: RStr, objective: RStr },
+    /// store a result in NBT
+    StoreNBT(NbtLocation),
     /// change who `@s` is
     As(Selector<String>),
     /// change where the command executes
@@ -90,6 +92,7 @@ impl Hash for ExecuteOption {
                 .hash(state),
             Self::Entity { invert, selector } => (invert, selector).hash(state),
             Self::StoreScore { target, objective } => (target, objective).hash(state),
+            Self::StoreNBT(nbt_location) => nbt_location.hash(state),
             Self::As(selector)
             | Self::At(selector)
             | Self::RotatedAs(selector)
@@ -110,7 +113,7 @@ impl Hash for ExecuteOption {
 }
 
 impl ExecuteOption {
-    pub fn stringify(&self, _namespace: &str) -> String {
+    pub fn stringify(&self, namespace: &str) -> String {
         match self {
             Self::ScoreMatches {
                 invert,
@@ -151,6 +154,9 @@ impl ExecuteOption {
             ),
             Self::StoreScore { target, objective } => {
                 format!("store result score {target} {objective}")
+            }
+            Self::StoreNBT(nbt_location) => {
+                format!("store result {}", nbt_location.stringify(namespace))
             }
             Self::Block { invert, pos, value } => format!(
                 "{} block {pos} {value}",

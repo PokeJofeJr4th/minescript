@@ -33,6 +33,8 @@ pub(super) fn block(
             inner_interpret(body, state, path, src_files)?,
             &format!("closure/if_{:x}", get_hash(body)),
             state,
+            path,
+            src_files,
         ),
         // unless x=1 {}
         (
@@ -51,6 +53,8 @@ pub(super) fn block(
             inner_interpret(body, state, path, src_files)?,
             &format!("closure/unless_{:x}", get_hash(body)),
             state,
+            path,
+            src_files,
         ),
         // for _ in 1..10 {}
         (
@@ -89,6 +93,8 @@ pub(super) fn block(
                     inner_interpret(body, state, path, src_files)?,
                     &format!("closure/case_{:x}", get_hash(body)),
                     state,
+                    path,
+                    src_files,
                 )?);
             }
             Ok(cmd_buf)
@@ -164,6 +170,8 @@ fn loop_block(
         vec![Command::Function(fn_name.clone())].into(),
         "",
         state,
+        path,
+        src_files,
     )?;
     let [goto_fn] = &binding.base()[..] else {
             return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
@@ -210,6 +218,11 @@ fn loop_block(
 }
 
 /// get the command for an `if|unless` block
+#[allow(
+    clippy::too_many_lines,
+    clippy::too_many_arguments,
+    clippy::manual_let_else
+)]
 fn interpret_if(
     invert: bool,
     left: &OpLeft,
@@ -218,12 +231,29 @@ fn interpret_if(
     content: VecCmd,
     hash: &str,
     state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<VecCmd> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
     }
-    let target_player = left.stringify_scoreboard_target()?;
-    let target_objective = left.stringify_scoreboard_objective()?;
+    let mut setter = None;
+    let (target_player, target_objective) = if let (Ok(target_player), Ok(target_objective)) = (
+        left.stringify_scoreboard_target(),
+        left.stringify_scoreboard_objective(),
+    ) {
+        (target_player, target_objective)
+    } else {
+        setter = Some(operation(
+            &OpLeft::Ident("".into()),
+            Operation::Equal,
+            &left.clone().into(),
+            state,
+            path,
+            src_files,
+        )?);
+        ("%".into(), DUMMY.into())
+    };
     let options = match right {
         Syntax::Identifier(_)
         | Syntax::BinaryOp {
@@ -253,6 +283,11 @@ fn interpret_if(
                 }
                 _ => return Err(format!("Can't compare to `{right:?}`")),
             };
+            if !state.objectives.contains_key(&source_objective) {
+                state
+                    .objectives
+                    .insert(source_objective.clone(), DUMMY.into());
+            }
             match op {
                 // x = var
                 Operation::LCaret
@@ -323,7 +358,16 @@ fn interpret_if(
         }
         _ => return Err(format!("Can't check if `{{...}} {op} {right:?}`")),
     };
-    Ok(Command::execute(options, content, hash, state).into_vec())
+    let mut ret_val = Command::execute(options, content, hash, state).into_vec();
+    if let Some(setter) = setter {
+        ret_val.map_with(
+            |cmds, setter| {
+                cmds.splice(0..0, setter.into_iter());
+            },
+            setter,
+        );
+    }
+    Ok(ret_val)
 }
 
 fn ident_block(

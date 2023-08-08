@@ -84,7 +84,7 @@ impl Selector<Syntax> {
                 .iter()
                 .map(|(k, v)| String::try_from(v).map(|v| (k.clone(), v)))
                 .collect::<Result<BTreeMap<RStr, String>, _>>()
-                .map_err(|_| String::from("Couldn't convert to string in selector"))?,
+                .map_err(|err| format!("Couldn't convert to string in selector: {err}"))?,
         })
     }
 }

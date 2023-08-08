@@ -179,6 +179,7 @@ fn variables() {
     assert_e2e!("x += 1" => "scoreboard players add %x dummy 1");
 
     assert_e2e!("@p::lvl += 1" => "xp add @p 1 levels");
+    assert_e2e!("@p.Motion[0] = xvec" => "execute store result entity @p Motion[0] run scoreboard players get %xvec dummy");
 }
 
 #[test]

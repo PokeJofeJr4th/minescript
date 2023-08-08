@@ -19,10 +19,15 @@ pub(super) fn operation(
         // @s::xp
         (OpLeft::SelectorDoubleColon(sel, ident), _, _) => double_colon(sel, ident, op, rhs),
         // @s.name
-        (OpLeft::SelectorNbt(sel, nbt), _, _) => {
-            nbt_op(NbtLocation::Entity(sel.stringify()?, nbt.clone()), op, rhs)
+        (OpLeft::SelectorNbt(sel, nbt), _, _) => nbt_op(
+            NbtLocation::Entity(sel.stringify()?, nbt.clone()),
+            op,
+            rhs,
+            state,
+        ),
+        (OpLeft::NbtStorage(nbt), _, _) => {
+            nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state)
         }
-        (OpLeft::NbtStorage(nbt), _, _) => nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs),
         // x | @s:score | var:x
         _ => simple_operation(lhs, op, rhs, state, path, src_files),
     }
@@ -316,7 +321,12 @@ fn double_colon(
 }
 
 /// apply an operation where the left is a selector with an nbt path
-fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<VecCmd> {
+fn nbt_op(
+    lhs: NbtLocation,
+    operation: Operation,
+    rhs: &Syntax,
+    state: &mut InterRepr,
+) -> SResult<VecCmd> {
     match (operation, rhs) {
         (
             Operation::Equal,
@@ -342,6 +352,26 @@ fn nbt_op(lhs: NbtLocation, operation: Operation, rhs: &Syntax) -> SResult<VecCm
             src: NbtLocation::Storage(rhs_nbt.clone()),
         }]
         .into()),
+        (Operation::Equal, syn) => {
+            let cmd = match syn {
+                Syntax::Identifier(ident) => Ok(vec![Command::ScoreGet {
+                    target: format!("%{ident}").into(),
+                    objective: DUMMY.into(),
+                }]),
+                Syntax::SelectorColon(sel, ident) => Ok(vec![Command::ScoreGet {
+                    target: sel.stringify()?.to_string().into(),
+                    objective: ident.clone(),
+                }]),
+                _ => Err(format!("Can't operate `{{NBT}} = {syn:?}`")),
+            }?;
+            Ok(Command::execute(
+                vec![ExecuteOption::StoreNBT(lhs)],
+                cmd.into(),
+                &format!("{:x}", get_hash(&())),
+                state,
+            )
+            .into_vec())
+        }
         (Operation::Swap, Syntax::NbtStorage(rhs_nbt)) => {
             Ok(swap_nbt(lhs, NbtLocation::Storage(rhs_nbt.clone())))
         }
