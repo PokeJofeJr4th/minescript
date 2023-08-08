@@ -192,7 +192,12 @@ fn selector_block(
         }),
         BlockType::Facing => res_buf.push(ExecuteOption::FacingEntity(selector)),
         BlockType::Rotated => res_buf.push(ExecuteOption::RotatedAs(selector)),
-        BlockType::As => res_buf.push(ExecuteOption::As(selector)),
+        BlockType::As => {
+            if selector == Selector::s() {
+                println!("\x1b[33mWARN\x1b[0m\t`as @s {{ ... }}`; This is a non-operation.");
+            }
+            res_buf.push(ExecuteOption::As(selector));
+        }
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
     let inner = inner_interpret(body, state, path, src_files)?;
@@ -212,6 +217,9 @@ fn teleport(selector: &Selector<Syntax>, body: &Syntax) -> SResult<VecCmd> {
     let target = selector.stringify()?;
 
     if let Ok(destination) = Coordinate::try_from(body) {
+        if destination == Coordinate::here() {
+            println!("\x1b[33mWARN\x1b[0m\t`tp @s (~ ~ ~)`; This is a non-operation.");
+        }
         Ok(vec![Command::Teleport {
             target,
             destination,

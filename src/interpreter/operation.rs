@@ -205,12 +205,15 @@ fn integer_operation(
 ) -> SResult<VecCmd> {
     match (op, value) {
         // x *= 0 => set to 0
-        (Operation::MulEq, 0) => Ok(vec![Command::ScoreSet {
-            target: target_name,
-            objective: target_objective,
-            value: 0,
-        }]
-        .into()),
+        (Operation::MulEq, 0) => {
+            println!("\x1b[33mWARN\x1b[0m\t`{{SCORE}} *= 0`; resetting score instead.");
+            Ok(vec![Command::ScoreSet {
+                target: target_name,
+                objective: target_objective,
+                value: 0,
+            }]
+            .into())
+        }
         // x /= 0
         (Operation::DivEq | Operation::ModEq, 0) => Err(String::from("Can't divide by zero")),
         // x = 2
@@ -222,7 +225,10 @@ fn integer_operation(
         .into()),
         // x *= 1 => nop
         (Operation::MulEq | Operation::DivEq | Operation::ModEq, 1)
-        | (Operation::AddEq | Operation::SubEq, 0) => Ok(VecCmd::default()),
+        | (Operation::AddEq | Operation::SubEq, 0) => {
+            println!("\x1b[33mWARN\x1b[0m\t`{{SCORE}} {op} {value}`; This is a non-operation.");
+            Ok(VecCmd::default())
+        }
         // x += 2
         (Operation::AddEq, _) => Ok(vec![Command::ScoreAdd {
             target: target_name,

@@ -197,3 +197,19 @@ fn nbt() {
     assert_e2e!("@s:score += @p.Health" 
     => "execute store result score % dummy run data get entity @p Health\nscoreboard players operation @s score += % dummy");
 }
+
+#[test]
+fn advancement() {
+    let advancement_repr = build_e2e!("
+    advancement \"join\" {
+        criteria: {requirement: { trigger: \"minecraft:tick\" } }
+        reward: @raw \"...\"
+    }
+    ");
+
+    let advancement = advancement_repr.advancements.get("join").unwrap().clone();
+    println!("{advancement:?}");
+    let advancement_hash = lazy_regex!(r#"^\{"criteria":\s*\{"requirement":\s*\{"trigger":\s*"minecraft:tick"\}\},\s*"rewards":\{"function":"([a-z0-9:_/]+)"\}\}$"#).captures(&advancement).unwrap().get(1).unwrap().as_str().to_string();
+
+    assert_eq!(advancement_repr.functions.get(&*advancement_hash).unwrap().base().trim(), "...");
+}

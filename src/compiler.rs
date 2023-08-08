@@ -40,6 +40,10 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
         });
         compiled.insert_fn(&name, fn_buf);
     }
+    // put all the advancements in
+    for (key, value) in &src.advancements {
+        compiled.advancements.insert(key.clone(), value.to_json());
+    }
     // make all the recipes
     for (name, (content, item_name)) in &src.recipes {
         let name: RStr = fmt_mc_ident(name).into();

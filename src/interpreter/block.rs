@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -99,6 +99,16 @@ pub(super) fn block(
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             let inner = inner_interpret(body, state, path, src_files)?;
             state.functions.insert(ident.clone(), inner);
+            Ok(VecCmd::default())
+        }
+        // advancement my_advancement { ... }
+        (
+            BlockType::Advancement,
+            Syntax::Identifier(ident) | Syntax::String(ident),
+            Syntax::Object(obj),
+        ) => {
+            let inner = advancement(ident, obj, state, path, src_files)?;
+            state.advancements.insert(ident.clone(), inner);
             Ok(VecCmd::default())
         }
         // async do_thing { ... }
@@ -356,6 +366,41 @@ fn interpret_if(
     Ok(ret_val)
 }
 
+fn advancement(
+    name: &str,
+    body: &BTreeMap<RStr, Syntax>,
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+) -> SResult<Nbt> {
+    let mut map_buf = BTreeMap::new();
+    let mut reward_fn = None;
+    for (k, v) in body {
+        if &**k == "reward" {
+            reward_fn = Some(inner_interpret(v, state, path, src_files)?);
+        } else if &**k == "reward_repeat" {
+            reward_fn = Some(inner_interpret(v, state, path, src_files)?.map(|mut cmds| {
+                cmds.push(Command::Raw(
+                    format!("advancement revoke @s only <NAMESPACE>:{name}").into(),
+                ));
+                cmds
+            }));
+        } else {
+            map_buf.insert(k.clone(), Nbt::try_from(v)?);
+        }
+    }
+    if let Some(reward_fn) = reward_fn {
+        let rewards = map_buf.entry("rewards".into()).or_insert(nbt!({}));
+        let Nbt::Object(rewards_obj) = rewards else {
+            return Err(format!("Advancement rewards should be an object; got `{rewards}`"))
+        };
+        let fn_name: RStr = format!("advancement/{name}_{:x}", get_hash(body)).into();
+        state.functions.insert(fn_name.clone(), reward_fn);
+        rewards_obj.insert("function".into(), fn_name.into());
+    }
+    Ok(Nbt::Object(map_buf))
+}
+
 fn ident_block(
     block_type: BlockType,
     ident: RStr,
@@ -411,7 +456,12 @@ fn coord_block(
     let mut opts = Vec::new();
     match block_type {
         BlockType::Facing => opts.push(ExecuteOption::FacingPos(coord)),
-        BlockType::Positioned => opts.push(ExecuteOption::Positioned(coord)),
+        BlockType::Positioned => {
+            println!(
+                "\x1b[33mWARN\x1b[0m\t`positioned (~ ~ ~) {{ ... }}`; This is a non-operation."
+            );
+            opts.push(ExecuteOption::Positioned(coord));
+        }
         _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
     }
     Ok(Command::execute(

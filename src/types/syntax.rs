@@ -105,6 +105,7 @@ impl From<OpLeft> for Syntax {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString)]
 #[strum(serialize_all = "snake_case")]
 pub enum BlockType {
+    Advancement,
     Anchored,
     As,
     AsAt,
