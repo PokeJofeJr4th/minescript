@@ -1,9 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
-
-use super::{inner_interpret, InterRepr};
+use super::InterRepr;
 use crate::types::prelude::*;
 
 /// interpret an operation, like `x += 1`
@@ -12,8 +7,6 @@ pub(super) fn operation(
     op: Operation,
     rhs: &Syntax,
     state: &mut InterRepr,
-    path: &Path,
-    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<VecCmd> {
     match (lhs, op, rhs) {
         // @s::xp
@@ -29,7 +22,7 @@ pub(super) fn operation(
             nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state)
         }
         // x | @s:score | var:x
-        _ => simple_operation(lhs, op, rhs, state, path, src_files),
+        _ => simple_operation(lhs, op, rhs, state),
     }
 }
 
@@ -43,8 +36,6 @@ fn simple_operation(
     op: Operation,
     syn: &Syntax,
     state: &mut InterRepr,
-    path: &Path,
-    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<VecCmd> {
     let target_objective = target.stringify_scoreboard_objective()?;
     let target_name = target.stringify_scoreboard_target()?;
@@ -83,8 +74,6 @@ fn simple_operation(
                 op,
                 &Syntax::Identifier("".into()),
                 state,
-                path,
-                src_files,
             )?);
             Ok(vec)
         }
@@ -108,8 +97,6 @@ fn simple_operation(
                 op,
                 &Syntax::Identifier("".into()),
                 state,
-                path,
-                src_files,
             )?);
             Ok(cmd_buf)
         }
@@ -143,15 +130,7 @@ fn simple_operation(
                     "The only macro allowed in an operation is `rand`; got `{mac}`"
                 ));
             }
-            inner_interpret(
-                &Syntax::Macro(
-                    mac.clone(),
-                    Box::new(Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }),
-                ),
-                state,
-                path,
-                src_files,
-            )
+            super::macros::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state)
         }
         // x += @rand ...
         (op, Syntax::Macro(mac, bound)) => {
@@ -161,15 +140,7 @@ fn simple_operation(
                 ));
             }
             // set an intermediate score to the random value
-            let mut cmd_buf = inner_interpret(
-                &Syntax::Macro(
-                    mac.clone(),
-                    Box::new(Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }),
-                ),
-                state,
-                path,
-                src_files,
-            )?;
+            let mut cmd_buf = super::macros::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state)?;
             // operate the random value into the target
             cmd_buf.push(Command::ScoreOperation {
                 target: target.stringify_scoreboard_target()?,

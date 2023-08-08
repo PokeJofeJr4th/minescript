@@ -156,7 +156,7 @@ impl ExecuteOption {
                 format!("store result score {target} {objective}")
             }
             Self::StoreNBT(nbt_location) => {
-                format!("store result {}", nbt_location.stringify(namespace))
+                format!("store result {} int 1", nbt_location.stringify(namespace))
             }
             Self::Block { invert, pos, value } => format!(
                 "{} block {pos} {value}",

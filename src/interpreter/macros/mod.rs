@@ -21,7 +21,7 @@ macro_rules! interpret_fn {
                                 continue;
                             };
                 let new_body = inner_interpret(body, $state, $path, $src_files)?;
-                $state.functions.push((name.clone(), new_body));
+                $state.functions.insert(name.clone(), new_body);
                 $fn_buf.push(Command::Function (name.clone() ).into());
             }
             other => $fn_buf.extend(inner_interpret(other, $state, $path, $src_files)?),
@@ -243,7 +243,7 @@ fn raycast(
             Command::Kill(Selector::s()),
         ]
     });
-    state.functions.push((closure_name.clone(), closure_fn));
+    state.functions.insert(closure_name.clone(), closure_fn);
 
     each.extend(
         [
@@ -280,7 +280,7 @@ fn raycast(
         ]
         .into(),
     );
-    state.functions.push((loop_name, each));
+    state.functions.insert(loop_name, each);
 
     Ok(vec![Command::Execute {
         options: vec![ExecuteOption::Summon("marker".into())],
@@ -289,7 +289,7 @@ fn raycast(
     .into())
 }
 
-fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
+pub fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
     let Syntax::BinaryOp { lhs, operation: Operation::In, rhs: properties } = properties else {
         return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
     };

@@ -36,7 +36,7 @@ impl Default for Item {
 pub struct InterRepr {
     pub items: Vec<Item>,
     pub objectives: BTreeMap<RStr, RStr>,
-    pub functions: Vec<(RStr, VecCmd)>,
+    pub functions: BTreeMap<RStr, VecCmd>,
     pub recipes: BTreeMap<RStr, (String, RStr)>,
     pub loot_tables: BTreeMap<RStr, RStr>,
     pub constants: BTreeSet<i32>,
@@ -52,7 +52,7 @@ impl InterRepr {
         Self {
             items: Vec::new(),
             objectives,
-            functions: Vec::new(),
+            functions: BTreeMap::new(),
             recipes: BTreeMap::new(),
             loot_tables: BTreeMap::new(),
             constants: BTreeSet::new(),

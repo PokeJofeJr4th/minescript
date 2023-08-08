@@ -87,7 +87,7 @@ fn tellraw() {
     // tellraw @a [{\"text\":\"hello world\",\"italic\":true},{\"text\":\"plain\"}]
     assert_eq!(
         test_interpret(&Syntax::Block(
-            BlockType::TellRaw,
+            BlockType::Tellraw,
             Box::new(Syntax::Selector(Selector::a())),
             Box::new(Syntax::Array(Rc::from([
                 Syntax::Array(Rc::from([

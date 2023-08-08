@@ -43,7 +43,7 @@ fn inner_interpret(
             lhs,
             operation: op,
             rhs,
-        } => return operation::operation(lhs, *op, rhs, state, path, src_files),
+        } => return operation::operation(lhs, *op, rhs, state),
         Syntax::Block(block_type, lhs, rhs) => {
             return block::block(*block_type, lhs, rhs, state, path, src_files)
         }
@@ -68,5 +68,8 @@ pub fn test_interpret(src: &Syntax) -> Vec<Command> {
         &mut InterRepr::new(),
         Path::new(""),
         &mut BTreeSet::new(),
-    ).unwrap().base().clone()
+    )
+    .unwrap()
+    .base()
+    .clone()
 }

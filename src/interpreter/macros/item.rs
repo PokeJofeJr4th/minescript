@@ -47,7 +47,7 @@ pub(super) fn item(
                         continue;
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
-                    state.functions.push((name.clone(), new_body));
+                    state.functions.insert(name.clone(), new_body);
                     item.on_consume.push(Command::Function(name.clone()).into());
                 }
                 other => {
@@ -63,7 +63,7 @@ pub(super) fn item(
                         continue;
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
-                    state.functions.push((name.clone(), new_body));
+                    state.functions.insert(name.clone(), new_body);
                     item.on_use.push(Command::Function(name.clone()).into());
                 }
                 other => item
@@ -78,7 +78,7 @@ pub(super) fn item(
                         continue;
                     };
                     let new_body = inner_interpret(body, state, path, src_files)?;
-                    state.functions.push((name.clone(), new_body));
+                    state.functions.insert(name.clone(), new_body);
                     item.while_using
                         .push(Command::Function(name.clone()).into());
                 }
@@ -162,7 +162,7 @@ pub(super) fn item(
         }
     }
     let Nbt::Object(ref mut obj) = item.nbt else {
-        panic!()
+        return Err(format!("Item nbt should be an object; got `{}`", item.nbt))
     };
     match obj.get_mut("tag") {
         Some(Nbt::Object(ref mut inner)) => {

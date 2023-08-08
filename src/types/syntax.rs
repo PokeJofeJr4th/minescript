@@ -124,7 +124,7 @@ pub enum BlockType {
     Rotated,
     Summon,
     Switch,
-    TellRaw,
+    Tellraw,
     // allow both versions to work
     #[strum(serialize = "tp", serialize = "teleport")]
     Tp,

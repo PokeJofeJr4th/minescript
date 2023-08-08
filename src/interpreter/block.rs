@@ -33,8 +33,6 @@ pub(super) fn block(
             inner_interpret(body, state, path, src_files)?,
             &format!("closure/if_{:x}", get_hash(body)),
             state,
-            path,
-            src_files,
         ),
         // unless x=1 {}
         (
@@ -53,8 +51,6 @@ pub(super) fn block(
             inner_interpret(body, state, path, src_files)?,
             &format!("closure/unless_{:x}", get_hash(body)),
             state,
-            path,
-            src_files,
         ),
         // for _ in 1..10 {}
         (
@@ -78,8 +74,6 @@ pub(super) fn block(
                 Operation::Equal,
                 lhs,
                 state,
-                path,
-                src_files,
             )?;
             for syn in arr.iter() {
                 let Syntax::Block(BlockType::Case, match_value, body) = syn else {
@@ -93,8 +87,6 @@ pub(super) fn block(
                     inner_interpret(body, state, path, src_files)?,
                     &format!("closure/case_{:x}", get_hash(body)),
                     state,
-                    path,
-                    src_files,
                 )?);
             }
             Ok(cmd_buf)
@@ -106,7 +98,7 @@ pub(super) fn block(
         // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             let inner = inner_interpret(body, state, path, src_files)?;
-            state.functions.push((ident.clone(), inner));
+            state.functions.insert(ident.clone(), inner);
             Ok(VecCmd::default())
         }
         // async do_thing { ... }
@@ -170,8 +162,6 @@ fn loop_block(
         vec![Command::Function(fn_name.clone())].into(),
         "",
         state,
-        path,
-        src_files,
     )?;
     let [goto_fn] = &binding.base()[..] else {
             return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
@@ -213,7 +203,7 @@ fn loop_block(
     }
     // always check to restart loop at the end
     body.push(goto_fn.clone().into());
-    state.functions.push((fn_name, body));
+    state.functions.insert(fn_name, body);
     Ok(initial)
 }
 
@@ -231,8 +221,6 @@ fn interpret_if(
     content: VecCmd,
     hash: &str,
     state: &mut InterRepr,
-    path: &Path,
-    src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<VecCmd> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
@@ -249,8 +237,6 @@ fn interpret_if(
             Operation::Equal,
             &left.clone().into(),
             state,
-            path,
-            src_files,
         )?);
         ("%".into(), DUMMY.into())
     };
@@ -490,7 +476,7 @@ fn async_block(
     let Syntax::Array(arr) = body else {
                 // just make it a normal function
                 let inner = inner_interpret(body, state, path, src_files)?;
-                state.functions.push((ident.clone(), inner));
+                state.functions.insert(ident.clone(), inner);
                 return Ok(VecCmd::default());
             };
     let mut func = ident.clone();
@@ -510,15 +496,15 @@ fn async_block(
                     }
                     .into(),
                 );
-                state.functions.push((
+                state.functions.insert(
                     core::mem::replace(&mut func, next_func),
                     core::mem::take(&mut command_buf),
-                ));
+                );
                 continue;
             }
         }
         command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
     }
-    state.functions.push((func, command_buf));
+    state.functions.insert(func, command_buf);
     Ok(VecCmd::default())
 }

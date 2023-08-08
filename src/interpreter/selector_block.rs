@@ -17,7 +17,7 @@ pub(super) fn block(
     match block_type {
         BlockType::Tp => teleport(selector, body),
         BlockType::Damage => damage(selector, body),
-        BlockType::TellRaw => tellraw(selector, body),
+        BlockType::Tellraw => tellraw(selector, body),
         block_type => selector_block(block_type, selector, body, state, path, src_files),
     }
 }

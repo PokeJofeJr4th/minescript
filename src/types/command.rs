@@ -331,7 +331,7 @@ impl Command {
                 (output, inner)
             })
             .unzip();
-        state.functions.push((hash.into(), inner));
+        state.functions.insert(hash.into(), inner);
         output
     }
 }
