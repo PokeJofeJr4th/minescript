@@ -378,7 +378,7 @@ fn advancement(
     for (k, v) in body {
         if &**k == "reward" {
             reward_fn = Some(inner_interpret(v, state, path, src_files)?);
-        } else if &**k == "reward_repeat" {
+        } else if &**k == "reward_each" {
             reward_fn = Some(inner_interpret(v, state, path, src_files)?.map(|mut cmds| {
                 cmds.push(Command::Raw(
                     format!("advancement revoke @s only <NAMESPACE>:{name}").into(),
