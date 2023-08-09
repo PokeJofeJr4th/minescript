@@ -39,7 +39,7 @@ To compile to a Minecraft datapack, run the following command:
 
 where `namespace` is the name of your datapack. Once you provide the location of your `.minecraft` folder, Minescript will create a folder ready to be dropped into the datapacks folder of your minecraft world!
 
-For more information on how to use the command line interface, see the [command line format](https://github.com/PokeJofeJr4th/minescript/command-line). To learn more about what Minescript can do, check out the [wiki](https://github.com/PokeJofeJr4th/minescript/wiki) and [examples](https://github.com/PokeJofeJr4th/minescript/tree/main/examples).
+For more information on how to use the command line interface, see the [command line format](https://github.com/PokeJofeJr4th/minescript/wiki/Command-Line). To learn more about what Minescript can do, check out the [wiki](https://github.com/PokeJofeJr4th/minescript/wiki) and [examples](https://github.com/PokeJofeJr4th/minescript/tree/main/examples).
 
 ## Contributing
 
