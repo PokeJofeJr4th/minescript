@@ -36,8 +36,6 @@ pub mod prelude {
     pub type NbtPath = Vec<NbtPathPart>;
     pub type VecCmd = Versioned<Vec<Command>>;
 
-    pub const DUMMY: &str = "dummy";
-
     pub fn fmt_mc_ident(ident: &str) -> String {
         ident.to_lowercase().replace(' ', "_")
     }

@@ -8,7 +8,9 @@ use std::{env, fs, thread};
 
 use clap::Parser;
 use dotenvy::dotenv;
-use types::SResult;
+use types::{RStr, SResult};
+
+use crate::types::fmt_mc_ident;
 
 /// transforms an `InterRepr` into a set of files that need to be written to a datapack
 mod compiler;
@@ -53,11 +55,25 @@ struct Args {
     /// Save the datapack to a world's `datapacks` folder
     #[clap(short, long)]
     world: Option<String>,
+    /// Specify the dummy objective used for variables
+    #[clap(short, long)]
+    dummy: Option<String>,
+}
+
+pub struct Config {
+    namespace: String,
+    dummy_objective: RStr,
 }
 
 fn main() -> SResult<()> {
     let args = Args::parse();
     let path = PathBuf::from(args.path);
+    let config = Config {
+        namespace: args.namespace.clone(),
+        dummy_objective: args
+            .dummy
+            .map_or_else(|| RStr::from("dummy"), |dummy| fmt_mc_ident(&dummy).into()),
+    };
     // load environment variables from `.env` file
     dotenv().ok();
     // either get "DOTMINECRAFT" from env or ask for it
@@ -77,14 +93,8 @@ fn main() -> SResult<()> {
     );
     // start the list of dependent files
     let mut src_files = BTreeSet::new();
-    build(
-        &path,
-        &parent,
-        &args.namespace,
-        args.verbose,
-        &mut src_files,
-    )?;
-    println!("Successfully built {}", args.namespace);
+    build(&path, &parent, &config, args.verbose, &mut src_files)?;
+    println!("Successfully built {}", config.namespace);
     if args.reload {
         let dur = Duration::new(1, 0);
         loop {
@@ -105,19 +115,13 @@ fn main() -> SResult<()> {
             if need_change {
                 println!("Rebuilding...");
                 src_files = BTreeSet::new();
-                match build(
-                    &path,
-                    &parent,
-                    &args.namespace,
-                    args.verbose,
-                    &mut src_files,
-                ) {
+                match build(&path, &parent, &config, args.verbose, &mut src_files) {
                     Ok(()) => println!(
                         "{} Successfully rebuilt {}",
                         chrono::Local::now().format("%H:%M:%S"),
-                        args.namespace
+                        config.namespace
                     ),
-                    Err(err) => eprintln!("Error rebuilding {}: {err}", args.namespace),
+                    Err(err) => eprintln!("Error rebuilding {}: {err}", config.namespace),
                 }
             }
         }
@@ -128,7 +132,7 @@ fn main() -> SResult<()> {
 fn build(
     path: &Path,
     parent: &str,
-    namespace: &str,
+    config: &Config,
     verbose: bool,
     src_files: &mut BTreeSet<PathBuf>,
 ) -> SResult<()> {
@@ -154,15 +158,15 @@ fn build(
         println!("{syntax:#?}");
     }
     // interpret the syntax
-    let mut state = interpreter::interpret(&syntax, folder, src_files)?;
+    let mut state = interpreter::interpret(&syntax, folder, src_files, config)?;
     if verbose {
         println!("{state:#?}");
     }
     // compile the InterRepr
-    let compiled = compiler::compile(&mut state, namespace)?;
+    let compiled = compiler::compile(&mut state, &config.namespace)?;
     if verbose {
         println!("{compiled:#?}");
     }
-    compiler::write(&compiled, parent, namespace)
+    compiler::write(&compiled, parent, &config.namespace)
         .map_err(|err| format!("Error writing compiled datapack: {err}"))
 }

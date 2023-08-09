@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use super::{inner_interpret, InterRepr};
 use crate::types::prelude::*;
+use crate::Config;
 
 /// interpret any selector block of the form `tp @s (...)`
 pub(super) fn block(
@@ -13,17 +14,18 @@ pub(super) fn block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match block_type {
         BlockType::Tp => teleport(selector, body),
         BlockType::Damage => damage(selector, body),
-        BlockType::Tellraw => tellraw(selector, body),
-        block_type => selector_block(block_type, selector, body, state, path, src_files),
+        BlockType::Tellraw => tellraw(selector, body, config),
+        block_type => selector_block(block_type, selector, body, state, path, src_files, config),
     }
 }
 
 /// interpret a tellraw block like `tellraw @a {...}`
-fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> {
+fn tellraw(selector: &Selector<Syntax>, properties: &Syntax, config: &Config) -> SResult<VecCmd> {
     let mut nbt_buf: Vec<Nbt> = Vec::new();
 
     let arr = if let Syntax::Array(arr) = properties {
@@ -33,7 +35,7 @@ fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> 
     };
 
     for item in arr.iter() {
-        nbt_buf.push(tellraw_component(item)?);
+        nbt_buf.push(tellraw_component(item, config)?);
     }
 
     Ok(vec![Command::TellRaw(
@@ -44,7 +46,7 @@ fn tellraw(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> 
 }
 
 /// get a tellraw component
-fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
+fn tellraw_component(src: &Syntax, config: &Config) -> SResult<Nbt> {
     match src {
         // a given object
         Syntax::Object(_) => Nbt::try_from(src),
@@ -52,7 +54,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
         Syntax::String(str) => Ok(nbt!({ text: str })),
         // dummy score value
         Syntax::Identifier(ident) => Ok(nbt!({
-            score: nbt!({name: format!("%{ident}"), objective: DUMMY})
+            score: nbt!({name: format!("%{ident}"), objective: config.dummy_objective.clone()})
         })),
         // named score
         Syntax::BinaryOp {
@@ -106,7 +108,7 @@ fn tellraw_component(src: &Syntax) -> SResult<Nbt> {
                         let content = String::try_from(&**syn)?;
                         nbt_buf.insert(ident.clone(), content.into());
                     }
-                    other => base = tellraw_component(other)?.get_obj()?.clone(),
+                    other => base = tellraw_component(other, config)?.get_obj()?.clone(),
                 }
             }
             base.extend(nbt_buf);
@@ -171,6 +173,7 @@ fn selector_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let mut res_buf = Vec::new();
     let selector = selector.stringify()?;
@@ -200,7 +203,7 @@ fn selector_block(
         }
         _ => return Err(format!("`{block_type:?}` block doesn't take a selector")),
     }
-    let inner = inner_interpret(body, state, path, src_files)?;
+    let inner = inner_interpret(body, state, path, src_files, config)?;
     Ok(Command::execute(
         res_buf.clone(),
         inner,

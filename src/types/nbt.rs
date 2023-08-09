@@ -4,6 +4,8 @@ use super::prelude::*;
 
 #[macro_export]
 macro_rules! nbt {
+    ({}) => {$crate::types::Nbt::Object(std::collections::BTreeMap::new())};
+
     ({$($key:ident: $value:expr),*}) => {{
         let mut tree: std::collections::BTreeMap<$crate::types::RStr, $crate::types::Nbt> = std::collections::BTreeMap::new();
         $(

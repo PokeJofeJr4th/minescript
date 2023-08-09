@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::types::prelude::*;
+use crate::{types::prelude::*, Config};
 
 #[derive(Debug, Clone)]
 pub struct Item {
@@ -47,9 +47,9 @@ pub struct InterRepr {
 
 impl InterRepr {
     /// Create a new, empty Intermediate Representation
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         let mut objectives = BTreeMap::new();
-        objectives.insert(DUMMY.into(), "dummy".into());
+        objectives.insert(config.dummy_objective.clone(), "dummy".into());
         Self {
             items: Vec::new(),
             objectives,

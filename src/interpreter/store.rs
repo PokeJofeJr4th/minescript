@@ -1,4 +1,7 @@
-use crate::types::{Command, ExecuteOption, InterRepr, NbtLocation, OpLeft, SResult, VecCmd};
+use crate::{
+    types::{Command, ExecuteOption, InterRepr, NbtLocation, OpLeft, SResult, VecCmd},
+    Config,
+};
 
 pub(super) fn storage_op(
     lhs: &OpLeft,
@@ -6,10 +9,11 @@ pub(super) fn storage_op(
     cmd: VecCmd,
     hash: &str,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let execute_options = if let (Ok(target), Ok(objective)) = (
         lhs.stringify_scoreboard_target(),
-        lhs.stringify_scoreboard_objective(),
+        lhs.stringify_scoreboard_objective(config),
     ) {
         vec![ExecuteOption::StoreScore {
             target,

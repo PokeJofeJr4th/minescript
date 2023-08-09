@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::types::prelude::*;
+use crate::{types::prelude::*, Config};
 
 /// handles blocks of the form `if <condition> {...}`
 mod block;
@@ -20,9 +20,10 @@ pub fn interpret(
     src: &Syntax,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<InterRepr> {
-    let mut state = InterRepr::new();
-    inner_interpret(src, &mut state, path, src_files)?;
+    let mut state = InterRepr::new(config);
+    inner_interpret(src, &mut state, path, src_files, config)?;
     Ok(state)
 }
 
@@ -31,13 +32,14 @@ fn inner_interpret(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match src {
         // []
         Syntax::Array(statements) => {
             let mut commands_buf = VecCmd::default();
             for statement in statements.iter() {
-                commands_buf.extend(inner_interpret(statement, state, path, src_files)?);
+                commands_buf.extend(inner_interpret(statement, state, path, src_files, config)?);
             }
             return Ok(commands_buf);
         }
@@ -49,22 +51,23 @@ fn inner_interpret(
             return store::storage_op(
                 lhs,
                 *operation == Operation::QuestionEq,
-                inner_interpret(rhs, state, path, src_files)?,
+                inner_interpret(rhs, state, path, src_files, config)?,
                 &format!("closure/{:x}", get_hash(rhs)),
                 state,
+                config,
             )
         }
         Syntax::BinaryOp {
             lhs,
             operation: op,
             rhs,
-        } => return operation::operation(lhs, *op, rhs, state),
+        } => return operation::operation(lhs, *op, rhs, state, config),
         Syntax::Block(block_type, lhs, rhs) => {
-            return block::block(*block_type, lhs, rhs, state, path, src_files)
+            return block::block(*block_type, lhs, rhs, state, path, src_files, config)
         }
         // @function x
         Syntax::Macro(name, properties) => {
-            return macros::macros(name, properties, state, path, src_files)
+            return macros::macros(name, properties, state, path, src_files, config)
         }
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),
@@ -78,11 +81,16 @@ fn inner_interpret(
 /// It should normally not be used, since the side effects on the state are vital to the project's function
 #[cfg(test)]
 pub fn test_interpret(src: &Syntax) -> Vec<Command> {
+    let config = Config {
+        namespace: "test".into(),
+        dummy_objective: "dummy".into(),
+    };
     inner_interpret(
         src,
-        &mut InterRepr::new(),
+        &mut InterRepr::new(&config),
         Path::new(""),
         &mut BTreeSet::new(),
+        &config,
     )
     .unwrap()
     .base()

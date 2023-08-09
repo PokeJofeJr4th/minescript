@@ -5,26 +5,26 @@ use std::{
 };
 
 use super::inner_interpret;
-use crate::{lexer::tokenize, parser::parse, types::prelude::*};
+use crate::{lexer::tokenize, parser::parse, types::prelude::*, Config};
 
 mod effect;
 mod item;
 
 // #[macro_export]
 macro_rules! interpret_fn {
-    ($fn_buf: ident, $value: expr, $state: expr, $path: expr, $src_files: expr) => {
+    ($fn_buf: ident $config: ident, $value: expr, $state: expr, $path: expr, $src_files: expr) => {
         match $value {
             Syntax::String(str) => $fn_buf.push(Command::Function (str.clone() ).into()),
             Syntax::Block(BlockType::Function, name, body) => {
                 let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                                $fn_buf.extend(inner_interpret($value, $state, $path, $src_files)?);
+                                $fn_buf.extend(inner_interpret($value, $state, $path, $src_files, $config)?);
                                 continue;
                             };
-                let new_body = inner_interpret(body, $state, $path, $src_files)?;
+                let new_body = inner_interpret(body, $state, $path, $src_files, $config)?;
                 $state.functions.insert(name.clone(), new_body);
                 $fn_buf.push(Command::Function (name.clone() ).into());
             }
-            other => $fn_buf.extend(inner_interpret(other, $state, $path, $src_files)?),
+            other => $fn_buf.extend(inner_interpret(other, $state, $path, $src_files, $config)?),
         }
     };
 }
@@ -35,6 +35,7 @@ pub(super) fn macros(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match name {
         "effect" => {
@@ -57,11 +58,11 @@ pub(super) fn macros(
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
             let syntax = parse(&mut tokens.into_iter().peekable())
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
-            return inner_interpret(&syntax, state, &new_path, src_files);
+            return inner_interpret(&syntax, state, &new_path, src_files, config);
         }
         "item" => {
             // can't borrow state as mutable more than once at a time
-            let item = item::item(properties, state, path, src_files)?;
+            let item = item::item(properties, state, path, src_files, config)?;
             state.items.push(item);
         }
         "raw" => match properties {
@@ -88,10 +89,10 @@ pub(super) fn macros(
             }
         },
         "raycast" => {
-            return raycast(properties, state, path, src_files);
+            return raycast(properties, state, path, src_files, config);
         }
         "sound" | "playsound" => return sound(properties),
-        "random" | "rand" => return random(properties, state),
+        "random" | "rand" => return random(properties, state, config),
         other => return Err(format!("Unexpected macro invocation `{other}`")),
     }
     Ok(VecCmd::default())
@@ -176,6 +177,7 @@ fn raycast(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let Syntax::Object(obj) = properties else {
         return Err(format!("Raycast macro expects an object, not {properties:?}"))
@@ -201,8 +203,8 @@ fn raycast(
                     return Err(format!("Expected number as raycast step size; got `{v:?}`"));
                 }
             }
-            "callback" | "hit" => interpret_fn!(callback, v, state, path, src_files),
-            "each" => interpret_fn!(each, v, state, path, src_files),
+            "callback" | "hit" => interpret_fn!(callback config, v, state, path, src_files),
+            "each" => interpret_fn!(each config, v, state, path, src_files),
             other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
         }
     }
@@ -229,7 +231,7 @@ fn raycast(
             // scoreboard players reset %timer dummy
             Command::ScoreSet {
                 target: score_name.clone(),
-                objective: DUMMY.into(),
+                objective: config.dummy_objective.clone(),
                 value: 0,
             },
             // at @s function loop
@@ -255,7 +257,7 @@ fn raycast(
             // timer ++
             Command::ScoreAdd {
                 target: score_name.clone(),
-                objective: DUMMY.into(),
+                objective: config.dummy_objective.clone(),
                 value: 1,
             },
             // execute unless %timer < max at @s if block ~ ~ ~ air run loop
@@ -264,7 +266,7 @@ fn raycast(
                     ExecuteOption::ScoreMatches {
                         invert: false,
                         target: score_name,
-                        objective: DUMMY.into(),
+                        objective: config.dummy_objective.clone(),
                         lower: None,
                         upper: Some(max),
                     },
@@ -289,7 +291,7 @@ fn raycast(
     .into())
 }
 
-pub fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
+pub fn random(properties: &Syntax, state: &mut InterRepr, config: &Config) -> SResult<VecCmd> {
     let Syntax::BinaryOp { lhs, operation: Operation::In, rhs: properties } = properties else {
         return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
     };
@@ -336,7 +338,7 @@ pub fn random(properties: &Syntax, state: &mut InterRepr) -> SResult<VecCmd> {
     Ok(Command::execute(
         vec![ExecuteOption::StoreScore {
             target: lhs.stringify_scoreboard_target()?,
-            objective: lhs.stringify_scoreboard_objective()?,
+            objective: lhs.stringify_scoreboard_objective(config)?,
             is_success: false,
         }],
         rng_cmd.into_vec(),

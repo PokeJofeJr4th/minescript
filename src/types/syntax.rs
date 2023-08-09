@@ -6,6 +6,8 @@ use std::{
 };
 use strum_macros::{EnumIs, EnumString};
 
+use crate::Config;
+
 use super::prelude::*;
 
 #[derive(Clone, PartialEq, EnumIs)]
@@ -227,9 +229,9 @@ impl OpLeft {
         }
     }
 
-    pub fn stringify_scoreboard_objective(&self) -> SResult<RStr> {
+    pub fn stringify_scoreboard_objective(&self, config: &Config) -> SResult<RStr> {
         match self {
-            Self::Ident(_) | Self::Selector(_) => Ok(DUMMY.into()),
+            Self::Ident(_) | Self::Selector(_) => Ok(config.dummy_objective.clone()),
             Self::Colon(_, score) | Self::SelectorColon(_, score) => Ok(score.clone()),
             Self::SelectorDoubleColon(_, _) | Self::SelectorNbt(_, _) | Self::NbtStorage(_) => {
                 Err(format!(

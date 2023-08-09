@@ -1,5 +1,5 @@
 use super::InterRepr;
-use crate::types::prelude::*;
+use crate::{types::prelude::*, Config};
 
 /// interpret an operation, like `x += 1`
 pub(super) fn operation(
@@ -7,6 +7,7 @@ pub(super) fn operation(
     op: Operation,
     rhs: &Syntax,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match (lhs, op, rhs) {
         // @s::xp
@@ -17,12 +18,13 @@ pub(super) fn operation(
             op,
             rhs,
             state,
+            config,
         ),
         (OpLeft::NbtStorage(nbt), _, _) => {
-            nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state)
+            nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state, config)
         }
         // x | @s:score | var:x
-        _ => simple_operation(lhs, op, rhs, state),
+        _ => simple_operation(lhs, op, rhs, state, config),
     }
 }
 
@@ -36,16 +38,17 @@ fn simple_operation(
     op: Operation,
     syn: &Syntax,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
-    let target_objective = target.stringify_scoreboard_objective()?;
+    let target_objective = target.stringify_scoreboard_objective(config)?;
     let target_name = target.stringify_scoreboard_target()?;
     if !state.objectives.contains_key(&target_objective) {
         state
             .objectives
-            .insert(target_objective.clone(), DUMMY.into());
+            .insert(target_objective.clone(), config.dummy_objective.clone());
     }
     match (op, syn) {
-        (_, Syntax::Integer(value)) => integer_operation(target_name, target_objective, op, *value, state),
+        (_, Syntax::Integer(value)) => integer_operation(target_name, target_objective, op, *value, state, config),
         (_, Syntax::SelectorDoubleColon(sel, ident)) => {
             let ident = &**ident;
             let levels = if ident == "lvl" || ident == "level" {
@@ -58,9 +61,9 @@ fn simple_operation(
                 ));
             };
             let (xp_target, xp_objective) = if op == Operation::Equal {
-                (target.stringify_scoreboard_target()?, target.stringify_scoreboard_objective()?)
+                (target.stringify_scoreboard_target()?, target.stringify_scoreboard_objective(config)?)
             } else {
-                ("%".into(), DUMMY.into())
+                ("%".into(), config.dummy_objective.clone())
             };
             // get experience into variable
             let mut vec: VecCmd = vec![Command::Execute {
@@ -81,6 +84,7 @@ fn simple_operation(
                     op,
                     &Syntax::Identifier("".into()),
                     state,
+                    config
                 )?);
             }
             Ok(vec)
@@ -97,7 +101,7 @@ fn simple_operation(
             let mut cmd_buf: VecCmd = vec![Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
                     target: "%".into(),
-                    objective: DUMMY.into(),
+                    objective: config.dummy_objective.clone(),
                     is_success: false
                 }],
                 cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
@@ -106,7 +110,7 @@ fn simple_operation(
                 target,
                 op,
                 &Syntax::Identifier("".into()),
-                state,
+                state,config
             )?);
             Ok(cmd_buf)
         }
@@ -115,14 +119,14 @@ fn simple_operation(
             if !state.objectives.contains_key(&target_objective) {
                 state
                     .objectives
-                    .insert(target_objective.clone(), DUMMY.into());
+                    .insert(target_objective.clone(), config.dummy_objective.clone());
             }
             Ok(vec![Command::ScoreOperation {
                 target: target_name,
                 target_objective,
                 operation: op,
                 source: format!("%{ident}").into(),
-                source_objective: DUMMY.into(),
+                source_objective: config.dummy_objective.clone(),
             }].into())
         }
         // x = @r:y
@@ -140,7 +144,7 @@ fn simple_operation(
                     "The only macro allowed in an operation is `rand`; got `{mac}`"
                 ));
             }
-            super::macros::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state)
+            super::macros::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state, config)
         }
         // x += @rand ...
         (op, Syntax::Macro(mac, bound)) => {
@@ -150,14 +154,14 @@ fn simple_operation(
                 ));
             }
             // set an intermediate score to the random value
-            let mut cmd_buf = super::macros::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state)?;
+            let mut cmd_buf = super::macros::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
             // operate the random value into the target
             cmd_buf.push(Command::ScoreOperation {
                 target: target.stringify_scoreboard_target()?,
-                target_objective: target.stringify_scoreboard_objective()?,
+                target_objective: target.stringify_scoreboard_objective(config)?,
                 operation: op,
                 source: "%%".into(),
-                source_objective: DUMMY.into(),
+                source_objective: config.dummy_objective.clone(),
             }.into());
             Ok(cmd_buf)
         }
@@ -178,14 +182,14 @@ fn simple_operation(
                     target_objective: target_objective.clone(),
                     operation: Operation::MulEq,
                     source: format!("%const_{:x}", approx.0).into(),
-                    source_objective: DUMMY.into(),
+                    source_objective: config.dummy_objective.clone(),
                 },
                 Command::ScoreOperation {
                     target: target_name,
                     target_objective,
                     operation: Operation::DivEq,
                     source: format!("%const_{:x}", approx.1).into(),
-                    source_objective: DUMMY.into(),
+                    source_objective: config.dummy_objective.clone(),
                 },
             ].into())
         }
@@ -202,6 +206,7 @@ fn integer_operation(
     op: Operation,
     value: i32,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match (op, value) {
         // x *= 0 => set to 0
@@ -264,7 +269,7 @@ fn integer_operation(
                 target_objective,
                 operation: op,
                 source: format!("%const_{value:x}").into(),
-                source_objective: DUMMY.into(),
+                source_objective: config.dummy_objective.clone(),
             }]
             .into())
         }
@@ -313,6 +318,7 @@ fn nbt_op(
     operation: Operation,
     rhs: &Syntax,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match (operation, rhs) {
         (
@@ -343,7 +349,7 @@ fn nbt_op(
             let cmd = match syn {
                 Syntax::Identifier(ident) => Ok(vec![Command::ScoreGet {
                     target: format!("%{ident}").into(),
-                    objective: DUMMY.into(),
+                    objective: config.dummy_objective.clone(),
                 }]),
                 Syntax::SelectorColon(sel, ident) => Ok(vec![Command::ScoreGet {
                     target: sel.stringify()?.to_string().into(),

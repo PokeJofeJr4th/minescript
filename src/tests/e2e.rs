@@ -25,6 +25,7 @@ macro_rules! build_e2e {
             &syntax,
             ::std::path::Path::new(""),
             &mut ::std::collections::BTreeSet::new(),
+            &$crate::Config { namespace: "test".into(), dummy_objective: "dummy".into() }
         )
         .unwrap();
         $crate::compiler::compile(&mut inter, "test").unwrap()

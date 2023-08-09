@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{inner_interpret, InterRepr};
-use crate::{interpreter::operation::operation, types::prelude::*};
+use crate::{interpreter::operation::operation, types::prelude::*, Config};
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn block(
@@ -14,6 +14,7 @@ pub(super) fn block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     match (block_type, lhs, body) {
         // if x=1 {}
@@ -30,9 +31,10 @@ pub(super) fn block(
             left,
             *op,
             right,
-            inner_interpret(body, state, path, src_files)?,
+            inner_interpret(body, state, path, src_files, config)?,
             &format!("closure/if_{:x}", get_hash(body)),
             state,
+            config,
         ),
         // unless x=1 {}
         (
@@ -48,9 +50,10 @@ pub(super) fn block(
             left,
             *op,
             right,
-            inner_interpret(body, state, path, src_files)?,
+            inner_interpret(body, state, path, src_files, config)?,
             &format!("closure/unless_{:x}", get_hash(body)),
             state,
+            config,
         ),
         // for _ in 1..10 {}
         (
@@ -65,7 +68,9 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => loop_block(block_type, left, *op, right, body, state, path, src_files),
+        ) => loop_block(
+            block_type, left, *op, right, body, state, path, src_files, config,
+        ),
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
             let switch_var: RStr = format!("closure/switch_{:x}", get_hash(body)).into();
@@ -74,6 +79,7 @@ pub(super) fn block(
                 Operation::Equal,
                 lhs,
                 state,
+                config,
             )?;
             for syn in arr.iter() {
                 let Syntax::Block(BlockType::Case, match_value, body) = syn else {
@@ -84,20 +90,21 @@ pub(super) fn block(
                     &OpLeft::Ident(switch_var.clone()),
                     Operation::Equal,
                     match_value,
-                    inner_interpret(body, state, path, src_files)?,
+                    inner_interpret(body, state, path, src_files, config)?,
                     &format!("closure/case_{:x}", get_hash(body)),
                     state,
+                    config,
                 )?);
             }
             Ok(cmd_buf)
         }
         // tp @s (~ ~10 ~)
         (_, Syntax::Selector(selector), _) => {
-            super::selector_block::block(block_type, selector, body, state, path, src_files)
+            super::selector_block::block(block_type, selector, body, state, path, src_files, config)
         }
         // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            let inner = inner_interpret(body, state, path, src_files)?;
+            let inner = inner_interpret(body, state, path, src_files, config)?;
             state.functions.insert(ident.clone(), inner);
             Ok(VecCmd::default())
         }
@@ -107,23 +114,31 @@ pub(super) fn block(
             Syntax::Identifier(ident) | Syntax::String(ident),
             Syntax::Object(obj),
         ) => {
-            let inner = advancement(ident, obj, state, path, src_files)?;
+            let inner = advancement(ident, obj, state, path, src_files, config)?;
             state.advancements.insert(ident.clone(), inner);
             Ok(VecCmd::default())
         }
         // async do_thing { ... }
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
-            async_block(body, ident, state, path, src_files)
+            async_block(body, ident, state, path, src_files, config)
         }
         // on owner {...}
         (
             BlockType::On | BlockType::Summon | BlockType::Anchored,
             Syntax::Identifier(ident) | Syntax::String(ident),
             _,
-        ) => ident_block(block_type, ident.clone(), body, state, path, src_files),
+        ) => ident_block(
+            block_type,
+            ident.clone(),
+            body,
+            state,
+            path,
+            src_files,
+            config,
+        ),
         (BlockType::Rotated, Syntax::Array(arr), _) => {
             if let [yaw, pitch] = &arr[..] {
-                rotated_block(yaw, pitch, body, state, path, src_files)
+                rotated_block(yaw, pitch, body, state, path, src_files, config)
             } else {
                 Err(format!("Expected a `rotated [{{yaw}}, {{pitch}}]` or `rotated @[{{selector}}]`; got `rotated {arr:?}`"))
             }
@@ -134,7 +149,7 @@ pub(super) fn block(
                     "Unsupported block invocation: `{block_type:?} {lhs:?} {body:?}`"
                 ))
             },
-            |coord| coord_block(block_type, coord, body, state, path, src_files),
+            |coord| coord_block(block_type, coord, body, state, path, src_files, config),
         ),
     }
 }
@@ -151,6 +166,7 @@ fn loop_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let invert = match block_type {
         BlockType::For | BlockType::DoWhile | BlockType::While => false,
@@ -172,12 +188,13 @@ fn loop_block(
         vec![Command::Function(fn_name.clone())].into(),
         "",
         state,
+        config,
     )?;
     let [goto_fn] = &binding.base()[..] else {
             return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
         };
     // this is the code that runs on each loop
-    let mut body = inner_interpret(block, state, path, src_files)?;
+    let mut body = inner_interpret(block, state, path, src_files, config)?;
     // this is the code that runs to enter the loop
     let mut initial = VecCmd::default();
     if block_type == BlockType::For {
@@ -188,7 +205,7 @@ fn loop_block(
         initial.push(
             Command::ScoreSet {
                 target: left.stringify_scoreboard_target()?,
-                objective: left.stringify_scoreboard_objective()?,
+                objective: left.stringify_scoreboard_objective(config)?,
                 value: start.unwrap_or(0),
             }
             .into(),
@@ -196,7 +213,7 @@ fn loop_block(
         body.push(
             Command::ScoreAdd {
                 target: left.stringify_scoreboard_target()?,
-                objective: left.stringify_scoreboard_objective()?,
+                objective: left.stringify_scoreboard_objective(config)?,
                 value: 1,
             }
             .into(),
@@ -231,6 +248,7 @@ fn interpret_if(
     content: VecCmd,
     hash: &str,
     state: &mut InterRepr,
+    config: &Config,
 ) -> SResult<VecCmd> {
     if content.is_empty() {
         return Err(String::from("`if` body cannot be empty"));
@@ -238,7 +256,7 @@ fn interpret_if(
     let mut setter = None;
     let (target_player, target_objective) = if let (Ok(target_player), Ok(target_objective)) = (
         left.stringify_scoreboard_target(),
-        left.stringify_scoreboard_objective(),
+        left.stringify_scoreboard_objective(config),
     ) {
         (target_player, target_objective)
     } else {
@@ -247,8 +265,9 @@ fn interpret_if(
             Operation::Equal,
             &left.clone().into(),
             state,
+            config,
         )?);
-        ("%".into(), DUMMY.into())
+        ("%".into(), config.dummy_objective.clone())
     };
     let options = match right {
         Syntax::Identifier(_)
@@ -259,7 +278,7 @@ fn interpret_if(
         }
         | Syntax::SelectorColon(_, _) => {
             let (source, source_objective) = match right {
-                Syntax::Identifier(ident) => (ident.clone(), DUMMY.into()),
+                Syntax::Identifier(ident) => (ident.clone(), config.dummy_objective.clone()),
                 Syntax::BinaryOp {
                     lhs: left,
                     operation: Operation::Colon,
@@ -282,7 +301,7 @@ fn interpret_if(
             if !state.objectives.contains_key(&source_objective) {
                 state
                     .objectives
-                    .insert(source_objective.clone(), DUMMY.into());
+                    .insert(source_objective.clone(), config.dummy_objective.clone());
             }
             match op {
                 // x = var
@@ -372,19 +391,22 @@ fn advancement(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<Nbt> {
     let mut map_buf = BTreeMap::new();
     let mut reward_fn = None;
     for (k, v) in body {
         if &**k == "reward" {
-            reward_fn = Some(inner_interpret(v, state, path, src_files)?);
+            reward_fn = Some(inner_interpret(v, state, path, src_files, config)?);
         } else if &**k == "reward_each" {
-            reward_fn = Some(inner_interpret(v, state, path, src_files)?.map(|mut cmds| {
-                cmds.push(Command::Raw(
-                    format!("advancement revoke @s only <NAMESPACE>:{name}").into(),
-                ));
-                cmds
-            }));
+            reward_fn = Some(inner_interpret(v, state, path, src_files, config)?.map(
+                |mut cmds| {
+                    cmds.push(Command::Raw(
+                        format!("advancement revoke @s only <NAMESPACE>:{name}").into(),
+                    ));
+                    cmds
+                },
+            ));
         } else {
             map_buf.insert(k.clone(), Nbt::try_from(v)?);
         }
@@ -408,6 +430,7 @@ fn ident_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     if block_type == BlockType::On
         && !matches!(
@@ -425,7 +448,7 @@ fn ident_block(
         return Err(format!("Invalid `on` identifier: `{ident}`; expected `attacker`, `controller`, `leasher`, `origin`, `owner`, `passengers`, `target`, or `vehicle`"));
     }
 
-    let content = inner_interpret(body, state, path, src_files)?;
+    let content = inner_interpret(body, state, path, src_files, config)?;
 
     let (options, hash) = match block_type {
         BlockType::On => (
@@ -452,6 +475,7 @@ fn coord_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let mut opts = Vec::new();
     match block_type {
@@ -466,7 +490,7 @@ fn coord_block(
     }
     Ok(Command::execute(
         opts.clone(),
-        inner_interpret(block, state, path, src_files)?,
+        inner_interpret(block, state, path, src_files, config)?,
         &format!("closure/{block_type}_{:x}", get_hash(block)),
         state,
     )
@@ -480,6 +504,7 @@ fn rotated_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let (yaw_rel, yaw) = match yaw {
         Syntax::Integer(int) => (false, *int as f32),
@@ -509,7 +534,7 @@ fn rotated_block(
             pitch_rel,
             pitch,
         }],
-        inner_interpret(body, state, path, src_files)?,
+        inner_interpret(body, state, path, src_files, config)?,
         &hash,
         state,
     )
@@ -522,10 +547,11 @@ fn async_block(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<VecCmd> {
     let Syntax::Array(arr) = body else {
                 // just make it a normal function
-                let inner = inner_interpret(body, state, path, src_files)?;
+                let inner = inner_interpret(body, state, path, src_files, config)?;
                 state.functions.insert(ident.clone(), inner);
                 return Ok(VecCmd::default());
             };
@@ -553,7 +579,7 @@ fn async_block(
                 continue;
             }
         }
-        command_buf.extend(inner_interpret(cmd, state, path, src_files)?);
+        command_buf.extend(inner_interpret(cmd, state, path, src_files, config)?);
     }
     state.functions.insert(func, command_buf);
     Ok(VecCmd::default())

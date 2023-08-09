@@ -5,7 +5,7 @@ use std::{
 
 use lazy_regex::lazy_regex;
 
-use crate::{interpreter::inner_interpret, types::prelude::*};
+use crate::{interpreter::inner_interpret, types::prelude::*, Config};
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn item(
@@ -13,6 +13,7 @@ pub(super) fn item(
     state: &mut InterRepr,
     path: &Path,
     src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
 ) -> SResult<Item> {
     let Syntax::Object(src) = src else {
         return Err(format!("Expected an object for item macro; got `{src:?}`"))
@@ -43,48 +44,48 @@ pub(super) fn item(
                 Syntax::String(str) => item.on_consume.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.on_consume.extend(inner_interpret(value, state, path, src_files)?);
+                        item.on_consume.extend(inner_interpret(value, state, path, src_files, config)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path, src_files)?;
+                    let new_body = inner_interpret(body, state, path, src_files, config)?;
                     state.functions.insert(name.clone(), new_body);
                     item.on_consume.push(Command::Function(name.clone()).into());
                 }
                 other => {
                     item.on_consume
-                        .extend(inner_interpret(other, state, path, src_files)?);
+                        .extend(inner_interpret(other, state, path, src_files, config)?);
                 }
             },
             "on_use" => match value {
                 Syntax::String(str) => item.on_use.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.on_use.extend(inner_interpret(value, state, path, src_files)?);
+                        item.on_use.extend(inner_interpret(value, state, path, src_files, config)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path, src_files)?;
+                    let new_body = inner_interpret(body, state, path, src_files, config)?;
                     state.functions.insert(name.clone(), new_body);
                     item.on_use.push(Command::Function(name.clone()).into());
                 }
                 other => item
                     .on_use
-                    .extend(inner_interpret(other, state, path, src_files)?),
+                    .extend(inner_interpret(other, state, path, src_files, config)?),
             },
             "while_using" => match value {
                 Syntax::String(str) => item.while_using.push(Command::Function(str.clone()).into()),
                 Syntax::Block(BlockType::Function, name, body) => {
                     let (Syntax::Identifier(name) | Syntax::String(name)) = &**name else {
-                        item.while_using.extend(inner_interpret(value, state, path, src_files)?);
+                        item.while_using.extend(inner_interpret(value, state, path, src_files, config)?);
                         continue;
                     };
-                    let new_body = inner_interpret(body, state, path, src_files)?;
+                    let new_body = inner_interpret(body, state, path, src_files, config)?;
                     state.functions.insert(name.clone(), new_body);
                     item.while_using
                         .push(Command::Function(name.clone()).into());
                 }
                 other => {
                     item.while_using
-                        .extend(inner_interpret(other, state, path, src_files)?);
+                        .extend(inner_interpret(other, state, path, src_files, config)?);
                 }
             },
             "recipe" => {
@@ -137,7 +138,7 @@ pub(super) fn item(
                         }
                     };
                     item.slot_checks
-                        .push((slot, inner_interpret(v, state, path, src_files)?));
+                        .push((slot, inner_interpret(v, state, path, src_files, config)?));
                 }
             }
             other => return Err(format!("Unexpected item property: `{other}`")),
