@@ -143,15 +143,15 @@ fn macros() {
         .into();
     assert_eq!(raycast_repr.functions.get::<str>(&format!("__internal__/{raycast_hash}")).unwrap().base(), &format!("
 execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~
-scoreboard players reset %timer_{raycast_hash} dummy
+scoreboard players reset %__timer__{raycast_hash} dummy
 execute at @s run function test:__internal__/loop_{raycast_hash}
 execute at @s run hit
 kill @s"));
     assert_eq!(raycast_repr.functions.get::<str>(&format!("__internal__/loop_{raycast_hash}")).unwrap().base(), &format!("
 each
 tp @s ^ ^ ^0.2
-scoreboard players add %timer_{raycast_hash} dummy 1
-execute if score %timer_{raycast_hash} dummy matches ..200 at @s if block ~ ~ ~ air run function test:__internal__/loop_{raycast_hash}"
+scoreboard players add %__timer__{raycast_hash} dummy 1
+execute if score %__timer__{raycast_hash} dummy matches ..200 at @s if block ~ ~ ~ air run function test:__internal__/loop_{raycast_hash}"
 ));
 }
 
