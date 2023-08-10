@@ -51,7 +51,7 @@ fn control_flow() {
 fn loops() {
     let for_loop = build_e2e!("function load for x in 0..10 @raw \"...\"");
     println!("{:#?}", for_loop.functions);
-    let for_inner: RStr = lazy_regex!(".*\nfunction test:(closure/[0-9a-f]+)")
+    let for_inner: RStr = lazy_regex!(".*\nfunction test:(__internal__/[0-9a-f]+)")
         .captures(for_loop.functions.get("load").unwrap().base())
         .unwrap()
         .get(1)
@@ -62,7 +62,7 @@ fn loops() {
     &format!("\n...\nscoreboard players add %x dummy 1\nexecute if score %x dummy matches 0..10 run function test:{for_inner}"));
 
     let while_loop = build_e2e!("function load while x <= 10 x++");
-    let while_inner: RStr = lazy_regex!(".*\nexecute if score %x dummy matches ..10 run function test:(closure/[0-9a-f]+)")
+    let while_inner: RStr = lazy_regex!(".*\nexecute if score %x dummy matches ..10 run function test:(__internal__/[0-9a-f]+)")
         .captures(while_loop.functions.get("load").unwrap().base())
         .unwrap()
         .get(1)
@@ -73,7 +73,7 @@ fn loops() {
     &format!("\nscoreboard players add %x dummy 1\nexecute if score %x dummy matches ..10 run function test:{while_inner}"));
     
     let do_while_loop = build_e2e!("function load do while x <= 10 x++");
-    let do_while_inner: RStr = lazy_regex!(".*\nfunction test:(closure/[0-9a-f]+)")
+    let do_while_inner: RStr = lazy_regex!(".*\nfunction test:(__internal__/[0-9a-f]+)")
         .captures(do_while_loop.functions.get("load").unwrap().base())
         .unwrap()
         .get(1)
@@ -84,7 +84,7 @@ fn loops() {
     &format!("\nscoreboard players add %x dummy 1\nexecute if score %x dummy matches ..10 run function test:{do_while_inner}"));
 
     let until_loop = build_e2e!("function load until x = 10 x++");
-    let until_inner: RStr = lazy_regex!(".*\nexecute unless score %x dummy matches 10 run function test:(closure/[0-9a-f]+)")
+    let until_inner: RStr = lazy_regex!(".*\nexecute unless score %x dummy matches 10 run function test:(__internal__/[0-9a-f]+)")
         .captures(until_loop.functions.get("load").unwrap().base())
         .unwrap()
         .get(1)
@@ -95,7 +95,7 @@ fn loops() {
     &format!("\nscoreboard players add %x dummy 1\nexecute unless score %x dummy matches 10 run function test:{until_inner}"));
     
     let do_until_loop = build_e2e!("function load do until x = 10 x++");
-    let do_until_inner: RStr = lazy_regex!(".*\nfunction test:(closure/[0-9a-f]+)")
+    let do_until_inner: RStr = lazy_regex!(".*\nfunction test:(__internal__/[0-9a-f]+)")
         .captures(do_until_loop.functions.get("load").unwrap().base())
         .unwrap()
         .get(1)
@@ -134,24 +134,24 @@ fn macros() {
   each: @raw \"each\"
   hit: @raw \"hit\"
 }");
-    let raycast_hash: RStr = lazy_regex!(".*\nexecute summon marker run function test:closure/([0-9a-f]+)")
+    let raycast_hash: RStr = lazy_regex!(".*\nexecute summon marker run function test:__internal__/([0-9a-f]+)")
         .captures(raycast_repr.functions.get("raycast").unwrap().base())
         .unwrap()
         .get(1)
         .unwrap()
         .as_str()
         .into();
-    assert_eq!(raycast_repr.functions.get::<str>(&format!("closure/{raycast_hash}")).unwrap().base(), &format!("
+    assert_eq!(raycast_repr.functions.get::<str>(&format!("__internal__/{raycast_hash}")).unwrap().base(), &format!("
 execute rotated as @p run tp @s ~ ~1.5 ~ ~ ~
 scoreboard players reset %timer_{raycast_hash} dummy
-execute at @s run function test:closure/loop_{raycast_hash}
+execute at @s run function test:__internal__/loop_{raycast_hash}
 execute at @s run hit
 kill @s"));
-    assert_eq!(raycast_repr.functions.get::<str>(&format!("closure/loop_{raycast_hash}")).unwrap().base(), &format!("
+    assert_eq!(raycast_repr.functions.get::<str>(&format!("__internal__/loop_{raycast_hash}")).unwrap().base(), &format!("
 each
 tp @s ^ ^ ^0.2
 scoreboard players add %timer_{raycast_hash} dummy 1
-execute if score %timer_{raycast_hash} dummy matches ..200 at @s if block ~ ~ ~ air run function test:closure/loop_{raycast_hash}"
+execute if score %timer_{raycast_hash} dummy matches ..200 at @s if block ~ ~ ~ air run function test:__internal__/loop_{raycast_hash}"
 ));
 }
 

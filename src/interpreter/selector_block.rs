@@ -207,7 +207,7 @@ fn selector_block(
     Ok(Command::execute(
         res_buf.clone(),
         inner,
-        &format!("closure/{block_type}_{:x}", get_hash(body)),
+        &format!("__internal__/{block_type}_{:x}", get_hash(body)),
         state,
     )
     .into_vec())

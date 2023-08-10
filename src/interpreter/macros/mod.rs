@@ -215,14 +215,14 @@ fn raycast(
     };
 
     let hash: RStr = format!("{hash:x}").into();
-    let score_name: RStr = format!("%timer_{hash}").into();
-    let closure_name: RStr = format!("closure/{hash}").into();
-    let loop_name: RStr = format!("closure/loop_{hash}").into();
+    let score_name: RStr = format!("%__timer__{hash}").into();
+    let closure_name: RStr = format!("__internal__/{hash}").into();
+    let loop_name: RStr = format!("__internal__/loop_{hash}").into();
 
     let closure_fn = Command::execute(
         vec![ExecuteOption::At(Selector::s())],
         callback,
-        &format!("closure/callback_{hash}"),
+        &format!("__internal__/callback_{hash}"),
         state,
     )
     .map(|cmds| {

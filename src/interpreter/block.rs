@@ -32,7 +32,7 @@ pub(super) fn block(
             *op,
             right,
             inner_interpret(body, state, path, src_files, config)?,
-            &format!("closure/if_{:x}", get_hash(body)),
+            &format!("__internal__/if_{:x}", get_hash(body)),
             state,
             config,
         ),
@@ -51,7 +51,7 @@ pub(super) fn block(
             *op,
             right,
             inner_interpret(body, state, path, src_files, config)?,
-            &format!("closure/unless_{:x}", get_hash(body)),
+            &format!("__internal__/unless_{:x}", get_hash(body)),
             state,
             config,
         ),
@@ -73,7 +73,7 @@ pub(super) fn block(
         ),
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
-            let switch_var: RStr = format!("closure/switch_{:x}", get_hash(body)).into();
+            let switch_var: RStr = format!("__internal__/switch_{:x}", get_hash(body)).into();
             let mut cmd_buf = operation(
                 &OpLeft::Ident(switch_var.clone()),
                 Operation::Equal,
@@ -91,7 +91,7 @@ pub(super) fn block(
                     Operation::Equal,
                     match_value,
                     inner_interpret(body, state, path, src_files, config)?,
-                    &format!("closure/case_{:x}", get_hash(body)),
+                    &format!("__internal__/case_{:x}", get_hash(body)),
                     state,
                     config,
                 )?);
@@ -173,7 +173,7 @@ fn loop_block(
         BlockType::DoUntil | BlockType::Until => true,
         _ => unreachable!(),
     };
-    let fn_name: RStr = format!("closure/{:x}", get_hash(block)).into();
+    let fn_name: RStr = format!("__internal__/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
     let left = if block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
         OpLeft::Ident(format!("{:x}", get_hash(block)).into())
@@ -453,15 +453,15 @@ fn ident_block(
     let (options, hash) = match block_type {
         BlockType::On => (
             ExecuteOption::On(ident),
-            format!("closure/on_{:x}", get_hash(body)),
+            format!("__internal__/on_{:x}", get_hash(body)),
         ),
         BlockType::Summon => (
             ExecuteOption::Summon(ident),
-            format!("closure/summon_{:x}", get_hash(body)),
+            format!("__internal__/summon_{:x}", get_hash(body)),
         ),
         BlockType::Anchored => (
             ExecuteOption::Anchored(ident),
-            format!("closure/anchored_{:x}", get_hash(body)),
+            format!("__internal__/anchored_{:x}", get_hash(body)),
         ),
         _ => unreachable!(),
     };
@@ -491,7 +491,7 @@ fn coord_block(
     Ok(Command::execute(
         opts.clone(),
         inner_interpret(block, state, path, src_files, config)?,
-        &format!("closure/{block_type}_{:x}", get_hash(block)),
+        &format!("__internal__/{block_type}_{:x}", get_hash(block)),
         state,
     )
     .map(|c| vec![c]))
@@ -526,7 +526,7 @@ fn rotated_block(
             ))
         }
     };
-    let hash = format!("closure/rotated_{:x}", get_hash(body));
+    let hash = format!("__internal__/rotated_{:x}", get_hash(body));
     Ok(Command::execute(
         vec![ExecuteOption::Rotated {
             yaw_rel,
@@ -563,7 +563,7 @@ fn async_block(
                 let Syntax::Integer(time) = &**body else {
                             return Err(format!("Expected an integer for delay; got `{body:?}`"))
                         };
-                let next_func: RStr = format!("closure/async_{:x}", get_hash(&func)).into();
+                let next_func: RStr = format!("__async__/{:x}", get_hash(&func)).into();
                 command_buf.push(
                     Command::Schedule {
                         func: next_func.clone(),

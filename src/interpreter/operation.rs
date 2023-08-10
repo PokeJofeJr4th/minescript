@@ -357,7 +357,7 @@ fn nbt_op(
                 }]),
                 _ => Err(format!("Can't operate `{{NBT}} = {syn:?}`")),
             }?;
-            let hash = format!("{:x}", get_hash(&(&lhs, syn)));
+            let hash = format!("__internal__/{:x}", get_hash(&(&lhs, syn)));
             Ok(Command::execute(
                 vec![ExecuteOption::StoreNBT {
                     location: lhs,

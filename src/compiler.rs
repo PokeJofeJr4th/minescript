@@ -147,7 +147,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     ExecuteOption::At(Selector::s()),
                 ],
                 fn_content.clone(),
-                &format!("closure/slot_{slot:x}_{:x}", get_hash(fn_content)),
+                &format!("__internal__/slot_{slot:x}_{:x}", get_hash(fn_content)),
                 src,
             );
             tick_buf.push('\n');
@@ -281,17 +281,17 @@ pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::i
                 "{parent}{nmsp}/data/{nmsp}/functions/{path}.mcfunction"
             ))?;
             write!(file, "{}", contents.base())?;
-            if &**path == "tick" {
+            if &**path == "__tick__" {
                 let mut tick = create_file_with_parent_dirs(&format!(
                     "{parent}{nmsp}/data/minecraft/tags/functions/tick.json"
                 ))?;
-                write!(tick, "{{\"values\":[\"{nmsp}:tick\"]}}")?;
+                write!(tick, "{{\"values\":[\"{nmsp}:__tick__\"]}}")?;
             }
-            if &**path == "load" {
+            if &**path == "__load__" {
                 let mut load = create_file_with_parent_dirs(&format!(
                     "{parent}{nmsp}/data/minecraft/tags/functions/load.json"
                 ))?;
-                write!(load, "{{\"values\":[\"{nmsp}:load\"]}}")?;
+                write!(load, "{{\"values\":[\"{nmsp}:__load__\"]}}")?;
             }
         }
         for (version, content) in contents.versions() {

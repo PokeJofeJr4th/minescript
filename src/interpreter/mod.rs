@@ -52,7 +52,7 @@ fn inner_interpret(
                 lhs,
                 *operation == Operation::QuestionEq,
                 inner_interpret(rhs, state, path, src_files, config)?,
-                &format!("closure/{:x}", get_hash(rhs)),
+                &format!("__internal__/{:x}", get_hash(rhs)),
                 state,
                 config,
             )
