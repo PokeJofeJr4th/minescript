@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use lazy_regex::lazy_regex;
+
 use super::{inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*, Config};
 
@@ -104,6 +106,13 @@ pub(super) fn block(
         }
         // function do_thing { ... }
         (BlockType::Function, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
+            if matches!(&**ident, "load" | "tick") {
+                println!("\x1b[33mWARN\x1b[0m\tDid you mean to name your function `__{ident}__` instead of `{ident}`?");
+            } else if matches!(&**ident, "__load__" | "__tick__") {
+                // nothing happens here
+            } else if lazy_regex!("__[a-zA-Z0-9-_]+__").is_match(ident) {
+                println!("\x1b[33mWARN\x1b[0m\tFunctions of the form `{ident}` may lead to undefined behavior; double-underscores are reserved for use by Minescript");
+            }
             let inner = inner_interpret(body, state, path, src_files, config)?;
             state.functions.insert(ident.clone(), inner);
             Ok(VecCmd::default())
