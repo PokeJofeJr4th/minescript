@@ -176,9 +176,9 @@ fn variables() {
     assert_e2e!("@s:health -= @p:attack" => "scoreboard players operation @s health -= @p attack");
     assert_e2e!("x *= 2" => "scoreboard players operation %x dummy += %x dummy");
     assert_e2e!("x *= 1.618" 
-    => "scoreboard players operation %x dummy *= %const_90 dummy\nscoreboard players operation %x dummy /= %const_59 dummy");
+    => "scoreboard players operation %x dummy *= %__const__90 dummy\nscoreboard players operation %x dummy /= %__const__59 dummy");
     assert_e2e!("x >< y" => "scoreboard players operation %x dummy >< %y dummy");
-    assert_e2e!("x %= 10" => "scoreboard players operation %x dummy %= %const_a dummy");
+    assert_e2e!("x %= 10" => "scoreboard players operation %x dummy %= %__const__a dummy");
     assert_e2e!("x += 1" => "scoreboard players add %x dummy 1");
 
     assert_e2e!("@p::lvl += 1" => "xp add @p 1 levels");

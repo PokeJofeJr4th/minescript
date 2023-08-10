@@ -181,14 +181,14 @@ fn simple_operation(
                     target: target_name.clone(),
                     target_objective: target_objective.clone(),
                     operation: Operation::MulEq,
-                    source: format!("%const_{:x}", approx.0).into(),
+                    source: format!("%__const__{:x}", approx.0).into(),
                     source_objective: config.dummy_objective.clone(),
                 },
                 Command::ScoreOperation {
                     target: target_name,
                     target_objective,
                     operation: Operation::DivEq,
-                    source: format!("%const_{:x}", approx.1).into(),
+                    source: format!("%__const__{:x}", approx.1).into(),
                     source_objective: config.dummy_objective.clone(),
                 },
             ].into())
@@ -268,7 +268,7 @@ fn integer_operation(
                 target: target_name,
                 target_objective,
                 operation: op,
-                source: format!("%const_{value:x}").into(),
+                source: format!("%__const__{value:x}").into(),
                 source_objective: config.dummy_objective.clone(),
             }]
             .into())

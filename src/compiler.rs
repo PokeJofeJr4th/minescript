@@ -22,10 +22,10 @@ pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     // add all the consts
     for value in &src.constants {
         load.push_str(&format!(
-            "\nscoreboard players set %const_{value:x} dummy {value}"
+            "\nscoreboard players set %__const__{value:x} dummy {value}"
         ));
     }
-    compiled.insert_fn("load", load.into());
+    compiled.insert_fn("__load__", load.into());
     compile_items(src, namespace, &mut compiled)?;
     // put all the functions in
     for (name, statements) in &src.functions {
@@ -158,7 +158,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         tick_buf.push_str(&format!("\nscoreboard players reset @a {base_score}\n"));
     }
     if !tick_buf.is_empty() {
-        compiled.insert_fn("tick", tick_buf);
+        compiled.insert_fn("__tick__", tick_buf);
     }
     Ok(())
 }
