@@ -131,7 +131,7 @@ pub(super) fn block(
         (BlockType::Async, Syntax::Identifier(ident) | Syntax::String(ident), _) => {
             async_block(body, ident, state, path, src_files, config)
         }
-        // on owner {...}
+        // on owner { ... }
         (
             BlockType::On | BlockType::Summon | BlockType::Anchored,
             Syntax::Identifier(ident) | Syntax::String(ident),
