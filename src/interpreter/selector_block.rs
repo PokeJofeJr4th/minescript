@@ -142,18 +142,18 @@ fn damage(selector: &Selector<Syntax>, properties: &Syntax) -> SResult<VecCmd> {
                 },
                 "attacker" | "from" | "by" => {
                     let Syntax::Selector(sel) = v else {
-                        return Err(format!("Damage macro attacker should be selector; got `{v:?}`"))
+                        return Err(format!("Damage annotation attacker should be selector; got `{v:?}`"))
                     };
                     attacker = sel.clone();
                 }
-                other => return Err(format!("Invalid key for damage macro: `{other}`")),
+                other => return Err(format!("Invalid key for damage annotation: `{other}`")),
             }
         }
     } else if let Syntax::Integer(int) = properties {
         amount = *int;
     } else {
         return Err(format!(
-            "Damage macro expected an object or integer; got `{properties:?}`"
+            "Damage annotation expected an object or integer; got `{properties:?}`"
         ));
     };
     Ok(vec![Command::Damage {

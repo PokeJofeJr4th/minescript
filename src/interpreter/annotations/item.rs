@@ -221,7 +221,7 @@ fn recipe(value: &Syntax) -> SResult<Nbt> {
                 })
             }))
         }
-        Syntax::Macro(ident, inner) => match ident.as_ref() {
+        Syntax::Annotation(ident, inner) => match ident.as_ref() {
             "crafting_shaped" | "shaped" => {
                 if !inner.is_object() {
                     return Err(format!("Expected recipe object; got `{inner:?}`"));

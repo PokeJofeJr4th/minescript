@@ -7,8 +7,8 @@ use crate::{types::prelude::*, Config};
 
 /// handles blocks of the form `if <condition> {...}`
 mod block;
-/// handles macros like `@item {...}`
-mod macros;
+/// handles annotations like `@item {...}`
+mod annotations;
 /// handles operations like `counter += 1;`
 mod operation;
 /// handles selector blocks like `as @s {...}`
@@ -66,8 +66,8 @@ fn inner_interpret(
             return block::block(*block_type, lhs, rhs, state, path, src_files, config)
         }
         // @function x
-        Syntax::Macro(name, properties) => {
-            return macros::macros(name, properties, state, path, src_files, config)
+        Syntax::Annotation(name, properties) => {
+            return annotations::macros(name, properties, state, path, src_files, config)
         }
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),

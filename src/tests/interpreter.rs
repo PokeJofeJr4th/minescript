@@ -5,7 +5,7 @@ use crate::{interpreter::test_interpret, types::prelude::*};
 #[test]
 fn function() {
     assert_eq!(
-        test_interpret(&Syntax::Macro(
+        test_interpret(&Syntax::Annotation(
             "function".into(),
             Box::new(Syntax::String("give/berry".into()))
         )),
@@ -58,7 +58,7 @@ fn as_s_if_score() {
                         operation: Operation::RCaretEq,
                         rhs: Box::new(Syntax::Integer(3))
                     }),
-                    Box::new(Syntax::Macro(
+                    Box::new(Syntax::Annotation(
                         "function".into(),
                         Box::new(Syntax::String("give/my_item".into()))
                     ))

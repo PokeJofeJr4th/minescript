@@ -10,7 +10,6 @@ use crate::{lexer::tokenize, parser::parse, types::prelude::*, Config};
 mod effect;
 mod item;
 
-// #[macro_export]
 macro_rules! interpret_fn {
     ($fn_buf: ident $config: ident, $value: expr, $state: expr, $path: expr, $src_files: expr) => {
         match $value {

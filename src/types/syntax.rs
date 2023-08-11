@@ -14,8 +14,8 @@ use super::prelude::*;
 pub enum Syntax {
     /// A floating piece of text
     Identifier(RStr),
-    /// A macro invocation with the name and body of the macro
-    Macro(RStr, Box<Syntax>),
+    /// An annotation invocation with the name and body of the annotation
+    Annotation(RStr, Box<Syntax>),
     /// A list of key-value pairs
     Object(BTreeMap<RStr, Syntax>),
     /// A list of syntax elements
@@ -58,7 +58,7 @@ impl Debug for Syntax {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(ident) => write!(f, "{ident}"),
-            Self::Macro(name, body) => write!(f, "@{name} {body:?}"),
+            Self::Annotation(name, body) => write!(f, "@{name} {body:?}"),
             Self::Object(obj) => f.debug_map().entries(obj).finish(),
             Self::Array(arr) => f.debug_list().entries(arr.iter()).finish(),
             Self::Selector(sel) => write!(f, "{sel:?}"),
@@ -150,7 +150,7 @@ impl Hash for Syntax {
         core::mem::discriminant(self).hash(state);
         match self {
             Self::Identifier(str) | Self::String(str) => str.hash(state),
-            Self::Macro(name, syn) => {
+            Self::Annotation(name, syn) => {
                 name.hash(state);
                 syn.hash(state);
             }

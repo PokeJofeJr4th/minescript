@@ -30,7 +30,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             parse_block(tokens, &Token::RSquare, || Syntax::Array(Rc::from([])))
         }
         Some(Token::LParen) => parse_block(tokens, &Token::RParen, || Syntax::Unit),
-        Some(Token::At) => parse_macro(tokens),
+        Some(Token::At) => parse_annotation(tokens),
         Some(Token::UCaret) => Ok(Syntax::CaretCoord(extract_float(tokens)?)),
         Some(Token::Woogly) => Ok(Syntax::WooglyCoord(extract_float(tokens)?)),
         Some(Token::Bang) => {
@@ -247,7 +247,7 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
 }
 
 /// parse a statement that starts with `@`
-fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
+fn parse_annotation<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
     let Some(Token::Identifier(identifier)) = tokens.next() else {
         return Err("Expected identifier after `@`".to_string())
     };
@@ -283,6 +283,6 @@ fn parse_macro<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<S
                 args: selector_buf,
             }))
         }
-        _ => Ok(Syntax::Macro(identifier, Box::new(parse(tokens)?))),
+        _ => Ok(Syntax::Annotation(identifier, Box::new(parse(tokens)?))),
     }
 }

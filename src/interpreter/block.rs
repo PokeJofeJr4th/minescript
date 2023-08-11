@@ -567,7 +567,7 @@ fn async_block(
     let mut func = ident.clone();
     let mut command_buf = VecCmd::default();
     for cmd in arr.iter() {
-        if let Syntax::Macro(id, body) = cmd {
+        if let Syntax::Annotation(id, body) = cmd {
             if &**id == "delay" {
                 let Syntax::Integer(time) = &**body else {
                             return Err(format!("Expected an integer for delay; got `{body:?}`"))

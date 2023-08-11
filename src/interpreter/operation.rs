@@ -138,23 +138,23 @@ fn simple_operation(
             source_objective: ident.clone(),
         }].into()),
         // x = @rand ...
-        (Operation::Equal, Syntax::Macro(mac, bound)) => {
+        (Operation::Equal, Syntax::Annotation(mac, bound)) => {
             if !matches!(&**mac, "rand" | "random") {
                 return Err(format!(
-                    "The only macro allowed in an operation is `rand`; got `{mac}`"
+                    "The only annotation allowed in an operation is `rand`; got `{mac}`"
                 ));
             }
-            super::macros::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state, config)
+            super::annotations::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state, config)
         }
         // x += @rand ...
-        (op, Syntax::Macro(mac, bound)) => {
+        (op, Syntax::Annotation(mac, bound)) => {
             if !matches!(&**mac, "rand" | "random") {
                 return Err(format!(
-                    "The only macro allowed in an operation is `rand`; got `{mac}`"
+                    "The only annotation allowed in an operation is `rand`; got `{mac}`"
                 ));
             }
             // set an intermediate score to the random value
-            let mut cmd_buf = super::macros::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
+            let mut cmd_buf = super::annotations::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
             // operate the random value into the target
             cmd_buf.push(Command::ScoreOperation {
                 target: target.stringify_scoreboard_target()?,

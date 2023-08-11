@@ -118,7 +118,7 @@ fn execution_context() {
 }
 
 #[test]
-fn macros() {
+fn annotations() {
     assert_e2e!("@function \"give/my_item\"" => "function test:give/my_item");
     assert_e2e!("@raw [\"function <NAMESPACE>:give/my_item\"; \"give @s diamond 64\"]" 
     => "function test:give/my_item\ngive @s diamond 64");
