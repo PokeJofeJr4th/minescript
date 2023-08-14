@@ -3,7 +3,7 @@ use std::iter::Peekable;
 use crate::types::{SResult, Token};
 
 macro_rules! multi_character_pattern {
-    ($chars:ident $just:expr; {$($char:expr => $eq:expr),*}) => {
+    ($chars:ident $just:expr; $($char:expr => $eq:expr),*) => {
         match $chars.peek() {
             $(Some($char) => {
                 $chars.next();
@@ -19,7 +19,27 @@ pub fn tokenize(source: &str) -> SResult<Vec<Token>> {
     let mut token_stream = Vec::new();
     while chars.peek().is_some() {
         if let Some(tok) = inner_tokenize(&mut chars)? {
-            token_stream.push(tok);
+            match (token_stream.last(), tok) {
+                (
+                    Some(Token::Dot),
+                    tok @ (Token::Equal
+                    | Token::TackEq
+                    | Token::PlusEq
+                    | Token::StarEq
+                    | Token::SlashEq),
+                ) => {
+                    token_stream.pop();
+                    token_stream.push(match tok {
+                        Token::Equal => Token::DotEq,
+                        Token::TackEq => Token::DotTackEq,
+                        Token::PlusEq => Token::DotPlusEq,
+                        Token::StarEq => Token::DotStarEq,
+                        Token::SlashEq => Token::DotSlashEq,
+                        _ => unreachable!(),
+                    });
+                }
+                (_, tok) => token_stream.push(tok),
+            }
         }
     }
     Ok(token_stream)
@@ -43,25 +63,25 @@ fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<
         '[' => Token::LSquare,
         ']' => Token::RSquare,
         '@' => Token::At,
-        '=' => multi_character_pattern!(chars Token::Equal; {'>' => Token::FatArrow}),
+        '=' => multi_character_pattern!(chars Token::Equal; '>' => Token::FatArrow),
         '+' => {
-            multi_character_pattern!(chars Token::Plus; {'=' => Token::PlusEq, '+' => Token::PlusPlus})
+            multi_character_pattern!(chars Token::Plus; '=' => Token::PlusEq, '+' => Token::PlusPlus)
         }
         '-' => {
-            multi_character_pattern!(chars Token::Tack; {'=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow})
+            multi_character_pattern!(chars Token::Tack; '=' => Token::TackEq, '-' => Token::TackTack, '>' => Token::Arrow)
         }
-        '*' => multi_character_pattern!(chars Token::Star; {'=' => Token::StarEq}),
-        '/' => multi_character_pattern!(chars Token::Slash; {'=' => Token::SlashEq}),
-        '%' => multi_character_pattern!(chars Token::Percent; {'=' => Token::PercEq}),
-        '!' => multi_character_pattern!(chars Token::Bang; {'=' => Token::BangEq}),
-        '?' => multi_character_pattern!(chars Token::Question; {'=' => Token::QuestionEq}),
-        '<' => multi_character_pattern!(chars Token::LCaret; {'=' => Token::LCaretEq}),
+        '*' => multi_character_pattern!(chars Token::Star; '=' => Token::StarEq),
+        '/' => multi_character_pattern!(chars Token::Slash; '=' => Token::SlashEq),
+        '%' => multi_character_pattern!(chars Token::Percent; '=' => Token::PercEq),
+        '!' => multi_character_pattern!(chars Token::Bang; '=' => Token::BangEq),
+        '?' => multi_character_pattern!(chars Token::Question; '=' => Token::QuestionEq),
+        '<' => multi_character_pattern!(chars Token::LCaret; '=' => Token::LCaretEq),
         '>' => {
-            multi_character_pattern!(chars Token::RCaret; {'=' => Token::RCaretEq, '<' => Token::RLCaret})
+            multi_character_pattern!(chars Token::RCaret; '=' => Token::RCaretEq, '<' => Token::RLCaret)
         }
-        '.' => multi_character_pattern!(chars Token::Dot; {'.' => Token::DotDot}),
+        '.' => multi_character_pattern!(chars Token::Dot; '.' => Token::DotDot),
         ':' => {
-            multi_character_pattern!(chars Token::Colon; {':' => Token::DoubleColon, '=' => Token::ColonEq})
+            multi_character_pattern!(chars Token::Colon; ':' => Token::DoubleColon, '=' => Token::ColonEq)
         }
         ';' => Token::SemiColon,
         ',' => Token::Comma,

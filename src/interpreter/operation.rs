@@ -29,9 +29,6 @@ pub(super) fn operation(
 }
 
 /// Interpret an operation with a score on the left
-///
-/// ## Panics
-/// If passed a `target` with a double colon or nbt
 #[allow(clippy::too_many_lines)]
 fn simple_operation(
     target: &OpLeft,
@@ -63,7 +60,7 @@ fn simple_operation(
             let (xp_target, xp_objective) = if op == Operation::Equal {
                 (target.stringify_scoreboard_target()?, target.stringify_scoreboard_objective(config)?)
             } else {
-                ("%".into(), config.dummy_objective.clone())
+                ("%__xp__".into(), config.dummy_objective.clone())
             };
             // get experience into variable
             let mut vec: VecCmd = vec![Command::Execute {
@@ -79,10 +76,12 @@ fn simple_operation(
             }].into();
             if op != Operation::Equal {
                 // operate on the variable
-                vec.extend(simple_operation(
-                    target,
+                vec.extend(score_operation(
+                    target_name,
+                    target_objective,
                     op,
-                    &Syntax::Identifier("".into()),
+                    "%__xp__".into(),
+                    config.dummy_objective.clone(),
                     state,
                     config
                 )?);
@@ -116,27 +115,10 @@ fn simple_operation(
         }
         // x = y
         (op, Syntax::Identifier(ident)) => {
-            if !state.objectives.contains_key(&target_objective) {
-                state
-                    .objectives
-                    .insert(target_objective.clone(), config.dummy_objective.clone());
-            }
-            Ok(vec![Command::ScoreOperation {
-                target: target_name,
-                target_objective,
-                operation: op,
-                source: format!("%{ident}").into(),
-                source_objective: config.dummy_objective.clone(),
-            }].into())
+            score_operation(target_name, target_objective, op, format!("%{ident}").into(), config.dummy_objective.clone(), state, config)
         }
         // x = @r:y
-        (op, Syntax::SelectorColon(selector, ident)) => Ok(vec![Command::ScoreOperation {
-            target: target_name,
-            target_objective,
-            operation: op,
-            source: format!("{}", selector.stringify()?).into(),
-            source_objective: ident.clone(),
-        }].into()),
+        (op, Syntax::SelectorColon(selector, ident)) => score_operation(target_name, target_objective, op, selector.stringify()?.to_string().into(), ident.clone(), state, config),
         // x = @rand ...
         (Operation::Equal, Syntax::Annotation(mac, bound)) => {
             if !matches!(&**mac, "rand" | "random") {
@@ -154,15 +136,9 @@ fn simple_operation(
                 ));
             }
             // set an intermediate score to the random value
-            let mut cmd_buf = super::annotations::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("%".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
+            let mut cmd_buf = super::annotations::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("__rand__".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
             // operate the random value into the target
-            cmd_buf.push(Command::ScoreOperation {
-                target: target.stringify_scoreboard_target()?,
-                target_objective: target.stringify_scoreboard_objective(config)?,
-                operation: op,
-                source: "%%".into(),
-                source_objective: config.dummy_objective.clone(),
-            }.into());
+            cmd_buf.extend(score_operation(target_name, target_objective, op, "%__rand__".into(), config.dummy_objective.clone(), state, config)?);
             Ok(cmd_buf)
         }
         (Operation::MulEq | Operation::DivEq, Syntax::Float(float)) => {
@@ -193,9 +169,76 @@ fn simple_operation(
                 },
             ].into())
         }
-        // x += 0.1 => complain
-        (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication and division.")),
+        // x .+= 0.1
+        (op @ (Operation::FpAddEq | Operation::FpSubEq), Syntax::Float(float)) => {
+            #[allow(clippy::cast_possible_truncation)]
+            let actual_add_value = (*float * config.fixed_point_accuracy as f32) as i32;
+            Ok(vec![
+                Command::ScoreAdd {
+                    target:target_name,
+                    objective: target_objective,
+                    value: if op == Operation::FpAddEq {
+                        actual_add_value
+                    } else {
+                        - actual_add_value
+                    } }
+            ].into())},
+        (Operation::FpEq, Syntax::Float(float)) => {
+            #[allow(clippy::cast_possible_truncation)]
+            let actual_add_value = (*float * config.fixed_point_accuracy as f32) as i32;
+            Ok(vec![
+                Command::ScoreSet {
+                    target:target_name,
+                    objective: target_objective,
+                    value: actual_add_value
+                }
+            ].into())},
+        (Operation::FpMulEq | Operation::FpDivEq, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; since you can just multiply or divide by a float, `.*=` and `./=` are reserved for operating between fixed-point variables.")),
+        // x %= 0.1 => complain
+        (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication, division, and dedicated fixed-point decimal operations.")),
         _ => Err(format!("Unsupported operation: `{target:?} {op} {syn:?}`")),
+    }
+}
+
+/// compile an operation where both the left and right are scores
+fn score_operation(
+    target_name: RStr,
+    target_objective: RStr,
+    op: Operation,
+    src_name: RStr,
+    src_objective: RStr,
+    state: &mut InterRepr,
+    config: &Config,
+) -> SResult<VecCmd> {
+    if !state.objectives.contains_key(&target_objective) {
+        state
+            .objectives
+            .insert(target_objective.clone(), config.dummy_objective.clone());
+    }
+    if target_objective != src_objective && !state.objectives.contains_key(&target_objective) {
+        state
+            .objectives
+            .insert(target_objective.clone(), config.dummy_objective.clone());
+    }
+    match op {
+        Operation::AddEq | Operation::SubEq | Operation::MulEq | Operation::DivEq | Operation::ModEq | Operation::LCaret | Operation::RCaret | Operation::Swap | Operation::Equal => {
+            Ok(vec![Command::ScoreOperation { target: target_name, target_objective, operation: op, source: src_name, source_objective: src_objective }].into())
+        }
+        Operation::FpMulEq => {
+            state.constants.insert(config.fixed_point_accuracy);
+            Ok(vec![
+                Command::ScoreOperation { target: target_name.clone(), target_objective: target_objective.clone(), operation: Operation::MulEq, source: src_name, source_objective: src_objective },
+                Command::ScoreOperation { target: target_name, target_objective, operation: Operation::DivEq, source: format!("%__const__{:x}", config.fixed_point_accuracy).into(), source_objective: config.dummy_objective.clone() }
+            ].into())
+        }
+        Operation::FpDivEq => {
+            state.constants.insert(config.fixed_point_accuracy);
+            Ok(vec![
+                Command::ScoreOperation { target: target_name.clone(), target_objective: target_objective.clone(), operation: Operation::MulEq, source: format!("%__const__{:x}", config.fixed_point_accuracy).into(), source_objective: config.dummy_objective.clone() },
+                Command::ScoreOperation { target: target_name, target_objective, operation: Operation::DivEq, source: src_name, source_objective: src_objective }
+            ].into())
+        }
+        _ => Err(format!("Can't operate `{op}` with two scores ({target_name} {target_objective} {op} {src_name} {src_objective})"))
     }
 }
 
@@ -230,7 +273,7 @@ fn integer_operation(
         .into()),
         // x *= 1 => nop
         (Operation::MulEq | Operation::DivEq | Operation::ModEq, 1)
-        | (Operation::AddEq | Operation::SubEq, 0) => {
+        | (Operation::AddEq | Operation::SubEq | Operation::FpAddEq | Operation::FpSubEq, 0) => {
             println!("\x1b[33mWARN\x1b[0m\t`{{SCORE}} {op} {value}`; This is a non-operation.");
             Ok(VecCmd::default())
         }
@@ -259,6 +302,27 @@ fn integer_operation(
             target: target_name,
             target_objective,
             operation: Operation::AddEq,
+        }]
+        .into()),
+        // x .= 2
+        (Operation::FpEq, int) => Ok(vec![Command::ScoreSet {
+            target: target_name,
+            objective: target_objective,
+            value: int * config.fixed_point_accuracy,
+        }]
+        .into()),
+        // x .-= 2
+        (Operation::FpSubEq, int) => Ok(vec![Command::ScoreAdd {
+            target: target_name,
+            objective: target_objective,
+            value: -int * config.fixed_point_accuracy,
+        }]
+        .into()),
+        // x .+= 2
+        (Operation::FpAddEq, int) => Ok(vec![Command::ScoreAdd {
+            target: target_name,
+            objective: target_objective,
+            value: int * config.fixed_point_accuracy,
         }]
         .into()),
         // x %= 2

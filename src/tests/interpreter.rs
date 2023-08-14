@@ -132,7 +132,7 @@ fn xp_ops() {
         vec![
             Command::Execute {
                 options: vec![ExecuteOption::StoreScore {
-                    target: "%".into(),
+                    target: "%__xp__".into(),
                     objective: "dummy".into(),
                     is_success: false,
                 }],
@@ -145,7 +145,7 @@ fn xp_ops() {
                 target: "%x".into(),
                 target_objective: "dummy".into(),
                 operation: Operation::MulEq,
-                source: "%".into(),
+                source: "%__xp__".into(),
                 source_objective: "dummy".into()
             }
         ]

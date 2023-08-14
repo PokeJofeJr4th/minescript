@@ -58,11 +58,15 @@ struct Args {
     /// Specify the dummy objective used for variables
     #[clap(short, long)]
     dummy: Option<String>,
+    /// Accuracy of fixed-point calculations. Higher numbers are more precise
+    #[clap(short, long, default_value = "1000")]
+    fixed_point_accuracy: i32,
 }
 
 pub struct Config {
     namespace: String,
     dummy_objective: RStr,
+    fixed_point_accuracy: i32,
 }
 
 fn main() -> SResult<()> {
@@ -73,6 +77,7 @@ fn main() -> SResult<()> {
         dummy_objective: args
             .dummy
             .map_or_else(|| RStr::from("dummy"), |dummy| fmt_mc_ident(&dummy).into()),
+        fixed_point_accuracy: args.fixed_point_accuracy,
     };
     // load environment variables from `.env` file
     dotenv().ok();

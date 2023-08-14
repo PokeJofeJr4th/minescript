@@ -305,6 +305,16 @@ pub enum Operation {
     Swap,
     /// check if in range
     In,
+    /// assignment for fixed-point decimals
+    FpEq,
+    /// addition for fixed-point decimals
+    FpAddEq,
+    /// subtract for fixed-point decimals
+    FpSubEq,
+    /// multiply fixed-point decimals
+    FpMulEq,
+    /// divide fixed-point decimals
+    FpDivEq,
 }
 
 impl Display for Operation {
@@ -331,6 +341,11 @@ impl Display for Operation {
                 Self::LCaret => "<",
                 Self::RCaret => ">",
                 Self::In => "in",
+                Self::FpEq => ".=",
+                Self::FpAddEq => ".+=",
+                Self::FpSubEq => ".-=",
+                Self::FpMulEq => ".*=",
+                Self::FpDivEq => "./=",
             }
         )
     }

@@ -25,7 +25,7 @@ macro_rules! build_e2e {
             &syntax,
             ::std::path::Path::new(""),
             &mut ::std::collections::BTreeSet::new(),
-            &$crate::Config { namespace: "test".into(), dummy_objective: "dummy".into() }
+            &$crate::Config { namespace: "test".into(), dummy_objective: "dummy".into(), fixed_point_accuracy: 100 }
         )
         .unwrap();
         $crate::compiler::compile(&mut inter, "test").unwrap()
@@ -187,6 +187,17 @@ fn variables() {
     assert_e2e!("success ?= @raw \"kill @r\"" => "execute store success score %success dummy run kill @r");
     assert_e2e!("orbs := @raw \"kill @e[type=xp_orb,distance=..2]\""
     => "execute store result score %orbs dummy run kill @e[type=xp_orb,distance=..2]");
+}
+
+#[test]
+fn floats() {
+    assert_e2e!("x .= 1" => "scoreboard players set %x dummy 100");
+    assert_e2e!("x .= 1.1" => "scoreboard players set %x dummy 110");
+    assert_e2e!("x .+= 1" => "scoreboard players add %x dummy 100");
+    assert_e2e!("x .-= 1.1" => "scoreboard players remove %x dummy 110");
+
+    assert_e2e!("x .*= y" => "scoreboard players operation %x dummy *= %y dummy\nscoreboard players operation %x dummy /= %__const__64 dummy");
+    assert_e2e!("x ./= y" => "scoreboard players operation %x dummy *= %__const__64 dummy\nscoreboard players operation %x dummy /= %y dummy");
 }
 
 #[test]

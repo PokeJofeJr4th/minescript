@@ -231,6 +231,11 @@ fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operati
         Some(Token::PercEq) => Some(Operation::ModEq),
         Some(Token::ColonEq) => Some(Operation::ColonEq),
         Some(Token::QuestionEq) => Some(Operation::QuestionEq),
+        Some(Token::DotEq) => Some(Operation::FpEq),
+        Some(Token::DotPlusEq) => Some(Operation::FpAddEq),
+        Some(Token::DotTackEq) => Some(Operation::FpSubEq),
+        Some(Token::DotStarEq) => Some(Operation::FpMulEq),
+        Some(Token::DotSlashEq) => Some(Operation::FpDivEq),
         Some(Token::Identifier(ident)) => {
             if ident.as_ref() == "in" {
                 Some(Operation::In)

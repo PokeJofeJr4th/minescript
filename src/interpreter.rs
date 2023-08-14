@@ -5,10 +5,10 @@ use std::{
 
 use crate::{types::prelude::*, Config};
 
-/// handles blocks of the form `if <condition> {...}`
-mod block;
 /// handles annotations like `@item {...}`
 mod annotations;
+/// handles blocks of the form `if <condition> {...}`
+mod block;
 /// handles operations like `counter += 1;`
 mod operation;
 /// handles selector blocks like `as @s {...}`
@@ -84,6 +84,7 @@ pub fn test_interpret(src: &Syntax) -> Vec<Command> {
     let config = Config {
         namespace: "test".into(),
         dummy_objective: "dummy".into(),
+        fixed_point_accuracy: 100,
     };
     inner_interpret(
         src,
