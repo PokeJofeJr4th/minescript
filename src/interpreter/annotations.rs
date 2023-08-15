@@ -28,7 +28,7 @@ macro_rules! interpret_fn {
     };
 }
 
-pub(super) fn macros(
+pub(super) fn annotations(
     name: &str,
     properties: &Syntax,
     state: &mut InterRepr,
@@ -42,12 +42,12 @@ pub(super) fn macros(
         }
         "function" => {
             let func = RStr::try_from(properties)
-                .map_err(|e| format!("Function macro should have a string; {e}"))?;
+                .map_err(|e| format!("Function annotation should have a string; {e}"))?;
             return Ok(vec![Command::Function(func)].into());
         }
         "import" => {
             let Syntax::String(str) = properties else {
-                return Err(format!("Import macro expects a string, not `{properties:?}`"))
+                return Err(format!("Import annotation expects a string, not `{properties:?}`"))
             };
             let new_path = path.join(str.as_ref());
             src_files.insert(new_path.clone());
@@ -91,15 +91,25 @@ pub(super) fn macros(
             return raycast(properties, state, path, src_files, config);
         }
         "sound" | "playsound" => return sound(properties),
-        "random" | "rand" => return random(properties, state, config),
-        other => return Err(format!("Unexpected macro invocation `{other}`")),
+        "random" | "rand" => {
+            let Syntax::BinaryOp { lhs, operation: Operation::In, rhs } = properties else {
+                return Err(format!("`@random` annotation takes `{{var}} in {{...}}`; got `{properties:?}`"))
+            };
+            return random(
+                lhs.stringify_scoreboard_target()?,
+                lhs.stringify_scoreboard_objective(config)?,
+                rhs,
+                state,
+            );
+        }
+        other => return Err(format!("Unexpected annotation `{other}`")),
     }
     Ok(VecCmd::default())
 }
 
 fn sound(properties: &Syntax) -> SResult<VecCmd> {
     let Syntax::Object(obj) = properties else {
-        return Err(format!("Sound macro expects an object, not {properties:?}"))
+        return Err(format!("Sound annotation expects an object, not {properties:?}"))
     };
     let mut sound: Option<RStr> = None;
     let mut pos = Coordinate::here();
@@ -152,11 +162,11 @@ fn sound(properties: &Syntax) -> SResult<VecCmd> {
                     ))
                 }
             },
-            other => return Err(format!("Invalid key for Sound macro: `{other}`")),
+            other => return Err(format!("Invalid key for Sound annotation: `{other}`")),
         }
     }
     let Some(sound) = sound else {
-                    return Err(String::from("Sound macro must specify the sound to play"))
+                    return Err(String::from("Sound annotation must specify the sound to play"))
                 };
     Ok(vec![Command::Sound {
         sound,
@@ -179,7 +189,7 @@ fn raycast(
     config: &Config,
 ) -> SResult<VecCmd> {
     let Syntax::Object(obj) = properties else {
-        return Err(format!("Raycast macro expects an object, not {properties:?}"))
+        return Err(format!("Raycast annotation expects an object, not {properties:?}"))
     };
     let mut max = 0;
     let mut step = 0.0;
@@ -204,7 +214,7 @@ fn raycast(
             }
             "callback" | "hit" => interpret_fn!(callback config, v, state, path, src_files),
             "each" => interpret_fn!(each config, v, state, path, src_files),
-            other => return Err(format!("Invalid key for Raycast macro: `{other}`")),
+            other => return Err(format!("Invalid key for Raycast annotation: `{other}`")),
         }
     }
     let hash = get_hash(properties);
@@ -262,7 +272,7 @@ fn raycast(
             // execute unless %timer < max at @s if block ~ ~ ~ air run loop
             Command::Execute {
                 options: vec![
-                    ExecuteOption::ScoreMatches {
+                    ExecuteOption::IfScoreMatches {
                         invert: false,
                         target: score_name,
                         objective: config.dummy_objective.clone(),
@@ -270,7 +280,7 @@ fn raycast(
                         upper: Some(max),
                     },
                     ExecuteOption::At(Selector::s()),
-                    ExecuteOption::Block {
+                    ExecuteOption::IfBlock {
                         invert: false,
                         pos: Coordinate::here(),
                         value: "air".into(),
@@ -290,11 +300,13 @@ fn raycast(
     .into())
 }
 
-pub fn random(properties: &Syntax, state: &mut InterRepr, config: &Config) -> SResult<VecCmd> {
-    let Syntax::BinaryOp { lhs, operation: Operation::In, rhs: properties } = properties else {
-        return Err(format!("`@random` in statement position takes an argument of the form `var in 0..10` or `var in 5`; got `{properties:?}`"))
-    };
-    let (min, max) = match &**properties {
+pub fn random(
+    target_name: RStr,
+    target_objective: RStr,
+    properties: &Syntax,
+    state: &mut InterRepr,
+) -> SResult<VecCmd> {
+    let (min, max) = match properties {
         Syntax::Integer(max) | Syntax::Range(None, Some(max)) => (0, *max),
         Syntax::Range(Some(min), Some(max)) => (*min, *max),
         _ => {
@@ -336,8 +348,8 @@ pub fn random(properties: &Syntax, state: &mut InterRepr, config: &Config) -> SR
     );
     Ok(Command::execute(
         vec![ExecuteOption::StoreScore {
-            target: lhs.stringify_scoreboard_target()?,
-            objective: lhs.stringify_scoreboard_objective(config)?,
+            target: target_name,
+            objective: target_objective,
             is_success: false,
         }],
         rng_cmd.into_vec(),

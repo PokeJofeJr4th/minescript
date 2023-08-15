@@ -69,7 +69,7 @@ fn as_s_if_score() {
             options: vec![
                 ExecuteOption::As(Selector::r()),
                 ExecuteOption::On("owner".into()),
-                ExecuteOption::ScoreMatches {
+                ExecuteOption::IfScoreMatches {
                     invert: false,
                     target: "@s".into(),
                     objective: "count".into(),

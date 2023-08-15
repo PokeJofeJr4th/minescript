@@ -8,7 +8,6 @@ use lazy_regex::lazy_regex;
 use super::{inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*, Config};
 
-#[allow(clippy::too_many_lines)]
 pub(super) fn block(
     block_type: BlockType,
     lhs: &Syntax,
@@ -21,7 +20,7 @@ pub(super) fn block(
     match (block_type, lhs, body) {
         // if x=1 {}
         (
-            BlockType::If,
+            BlockType::If | BlockType::Unless,
             Syntax::BinaryOp {
                 lhs: left,
                 operation: op,
@@ -29,31 +28,12 @@ pub(super) fn block(
             },
             _,
         ) => interpret_if(
-            false,
+            block_type == BlockType::Unless,
             left,
             *op,
             right,
             inner_interpret(body, state, path, src_files, config)?,
             &format!("__internal__/if_{:x}", get_hash(body)),
-            state,
-            config,
-        ),
-        // unless x=1 {}
-        (
-            BlockType::Unless,
-            Syntax::BinaryOp {
-                lhs: left,
-                operation: op,
-                rhs: right,
-            },
-            _,
-        ) => interpret_if(
-            true,
-            left,
-            *op,
-            right,
-            inner_interpret(body, state, path, src_files, config)?,
-            &format!("__internal__/unless_{:x}", get_hash(body)),
             state,
             config,
         ),
@@ -75,30 +55,7 @@ pub(super) fn block(
         ),
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
-            let switch_var: RStr = format!("__internal__/switch_{:x}", get_hash(body)).into();
-            let mut cmd_buf = operation(
-                &OpLeft::Ident(switch_var.clone()),
-                Operation::Equal,
-                lhs,
-                state,
-                config,
-            )?;
-            for syn in arr.iter() {
-                let Syntax::Block(BlockType::Case, match_value, body) = syn else {
-                    return Err(format!("Expected `case` statement; got `{syn:?}`"))
-                };
-                cmd_buf.extend(interpret_if(
-                    false,
-                    &OpLeft::Ident(switch_var.clone()),
-                    Operation::Equal,
-                    match_value,
-                    inner_interpret(body, state, path, src_files, config)?,
-                    &format!("__internal__/case_{:x}", get_hash(body)),
-                    state,
-                    config,
-                )?);
-            }
-            Ok(cmd_buf)
+            switch_block(lhs, arr, state, path, src_files, config)
         }
         // tp @s (~ ~10 ~)
         (_, Syntax::Selector(selector), _) => {
@@ -163,6 +120,41 @@ pub(super) fn block(
     }
 }
 
+/// Handle a switch statement
+fn switch_block(
+    lhs: &Syntax,
+    arr: &[Syntax],
+    state: &mut InterRepr,
+    path: &Path,
+    src_files: &mut BTreeSet<PathBuf>,
+    config: &Config,
+) -> SResult<VecCmd> {
+    let switch_var: RStr = format!("__internal__/switch_{:x}", get_hash(&arr)).into();
+    let mut cmd_buf = operation(
+        &OpLeft::Ident(switch_var.clone()),
+        Operation::Equal,
+        lhs,
+        state,
+        config,
+    )?;
+    for syn in arr.iter() {
+        let Syntax::Block(BlockType::Case, match_value, body) = syn else {
+                    return Err(format!("Expected `case` statement; got `{syn:?}`"))
+                };
+        cmd_buf.extend(interpret_if(
+            false,
+            &OpLeft::Ident(switch_var.clone()),
+            Operation::Equal,
+            match_value,
+            inner_interpret(body, state, path, src_files, config)?,
+            &format!("__internal__/case_{:x}", get_hash(body)),
+            state,
+            config,
+        )?);
+    }
+    Ok(cmd_buf)
+}
+
 /// # Panics
 /// If passed a `BlockType` other than `For`, `Until`, `DoWhile`, `While`, or `DoUntil`
 #[allow(clippy::too_many_arguments)]
@@ -199,9 +191,6 @@ fn loop_block(
         state,
         config,
     )?;
-    let [goto_fn] = &binding.base()[..] else {
-            return Err(format!("Internal compiler error - please report this to the devs, along with the following information: {}{}", file!(), line!()))
-        };
     // this is the code that runs on each loop
     let mut body = inner_interpret(block, state, path, src_files, config)?;
     // this is the code that runs to enter the loop
@@ -235,10 +224,10 @@ fn loop_block(
     ) {
         initial.push(Command::Function(fn_name.clone()).into());
     } else {
-        initial.push(goto_fn.clone().into());
+        initial.extend(binding.clone());
     }
     // always check to restart loop at the end
-    body.push(goto_fn.clone().into());
+    body.extend(binding);
     state.functions.insert(fn_name, body);
     Ok(initial)
 }
@@ -260,7 +249,11 @@ fn interpret_if(
     config: &Config,
 ) -> SResult<VecCmd> {
     if content.is_empty() {
-        return Err(String::from("`if` body cannot be empty"));
+        println!(
+            "\x1b[33mWARN\x1b[0m\t\"{}\" statement `{hash}` is empty; `{left:?} {op} {right:?}`",
+            if invert { "Unless" } else { "If" }
+        );
+        return Ok(VecCmd::default());
     }
     let mut setter = None;
     let (target_player, target_objective) = if let (Ok(target_player), Ok(target_objective)) = (
@@ -279,13 +272,7 @@ fn interpret_if(
         ("%".into(), config.dummy_objective.clone())
     };
     let options = match right {
-        Syntax::Identifier(_)
-        | Syntax::BinaryOp {
-            lhs: _,
-            operation: _,
-            rhs: _,
-        }
-        | Syntax::SelectorColon(_, _) => {
+        Syntax::Identifier(_) | Syntax::BinaryOp { .. } | Syntax::SelectorColon(_, _) => {
             let (source, source_objective) = match right {
                 Syntax::Identifier(ident) => (ident.clone(), config.dummy_objective.clone()),
                 Syntax::BinaryOp {
@@ -319,7 +306,7 @@ fn interpret_if(
                 | Operation::Equal
                 | Operation::RCaretEq
                 | Operation::RCaret => {
-                    vec![ExecuteOption::ScoreSource {
+                    vec![ExecuteOption::IfScoreSource {
                         invert,
                         target: target_player,
                         target_objective,
@@ -330,7 +317,7 @@ fn interpret_if(
                 }
                 // x != var
                 Operation::BangEq => {
-                    vec![ExecuteOption::ScoreSource {
+                    vec![ExecuteOption::IfScoreSource {
                         invert: !invert,
                         target: target_player,
                         target_objective,
@@ -339,7 +326,7 @@ fn interpret_if(
                         source_objective,
                     }]
                 }
-                _ => return Err(format!("Can't compare using `{op}`")),
+                _ => return Err(format!("Can't compare to a score using `{op}`")),
             }
         }
         Syntax::Integer(num) => {
@@ -358,7 +345,7 @@ fn interpret_if(
                 Operation::LCaret => (!invert, Some(*num), None),
                 _ => return Err(format!("Can't evaluate `if {{...}} {op} {{integer}}`")),
             };
-            vec![ExecuteOption::ScoreMatches {
+            vec![ExecuteOption::IfScoreMatches {
                 invert,
                 target: target_player,
                 objective: target_objective,
@@ -372,7 +359,7 @@ fn interpret_if(
                     "Can't check if `{{...}} {op} {{range}}`. Did you mean `{{...}} in {{range}}`?"
                 ));
             };
-            vec![ExecuteOption::ScoreMatches {
+            vec![ExecuteOption::IfScoreMatches {
                 invert,
                 target: target_player,
                 objective: target_objective,

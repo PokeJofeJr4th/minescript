@@ -67,7 +67,7 @@ fn inner_interpret(
         }
         // @function x
         Syntax::Annotation(name, properties) => {
-            return annotations::macros(name, properties, state, path, src_files, config)
+            return annotations::annotations(name, properties, state, path, src_files, config)
         }
         Syntax::Unit => {}
         other => return Err(format!("Unexpected item `{other:?}`")),

@@ -185,11 +185,11 @@ fn selector_block(
         // special case for `as at`: as @p[..] at @s
         BlockType::AsAt => res_buf.push(ExecuteOption::At(Selector::s())),
         BlockType::At => res_buf.push(ExecuteOption::At(selector)),
-        BlockType::If => res_buf.push(ExecuteOption::Entity {
+        BlockType::If => res_buf.push(ExecuteOption::IfEntity {
             invert: false,
             selector,
         }),
-        BlockType::Unless => res_buf.push(ExecuteOption::Entity {
+        BlockType::Unless => res_buf.push(ExecuteOption::IfEntity {
             invert: true,
             selector,
         }),

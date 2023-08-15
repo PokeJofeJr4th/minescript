@@ -5,7 +5,7 @@ use super::{Coordinate, NbtLocation, Operation, RStr, Selector};
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExecuteOption {
     /// compare score to a static range
-    ScoreMatches {
+    IfScoreMatches {
         invert: bool,
         target: RStr,
         objective: RStr,
@@ -13,7 +13,7 @@ pub enum ExecuteOption {
         upper: Option<i32>,
     },
     /// compare score to another score
-    ScoreSource {
+    IfScoreSource {
         invert: bool,
         target: RStr,
         target_objective: RStr,
@@ -22,7 +22,7 @@ pub enum ExecuteOption {
         source_objective: RStr,
     },
     /// if an entity exists
-    Entity {
+    IfEntity {
         invert: bool,
         selector: Selector<String>,
     },
@@ -59,7 +59,7 @@ pub enum ExecuteOption {
     /// facing a position
     FacingPos(Coordinate),
     /// Block matches id or tag
-    Block {
+    IfBlock {
         invert: bool,
         pos: Coordinate,
         value: RStr,
@@ -74,14 +74,14 @@ impl Hash for ExecuteOption {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
         match self {
-            Self::ScoreMatches {
+            Self::IfScoreMatches {
                 invert,
                 target,
                 objective,
                 lower,
                 upper,
             } => (invert, target, objective, lower, upper).hash(state),
-            Self::ScoreSource {
+            Self::IfScoreSource {
                 invert,
                 target,
                 target_objective,
@@ -97,7 +97,7 @@ impl Hash for ExecuteOption {
                 source_objective,
             )
                 .hash(state),
-            Self::Entity { invert, selector } => (invert, selector).hash(state),
+            Self::IfEntity { invert, selector } => (invert, selector).hash(state),
             Self::StoreScore {
                 target,
                 objective,
@@ -118,7 +118,7 @@ impl Hash for ExecuteOption {
                 pitch,
             } => (yaw_rel, yaw.to_bits(), pitch_rel, pitch.to_bits()).hash(state),
             Self::FacingPos(pos) | Self::Positioned(pos) => pos.hash(state),
-            Self::Block { invert, pos, value } => (invert, pos, value).hash(state),
+            Self::IfBlock { invert, pos, value } => (invert, pos, value).hash(state),
             Self::Anchored(ident) | Self::On(ident) | Self::Summon(ident) => {
                 ident.hash(state);
             }
@@ -129,7 +129,7 @@ impl Hash for ExecuteOption {
 impl ExecuteOption {
     pub fn stringify(&self, namespace: &str) -> String {
         match self {
-            Self::ScoreMatches {
+            Self::IfScoreMatches {
                 invert,
                 target,
                 objective,
@@ -151,7 +151,7 @@ impl ExecuteOption {
                     match_statement
                 )
             }
-            Self::ScoreSource {
+            Self::IfScoreSource {
                 invert,
                 target,
                 target_objective,
@@ -162,7 +162,7 @@ impl ExecuteOption {
                 "{} score {target} {target_objective} {operation} {source} {source_objective}",
                 if *invert { "unless" } else { "if" }
             ),
-            Self::Entity { invert, selector } => format!(
+            Self::IfEntity { invert, selector } => format!(
                 "{} entity {selector}",
                 if *invert { "unless" } else { "if" }
             ),
@@ -186,7 +186,7 @@ impl ExecuteOption {
                     location.stringify(namespace)
                 )
             }
-            Self::Block { invert, pos, value } => format!(
+            Self::IfBlock { invert, pos, value } => format!(
                 "{} block {pos} {value}",
                 if *invert { "unless" } else { "if" }
             ),

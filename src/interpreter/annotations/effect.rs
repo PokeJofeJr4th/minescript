@@ -55,7 +55,7 @@ pub(super) fn effect(src: &Syntax) -> SResult<VecCmd> {
     } else if let Ok(str) = RStr::try_from(src) {
         effect = Some(str);
     } else {
-        return Err(format!("Expected an object for item macro; got `{src:?}`"));
+        return Err(format!("Expected an object for item annotation; got `{src:?}`"));
     };
 
     let Some(effect) = effect else {

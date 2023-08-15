@@ -24,21 +24,27 @@ pub(super) fn operation(
             nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state, config)
         }
         // x | @s:score | var:x
-        _ => simple_operation(lhs, op, rhs, state, config),
+        _ => simple_operation(
+            lhs.stringify_scoreboard_objective(config)?,
+            lhs.stringify_scoreboard_target()?,
+            op,
+            rhs,
+            state,
+            config,
+        ),
     }
 }
 
 /// Interpret an operation with a score on the left
 #[allow(clippy::too_many_lines)]
 fn simple_operation(
-    target: &OpLeft,
+    target_name: RStr,
+    target_objective: RStr,
     op: Operation,
     syn: &Syntax,
     state: &mut InterRepr,
     config: &Config,
 ) -> SResult<VecCmd> {
-    let target_objective = target.stringify_scoreboard_objective(config)?;
-    let target_name = target.stringify_scoreboard_target()?;
     if !state.objectives.contains_key(&target_objective) {
         state
             .objectives
@@ -58,7 +64,7 @@ fn simple_operation(
                 ));
             };
             let (xp_target, xp_objective) = if op == Operation::Equal {
-                (target.stringify_scoreboard_target()?, target.stringify_scoreboard_objective(config)?)
+                (target_name.clone(), target_objective.clone())
             } else {
                 ("%__xp__".into(), config.dummy_objective.clone())
             };
@@ -106,7 +112,8 @@ fn simple_operation(
                 cmd: Box::new(Command::DataGet(NbtLocation::Entity(selector.stringify()?, nbt.clone()))),
             }].into();
             cmd_buf.extend(simple_operation(
-                target,
+                target_name,
+                target_objective,
                 op,
                 &Syntax::Identifier("".into()),
                 state,config
@@ -126,7 +133,7 @@ fn simple_operation(
                     "The only annotation allowed in an operation is `rand`; got `{mac}`"
                 ));
             }
-            super::annotations::random(&Syntax::BinaryOp { lhs: target.clone(), operation: Operation::In, rhs: bound.clone() }, state, config)
+            super::annotations::random(target_name, target_objective, bound , state)
         }
         // x += @rand ...
         (op, Syntax::Annotation(mac, bound)) => {
@@ -136,7 +143,7 @@ fn simple_operation(
                 ));
             }
             // set an intermediate score to the random value
-            let mut cmd_buf = super::annotations::random(&Syntax::BinaryOp { lhs: OpLeft::Ident("__rand__".into()), operation: Operation::In, rhs: bound.clone() }, state, config)?;
+            let mut cmd_buf = super::annotations::random("%__rand__".into(), config.dummy_objective.clone(), bound, state)?;
             // operate the random value into the target
             cmd_buf.extend(score_operation(target_name, target_objective, op, "%__rand__".into(), config.dummy_objective.clone(), state, config)?);
             Ok(cmd_buf)
@@ -196,12 +203,12 @@ fn simple_operation(
         (Operation::FpMulEq | Operation::FpDivEq, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; since you can just multiply or divide by a float, `.*=` and `./=` are reserved for operating between fixed-point variables.")),
         // x %= 0.1 => complain
         (_, Syntax::Float(_)) => Err(format!("Can't apply operation `{op}` with a float; floats can only be used in multiplication, division, and dedicated fixed-point decimal operations.")),
-        _ => Err(format!("Unsupported operation: `{target:?} {op} {syn:?}`")),
+        _ => Err(format!("Unsupported operation: `{target_name}:{target_objective} {op} {syn:?}`")),
     }
 }
 
 /// compile an operation where both the left and right are scores
-fn score_operation(
+pub(super) fn score_operation(
     target_name: RStr,
     target_objective: RStr,
     op: Operation,

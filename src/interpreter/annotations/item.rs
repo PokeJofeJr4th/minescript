@@ -16,7 +16,7 @@ pub(super) fn item(
     config: &Config,
 ) -> SResult<Item> {
     let Syntax::Object(src) = src else {
-        return Err(format!("Expected an object for item macro; got `{src:?}`"))
+        return Err(format!("Expected an object for item annotation; got `{src:?}`"))
     };
     let mut item = Item::default();
     let mut recipe_buf = Vec::new();
@@ -191,7 +191,7 @@ pub(super) fn item(
     }
 }
 
-// given a syntax element within the item macro, crate the nbt contents of the recipe file
+// given a syntax element within the item annotation, crate the nbt contents of the recipe file
 fn recipe(value: &Syntax) -> SResult<Nbt> {
     match value {
         Syntax::Object(obj) => {
@@ -288,7 +288,7 @@ fn recipe(value: &Syntax) -> SResult<Nbt> {
                     template: Nbt::default()
                 }))
             }
-            other => Err(format!("Unexpected recipe macro: `{other}`")),
+            other => Err(format!("Unexpected recipe annotation: `{other}`")),
         },
         _ => Err(format!("Expected recipe object; got {value:?}")),
     }
