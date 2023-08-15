@@ -25,8 +25,8 @@ pub(super) fn operation(
         }
         // x | @s:score | var:x
         _ => simple_operation(
-            lhs.stringify_scoreboard_objective(config)?,
             lhs.stringify_scoreboard_target()?,
+            lhs.stringify_scoreboard_objective(config)?,
             op,
             rhs,
             state,
