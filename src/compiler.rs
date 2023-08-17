@@ -136,7 +136,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
         // make the slot checks
         for (slot, fn_content) in &item.slot_checks {
             let cmd = Command::execute(
-                vec![
+                &[
                     ExecuteOption::As(
                         Selector::a().with_property(
                             "nbt",
@@ -210,7 +210,7 @@ fn make_on_use(
     let using_base = format!("use_{}", item.base);
     let holding_item = format!("holding_{ident}");
     let execute_fn = Command::execute(
-        vec![
+        &[
             ExecuteOption::As(Selector {
                 selector_type: SelectorType::A,
                 args: [

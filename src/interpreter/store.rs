@@ -36,5 +36,5 @@ pub(super) fn storage_op(
             _ => unreachable!(),
         }
     };
-    Ok(Command::execute(execute_options, cmd, hash, state).into_vec())
+    Ok(Command::execute(&execute_options, cmd, hash, state).into_vec())
 }

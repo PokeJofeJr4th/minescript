@@ -229,7 +229,7 @@ fn raycast(
     let loop_name: RStr = format!("__internal__/loop_{hash}").into();
 
     let closure_fn = Command::execute(
-        vec![ExecuteOption::At(Selector::s())],
+        &[ExecuteOption::At(Selector::s())],
         callback,
         &format!("__internal__/callback_{hash}"),
         state,
@@ -347,7 +347,7 @@ pub fn random(
         Command::Raw(format!("random value {min}..{max}").into()),
     );
     Ok(Command::execute(
-        vec![ExecuteOption::StoreScore {
+        &[ExecuteOption::StoreScore {
             target: target_name,
             objective: target_objective,
             is_success: false,

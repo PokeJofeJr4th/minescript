@@ -282,7 +282,7 @@ impl Command {
     /// If there are no execute subcommands, it returns the given command.
     /// If there is more than one given command, it returns a function call and inserts the function into the state
     pub fn execute(
-        options: Vec<ExecuteOption>,
+        options: &[ExecuteOption],
         cmd: VecCmd,
         hash: &str,
         state: &mut InterRepr,
@@ -295,7 +295,7 @@ impl Command {
                         options: inner_options,
                         cmd,
                     }] => {
-                        let mut opts = options.clone();
+                        let mut opts = options.to_vec();
                         opts.extend(inner_options.clone());
                         Self::Execute {
                             options: opts,
@@ -307,7 +307,7 @@ impl Command {
                             cmd.clone()
                         } else {
                             Self::Execute {
-                                options: options.clone(),
+                                options: options.to_vec(),
                                 cmd: Box::new(cmd.clone()),
                             }
                         }
@@ -322,7 +322,7 @@ impl Command {
                             func
                         } else {
                             Self::Execute {
-                                options: options.clone(),
+                                options: options.to_vec(),
                                 cmd: Box::new(func),
                             }
                         }
@@ -331,7 +331,9 @@ impl Command {
                 (output, inner)
             })
             .unzip();
-        state.functions.insert(hash.into(), inner);
+        if !inner.is_empty() {
+            state.functions.insert(hash.into(), inner);
+        }
         output
     }
 }

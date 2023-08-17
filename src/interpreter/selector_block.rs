@@ -205,7 +205,7 @@ fn selector_block(
     }
     let inner = inner_interpret(body, state, path, src_files, config)?;
     Ok(Command::execute(
-        res_buf.clone(),
+        &res_buf,
         inner,
         &format!("__internal__/{block_type}_{:x}", get_hash(body)),
         state,

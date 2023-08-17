@@ -430,7 +430,7 @@ fn nbt_op(
             }?;
             let hash = format!("__internal__/{:x}", get_hash(&(&lhs, syn)));
             Ok(Command::execute(
-                vec![ExecuteOption::StoreNBT {
+                &[ExecuteOption::StoreNBT {
                     location: lhs,
                     is_success: false,
                 }],

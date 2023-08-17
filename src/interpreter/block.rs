@@ -263,13 +263,13 @@ fn interpret_if(
         (target_player, target_objective)
     } else {
         setter = Some(operation(
-            &OpLeft::Ident("".into()),
+            &OpLeft::Ident(hash.into()),
             Operation::Equal,
             &left.clone().into(),
             state,
             config,
         )?);
-        ("%".into(), config.dummy_objective.clone())
+        (format!("%{hash}").into(), config.dummy_objective.clone())
     };
     let options = match right {
         Syntax::Identifier(_) | Syntax::BinaryOp { .. } | Syntax::SelectorColon(_, _) => {
@@ -369,7 +369,7 @@ fn interpret_if(
         }
         _ => return Err(format!("Can't check if `{{...}} {op} {right:?}`")),
     };
-    let mut ret_val = Command::execute(options, content, hash, state).into_vec();
+    let mut ret_val = Command::execute(&options, content, hash, state).into_vec();
     if let Some(setter) = setter {
         ret_val.map_with(
             |cmds, setter| {
@@ -461,7 +461,7 @@ fn ident_block(
         ),
         _ => unreachable!(),
     };
-    Ok(Command::execute(vec![options], content, &hash, state).into_vec())
+    Ok(Command::execute(&[options], content, &hash, state).into_vec())
 }
 
 fn coord_block(
@@ -485,7 +485,7 @@ fn coord_block(
         _ => return Err(format!("`{block_type:?}` block does not take a coordinate")),
     }
     Ok(Command::execute(
-        opts.clone(),
+        &opts,
         inner_interpret(block, state, path, src_files, config)?,
         &format!("__internal__/{block_type}_{:x}", get_hash(block)),
         state,
@@ -524,7 +524,7 @@ fn rotated_block(
     };
     let hash = format!("__internal__/rotated_{:x}", get_hash(body));
     Ok(Command::execute(
-        vec![ExecuteOption::Rotated {
+        &[ExecuteOption::Rotated {
             yaw_rel,
             yaw,
             pitch_rel,
