@@ -44,7 +44,7 @@ fn control_flow() {
     assert_e2e!("if @s[type=cow] @raw \"...\"" =>"execute if entity @s[type=cow] run ...");
     assert_e2e!("unless @s[type=cow] @raw \"...\"" => "execute unless entity @s[type=cow] run ...");
     assert_e2e!("if @s::lvl > 10 @raw \"...\""
-    => "execute store result score % dummy run xp query @s levels\nexecute unless score % dummy matches ..10 run ...");
+    => "execute store result score %__if__ dummy run xp query @s levels\nexecute unless score %__if__ dummy matches ..10 run ...");
 }
 
 #[test]

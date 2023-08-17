@@ -250,7 +250,7 @@ fn interpret_if(
 ) -> SResult<VecCmd> {
     if content.is_empty() {
         println!(
-            "\x1b[33mWARN\x1b[0m\t\"{}\" statement `{hash}` is empty; `{left:?} {op} {right:?}`",
+            "\x1b[33mWARN\x1b[0m\t{} statement `{hash}` is empty; `{left:?} {op} {right:?}`",
             if invert { "Unless" } else { "If" }
         );
         return Ok(VecCmd::default());
@@ -263,13 +263,13 @@ fn interpret_if(
         (target_player, target_objective)
     } else {
         setter = Some(operation(
-            &OpLeft::Ident(hash.into()),
+            &OpLeft::Ident("__if__".into()),
             Operation::Equal,
             &left.clone().into(),
             state,
             config,
         )?);
-        (format!("%{hash}").into(), config.dummy_objective.clone())
+        ("%__if__".into(), config.dummy_objective.clone())
     };
     let options = match right {
         Syntax::Identifier(_) | Syntax::BinaryOp { .. } | Syntax::SelectorColon(_, _) => {
