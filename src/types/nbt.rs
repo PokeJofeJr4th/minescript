@@ -23,7 +23,7 @@ macro_rules! nbt {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Nbt {
     Object(BTreeMap<RStr, Nbt>),
     Array(Vec<Nbt>),

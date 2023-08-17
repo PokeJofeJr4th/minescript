@@ -82,7 +82,14 @@ impl Selector<Syntax> {
             args: self
                 .args
                 .iter()
-                .map(|(k, v)| v.to_selector_body().map(|v| (k.clone(), v)))
+                .map(|(k, v)| {
+                    if let ("nbt", Ok(nbt)) = (&**k, Nbt::try_from(v)) {
+                        Ok(format!("{nbt}"))
+                    } else {
+                        v.to_selector_body()
+                    }
+                    .map(|v| (k.clone(), v))
+                })
                 .collect::<Result<BTreeMap<RStr, String>, _>>()
                 .map_err(|err| format!("Couldn't convert to string in selector: {err}"))?,
         })

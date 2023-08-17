@@ -378,11 +378,7 @@ impl Syntax {
                 for (k, v) in obj {
                     buf.push_str(k);
                     buf.push('=');
-                    if let ("nbt", Ok(nbt)) = (&**k, Nbt::try_from(v)) {
-                        buf.push_str(&nbt.to_json());
-                    } else {
-                        buf.push_str(&v.to_selector_body()?);
-                    }
+                    buf.push_str(&v.to_selector_body()?);
                     buf.push(',');
                 }
                 if !obj.is_empty() {
