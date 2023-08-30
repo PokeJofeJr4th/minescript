@@ -14,7 +14,7 @@ pub struct Item {
     /// function that runs every tick while the item is being used
     pub while_using: VecCmd,
     // function that runs every tick while the item is in the given slot
-    pub slot_checks: Vec<(i32, VecCmd)>,
+    pub slot_checks: Vec<(i8, VecCmd)>,
 }
 
 impl Default for Item {

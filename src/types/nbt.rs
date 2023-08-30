@@ -28,8 +28,10 @@ pub enum Nbt {
     Object(BTreeMap<RStr, Nbt>),
     Array(Vec<Nbt>),
     String(RStr),
+    Byte(i8),
     Integer(i32),
     Float(f32),
+    // Double(f64),
     Boolean(bool),
 }
 
@@ -57,8 +59,10 @@ impl Display for Nbt {
                 data_buf.finish()
             }
             Self::String(str) => write!(f, "\"{str}\""),
+            Self::Byte(byte) => write!(f, "{byte}b"),
             Self::Integer(num) => write!(f, "{num}"),
-            Self::Float(float) => write!(f, "{float}"),
+            Self::Float(float) => write!(f, "{float}f"),
+            // Self::Double(float) => write!(f, "{float}"),
             Self::Boolean(bool) => write!(f, "{bool}"),
         }
     }
@@ -71,8 +75,10 @@ impl Hash for Nbt {
             Self::Object(obj) => obj.hash(state),
             Self::Array(arr) => arr.hash(state),
             Self::String(str) => str.hash(state),
+            Self::Byte(byte) => byte.hash(state),
             Self::Integer(int) => int.hash(state),
             Self::Float(float) => float.to_bits().hash(state),
+            // Self::Double(double) => double.to_bits().hash(state),
             Self::Boolean(bool) => bool.hash(state),
         }
     }
@@ -115,8 +121,10 @@ impl Nbt {
                 buf
             }
             Self::String(str) => format!("{str:?}"),
+            Self::Byte(byte) => format!("{byte}"),
             Self::Integer(num) => format!("{num}"),
             Self::Float(float) => format!("{float}"),
+            // Self::Double(double) => format!("{double}"),
             Self::Boolean(bool) => format!("{bool}"),
         }
     }
@@ -188,6 +196,12 @@ impl From<RStr> for Nbt {
 impl From<&RStr> for Nbt {
     fn from(value: &RStr) -> Self {
         Self::String(value.clone())
+    }
+}
+
+impl From<i8> for Nbt {
+    fn from(value: i8) -> Self {
+        Self::Byte(value)
     }
 }
 

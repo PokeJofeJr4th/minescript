@@ -140,7 +140,7 @@ fn compile_items(src: &mut InterRepr, namespace: &str, compiled: &mut CompiledRe
                     ExecuteOption::As(
                         Selector::a().with_property(
                             "nbt",
-                            nbt!({ Inventory: nbt!([nbt!({slot: *slot,tag:item.nbt.clone()})]) })
+                            nbt!({ Inventory: nbt!([nbt!({Slot: *slot, tag:item.nbt.clone()})]) })
                                 .to_string(),
                         ),
                     ),

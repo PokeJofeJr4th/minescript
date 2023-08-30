@@ -124,7 +124,7 @@ pub(super) fn item(
                             .name("slot")
                             .unwrap()
                             .as_str()
-                            .parse::<i32>()
+                            .parse::<i8>()
                             .unwrap()
                     } else {
                         match &**k {

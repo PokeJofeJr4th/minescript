@@ -48,7 +48,7 @@
 }
 
 @item {
-    base: golden_nugget
+    base: gold_nugget
     name: "Ring of Stars"
     nbt: {customModelData:1918}
     recipe: {
