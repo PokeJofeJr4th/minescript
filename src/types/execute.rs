@@ -36,6 +36,7 @@ pub enum ExecuteOption {
     StoreNBT {
         location: NbtLocation,
         is_success: bool,
+        scale: f32,
     },
     /// change who `@s` is
     As(Selector<String>),
@@ -106,7 +107,8 @@ impl Hash for ExecuteOption {
             Self::StoreNBT {
                 location,
                 is_success,
-            } => (location, is_success).hash(state),
+                scale,
+            } => (location, is_success, scale.to_bits()).hash(state),
             Self::As(selector)
             | Self::At(selector)
             | Self::RotatedAs(selector)
@@ -179,9 +181,10 @@ impl ExecuteOption {
             Self::StoreNBT {
                 location,
                 is_success,
+                scale,
             } => {
                 format!(
-                    "store {} {} int 1",
+                    "store {} {} float {scale}",
                     if *is_success { "success" } else { "result" },
                     location.stringify(namespace)
                 )

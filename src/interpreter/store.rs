@@ -28,10 +28,12 @@ pub(super) fn storage_op(
             OpLeft::SelectorNbt(sel, nbt) => vec![ExecuteOption::StoreNBT {
                 location: NbtLocation::Entity(sel.stringify()?, nbt.clone()),
                 is_success,
+                scale: 1.0,
             }],
             OpLeft::NbtStorage(nbt) => vec![ExecuteOption::StoreNBT {
                 location: NbtLocation::Storage(nbt.clone()),
                 is_success,
+                scale: 1.0,
             }],
             _ => unreachable!(),
         }

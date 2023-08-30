@@ -433,6 +433,7 @@ fn nbt_op(
                 &[ExecuteOption::StoreNBT {
                     location: lhs,
                     is_success: false,
+                    scale: 1.0,
                 }],
                 cmd.into(),
                 &hash,
@@ -447,6 +448,9 @@ fn nbt_op(
             lhs,
             NbtLocation::Entity(sel.stringify()?, rhs_nbt.clone()),
         )),
+        (Operation::FpEq, rhs) => {
+            todo!("Check if this is a score and apply the multiplier")
+        }
         _ => Err(format!("Can't operate `{{NBT}} {operation} {rhs:?}`")),
     }
 }
