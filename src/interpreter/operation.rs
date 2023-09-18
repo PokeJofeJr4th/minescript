@@ -448,8 +448,26 @@ fn nbt_op(
             lhs,
             NbtLocation::Entity(sel.stringify()?, rhs_nbt.clone()),
         )),
+        // {{nbt}} .= {{score}}
         (Operation::FpEq, rhs) => {
-            todo!("Check if this is a score and apply the multiplier")
+            let Ok(score) = OpLeft::try_from(rhs.clone()) else { return Err(format!("Expected a score; got `{rhs:?}`")) };
+            let scoreboard_target = score.stringify_scoreboard_target()?;
+            let scoreboard_objective = score.stringify_scoreboard_objective(config)?;
+            Ok(Command::execute(
+                &[ExecuteOption::StoreNBT {
+                    location: lhs,
+                    is_success: false,
+                    scale: config.fixed_point_accuracy as f32,
+                }],
+                vec![Command::ScoreGet {
+                    target: scoreboard_target,
+                    objective: scoreboard_objective,
+                }]
+                .into(),
+                "",
+                state,
+            )
+            .into_vec())
         }
         _ => Err(format!("Can't operate `{{NBT}} {operation} {rhs:?}`")),
     }
