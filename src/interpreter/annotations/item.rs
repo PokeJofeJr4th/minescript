@@ -128,7 +128,6 @@ pub(super) fn item(
                             .unwrap()
                     } else {
                         match &**k {
-                            // "mainhand" => 98,
                             "offhand" => -106,
                             "head" => 103,
                             "chest" => 102,
