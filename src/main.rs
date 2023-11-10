@@ -158,7 +158,7 @@ fn build(
         println!("{tokens:?}");
     }
     // parse the tokens to syntax
-    let syntax = parser::parse(&mut tokens.into_iter().peekable())?;
+    let syntax = parser::parse(tokens)?;
     if verbose {
         println!("{syntax:#?}");
     }

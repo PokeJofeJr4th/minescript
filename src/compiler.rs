@@ -7,6 +7,8 @@ use std::{
 use crate::types::prelude::*;
 use crate::MAX_VERSION;
 
+// TODO: make the resource pack skeleton
+
 pub fn compile(src: &mut InterRepr, namespace: &str) -> SResult<CompiledRepr> {
     let mut compiled = CompiledRepr::new(core::mem::take(&mut src.loot_tables));
 
@@ -337,7 +339,7 @@ pub fn write(repr: &CompiledRepr, parent: &str, nmsp: &str) -> Result<(), std::i
         "{}",
         nbt!({
             pack: nbt!({pack_format: 15, description: format!("{nmsp}, made with MineScript"), overlays: overlays_nbt, supported_formats: nbt!({
-                min_inclusive: 15, max_inclusive: MAX_VERSION as i32
+                min_inclusive: 15, max_inclusive: i32::from(MAX_VERSION)
             })})
         })
         .to_json()

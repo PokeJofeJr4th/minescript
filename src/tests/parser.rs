@@ -6,7 +6,7 @@ use crate::{parser::parse, types::prelude::*};
 fn literals() {
     // -20
     assert_eq!(
-        parse(&mut [Token::Tack, Token::Integer(20)].into_iter().peekable()),
+        parse(vec![Token::Tack, Token::Integer(20)]),
         Ok(Syntax::Integer(-20))
     );
 }
@@ -15,18 +15,14 @@ fn literals() {
 fn score_op() {
     // @a:x += 2
     assert_eq!(
-        parse(
-            &mut [
-                Token::At,
-                Token::Identifier("a".into()),
-                Token::Colon,
-                Token::Identifier("x".into()),
-                Token::PlusEq,
-                Token::Integer(2)
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::At,
+            Token::Identifier("a".into()),
+            Token::Colon,
+            Token::Identifier("x".into()),
+            Token::PlusEq,
+            Token::Integer(2)
+        ]),
         Ok(Syntax::BinaryOp {
             lhs: OpLeft::SelectorColon(
                 Selector {
@@ -45,15 +41,11 @@ fn score_op() {
 fn in_range() {
     // x in 0..10
     assert_eq!(
-        parse(
-            &mut [
-                Token::Identifier("x".into()),
-                Token::Identifier("in".into()),
-                Token::Range(Some(0), Some(10))
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::Identifier("x".into()),
+            Token::Identifier("in".into()),
+            Token::Range(Some(0), Some(10))
+        ]),
         Ok(Syntax::BinaryOp {
             lhs: OpLeft::Ident("x".into()),
             operation: Operation::In,
@@ -66,18 +58,14 @@ fn in_range() {
 fn for_loop() {
     // for x in 0..10 {}
     assert_eq!(
-        parse(
-            &mut [
-                Token::Identifier("for".into()),
-                Token::Identifier("x".into()),
-                Token::Identifier("in".into()),
-                Token::Range(Some(0), Some(10)),
-                Token::LParen,
-                Token::RParen
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::Identifier("for".into()),
+            Token::Identifier("x".into()),
+            Token::Identifier("in".into()),
+            Token::Range(Some(0), Some(10)),
+            Token::LParen,
+            Token::RParen
+        ]),
         Ok(Syntax::Block(
             BlockType::For,
             Box::new(Syntax::BinaryOp {
@@ -94,19 +82,15 @@ fn for_loop() {
 fn coords() {
     // (^ ^2 ^1.5)
     assert_eq!(
-        parse(
-            &mut [
-                Token::LParen,
-                Token::UCaret,
-                Token::UCaret,
-                Token::Integer(2),
-                Token::UCaret,
-                Token::Float(1.5),
-                Token::RParen,
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::LParen,
+            Token::UCaret,
+            Token::UCaret,
+            Token::Integer(2),
+            Token::UCaret,
+            Token::Float(1.5),
+            Token::RParen,
+        ]),
         Ok(Syntax::Array(Rc::from([
             Syntax::CaretCoord(0.0),
             Syntax::CaretCoord(2.0),
@@ -115,20 +99,16 @@ fn coords() {
     );
     // (~ ~-2 ~1.05)
     assert_eq!(
-        parse(
-            &mut [
-                Token::LParen,
-                Token::Woogly,
-                Token::Woogly,
-                Token::Tack,
-                Token::Integer(2),
-                Token::Woogly,
-                Token::Float(1.05),
-                Token::RParen,
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::LParen,
+            Token::Woogly,
+            Token::Woogly,
+            Token::Tack,
+            Token::Integer(2),
+            Token::Woogly,
+            Token::Float(1.05),
+            Token::RParen,
+        ]),
         Ok(Syntax::Array(Rc::from([
             Syntax::WooglyCoord(0.0),
             Syntax::WooglyCoord(-2.0),
@@ -140,17 +120,13 @@ fn coords() {
 #[test]
 fn tp() {
     assert_eq!(
-        parse(
-            &mut [
-                Token::Identifier("as".into()),
-                Token::At,
-                Token::Identifier("s".into()),
-                Token::LParen,
-                Token::RParen
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::Identifier("as".into()),
+            Token::At,
+            Token::Identifier("s".into()),
+            Token::LParen,
+            Token::RParen
+        ]),
         Ok(Syntax::Block(
             BlockType::As,
             Box::new(Syntax::Selector(Selector::s())),
@@ -162,18 +138,14 @@ fn tp() {
 #[test]
 fn xp_op() {
     assert_eq!(
-        parse(
-            &mut [
-                Token::At,
-                Token::Identifier("s".into()),
-                Token::DoubleColon,
-                Token::Identifier("level".into()),
-                Token::PlusEq,
-                Token::Integer(1)
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::At,
+            Token::Identifier("s".into()),
+            Token::DoubleColon,
+            Token::Identifier("level".into()),
+            Token::PlusEq,
+            Token::Integer(1)
+        ]),
         Ok(Syntax::BinaryOp {
             lhs: OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
             operation: Operation::AddEq,
@@ -185,21 +157,17 @@ fn xp_op() {
 #[test]
 fn do_until() {
     assert_eq!(
-        parse(
-            &mut [
-                Token::Identifier("do".into()),
-                Token::Identifier("until".into()),
-                Token::Identifier("x".into()),
-                Token::Equal,
-                Token::Integer(10),
-                Token::LCurly,
-                Token::Identifier("x".into()),
-                Token::PlusPlus,
-                Token::RCurly
-            ]
-            .into_iter()
-            .peekable()
-        ),
+        parse(vec![
+            Token::Identifier("do".into()),
+            Token::Identifier("until".into()),
+            Token::Identifier("x".into()),
+            Token::Equal,
+            Token::Integer(10),
+            Token::LCurly,
+            Token::Identifier("x".into()),
+            Token::PlusPlus,
+            Token::RCurly
+        ]),
         Ok(Syntax::Block(
             BlockType::DoUntil,
             Box::new(Syntax::BinaryOp {

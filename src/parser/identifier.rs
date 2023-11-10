@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::types::prelude::*;
 
-use super::{get_op, parse, parse_nbt_path};
+use super::{get_op, inner_parse, parse_nbt_path};
 /// parse a statement that starts with an identifier
 #[allow(clippy::too_many_lines)]
 pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
@@ -13,7 +13,7 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
         Ok(Syntax::BinaryOp {
             lhs: OpLeft::Ident(id),
             operation: op,
-            rhs: Box::new(parse(tokens)?),
+            rhs: Box::new(inner_parse(tokens)?),
         })
     } else if tokens.peek() == Some(&Token::PlusPlus) {
         tokens.next();
@@ -54,8 +54,8 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
         }
         Ok(Syntax::Block(
             block_type,
-            Box::new(parse(tokens)?),
-            Box::new(parse(tokens)?),
+            Box::new(inner_parse(tokens)?),
+            Box::new(inner_parse(tokens)?),
         ))
     } else {
         Ok(Syntax::Identifier(id))

@@ -113,61 +113,60 @@ fn inner_tokenize<T: Iterator<Item = char>>(chars: &mut Peekable<T>) -> SResult<
             }
             return Ok(None);
         }
-        _ => {
-            // ignore whitespace
-            if char.is_whitespace() {
-                return Ok(None);
-            }
+        // ignore whitespace
+        char if char.is_whitespace() => return Ok(None),
+        char if char.is_ascii_alphanumeric() || char == '_' => {
             // get an identifier / number / range
-            if char.is_ascii_alphanumeric() || char == '_' {
-                let mut identifier_buf = String::from(char);
-                while let Some(next) = chars.peek() {
-                    if next.is_ascii_alphanumeric() || *next == '_' {
-                        identifier_buf.push(
-                            chars
-                                .next()
-                                .ok_or_else(|| String::from("Unexpected end of file"))?,
-                        );
-                    } else {
-                        break;
-                    }
+            let mut identifier_buf = String::from(char);
+            while let Some(next) = chars.peek() {
+                if next.is_ascii_alphanumeric() || *next == '_' {
+                    identifier_buf.push(
+                        chars
+                            .next()
+                            .ok_or_else(|| String::from("Unexpected end of file"))?,
+                    );
+                } else {
+                    break;
                 }
-                return Ok(Some(match identifier_buf.parse() {
-                    Ok(int) => match chars.peek() {
-                        Some('.') => {
-                            chars.next();
-                            let mut decimal_buf = String::new();
-                            let doot: bool = match chars.peek() {
-                                Some('.') => {
-                                    chars.next();
-                                    true
-                                }
-                                _ => false,
-                            };
-                            while let Some(next) = chars.peek() {
-                                if next.is_ascii_digit() {
-                                    decimal_buf.push(*next);
-                                    chars.next();
-                                } else {
-                                    break;
-                                }
+            }
+            return Ok(Some(match identifier_buf.parse() {
+                Ok(int) => match chars.peek() {
+                    Some('.') => {
+                        chars.next();
+                        let mut decimal_buf = String::new();
+                        let doot: bool = match chars.peek() {
+                            Some('.') => {
+                                chars.next();
+                                true
                             }
-                            if doot {
-                                Token::Range(Some(int), decimal_buf.parse::<i32>().ok())
+                            _ => false,
+                        };
+                        while let Some(next) = chars.peek() {
+                            if next.is_ascii_digit() {
+                                decimal_buf.push(*next);
+                                chars.next();
                             } else {
-                                Token::Float(
-                                    int as f32
-                                        + decimal_buf.parse::<f32>().map_err(|_| {
-                                            String::from("Expected number after `.`")
-                                        })? / 10.0f32.powi(decimal_buf.len() as i32),
-                                )
+                                break;
                             }
                         }
-                        _ => Token::Integer(int),
-                    },
-                    Err(_) => Token::Identifier(identifier_buf.into()),
-                }));
-            }
+                        if doot {
+                            Token::Range(Some(int), decimal_buf.parse::<i32>().ok())
+                        } else {
+                            Token::Float(
+                                int as f32
+                                    + decimal_buf
+                                        .parse::<f32>()
+                                        .map_err(|_| String::from("Expected number after `.`"))?
+                                        / 10.0f32.powi(decimal_buf.len() as i32),
+                            )
+                        }
+                    }
+                    _ => Token::Integer(int),
+                },
+                Err(_) => Token::Identifier(identifier_buf.into()),
+            }));
+        }
+        char => {
             // unexpected character
             return Err(format!("Unexpected character: `{char}`"));
         }

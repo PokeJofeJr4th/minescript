@@ -55,8 +55,7 @@ pub(super) fn annotations(
                 .map_err(|err| format!("Error opening {str}: {err}"))?;
             let tokens = tokenize(&format!("[{text}]"))
                 .map_err(|err| format!("Error parsing {str}: {err}"))?;
-            let syntax = parse(&mut tokens.into_iter().peekable())
-                .map_err(|err| format!("Error parsing {str}: {err}"))?;
+            let syntax = parse(tokens).map_err(|err| format!("Error parsing {str}: {err}"))?;
             return inner_interpret(&syntax, state, &new_path, src_files, config);
         }
         "item" => {

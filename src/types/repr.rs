@@ -41,7 +41,7 @@ pub struct InterRepr {
     pub recipes: BTreeMap<RStr, (String, RStr)>,
     pub loot_tables: BTreeMap<RStr, RStr>,
     pub constants: BTreeSet<i32>,
-    pub custom_model_data: BTreeMap<String, BTreeMap<u32, String>>,
+    pub custom_model_data: BTreeMap<RStr, BTreeMap<i32, String>>,
     // /// all of the standard library functions it uses
     // pub std_imports: BTreeSet<RStr>,
 }
@@ -65,7 +65,7 @@ impl InterRepr {
     }
 
     /// add a custom model data given a base item and a new texture name
-    pub fn add_custom_model_data(&mut self, path: String, number: u32, texture: String) {
+    pub fn add_custom_model_data(&mut self, path: RStr, number: i32, texture: String) {
         self.custom_model_data
             .entry(path)
             .or_default()

@@ -4,8 +4,30 @@ use crate::types::prelude::*;
 
 mod identifier;
 
+pub fn parse(tokens: Vec<Token>) -> SResult<Syntax> {
+    inner_parse(&mut tokens.into_iter().peekable())
+}
+
+fn inner_parse_expr_greedy(
+    tokens: &mut Peekable<impl Iterator<Item = Token>>,
+    priority: u8,
+) -> SResult<Syntax> {
+    if priority >= 5 {
+        return inner_parse(tokens);
+    }
+    let mut start = inner_parse_expr_greedy(tokens, priority + 1)?;
+    loop {
+        match tokens.peek() {
+            Some(Token::Plus | Token::Tack) => {
+                todo!()
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 #[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
-pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
+fn inner_parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syntax> {
     let first = match tokens.next() {
         Some(Token::String(str)) => Ok(Syntax::String(str)),
         Some(Token::Integer(num)) => Ok(Syntax::Integer(num)),
@@ -66,7 +88,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             };
             let (op, right) = if let Some(op) = get_op(tokens) {
                 // println!("Secondary Operation");
-                (op, parse(tokens)?)
+                (op, inner_parse(tokens)?)
             } else if tokens.peek() == Some(&Token::PlusPlus) {
                 tokens.next();
                 (Operation::AddEq, Syntax::Integer(1))
@@ -97,7 +119,7 @@ pub fn parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<Syn
             return Ok(Syntax::BinaryOp {
                 lhs: OpLeft::NbtStorage(nbt.clone()),
                 operation: Operation::Equal,
-                rhs: Box::new(parse(tokens)?),
+                rhs: Box::new(inner_parse(tokens)?),
             });
         }
     }
@@ -182,7 +204,7 @@ fn parse_block<T: Iterator<Item = Token>>(
         tokens.next();
         return Ok(default());
     }
-    statements_buf.push(parse(tokens)?);
+    statements_buf.push(inner_parse(tokens)?);
 
     while let Some(tok) = tokens.peek() {
         if tok == closing {
@@ -192,7 +214,7 @@ fn parse_block<T: Iterator<Item = Token>>(
             tokens.next();
         } else {
             // println!("Curly Object");
-            statements_buf.push(parse(tokens)?);
+            statements_buf.push(inner_parse(tokens)?);
         }
     }
     statements_buf
@@ -273,7 +295,7 @@ fn parse_annotation<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SRes
                     let Some(Token::Equal) = tokens.next() else {
                         return Err(String::from("Expected `=` for selector property"))
                     };
-                    selector_buf.insert(ident.clone(), parse(tokens)?);
+                    selector_buf.insert(ident.clone(), inner_parse(tokens)?);
                 }
             }
             Ok(Syntax::Selector(Selector {
@@ -288,6 +310,9 @@ fn parse_annotation<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SRes
                 args: selector_buf,
             }))
         }
-        _ => Ok(Syntax::Annotation(identifier, Box::new(parse(tokens)?))),
+        _ => Ok(Syntax::Annotation(
+            identifier,
+            Box::new(inner_parse(tokens)?),
+        )),
     }
 }

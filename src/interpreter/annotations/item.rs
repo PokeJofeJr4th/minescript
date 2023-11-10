@@ -20,6 +20,7 @@ pub(super) fn item(
     };
     let mut item = Item::default();
     let mut recipe_buf = Vec::new();
+    let mut custom_model_path = None;
     for (prop, value) in src.iter() {
         match prop.as_ref() {
             "name" => {
@@ -99,7 +100,7 @@ pub(super) fn item(
                 let Syntax::Object(obj) = value else {
                     return Err(format!("Expected an object for `while_slot` property; got `{value:?}`"))
                 };
-                for (k, v) in obj.iter() {
+                for (slot_key, slot_value) in obj.iter() {
                     // SLOT INFO
                     // 9  10 11 12 13 14 15 16 17
                     // 18 19 20 21 22 23 24 25 26
@@ -107,7 +108,7 @@ pub(super) fn item(
                     // 0  1  2  3  4  5  6  7  8
                     // -106
                     let slot = if let Some(captures) =
-                        lazy_regex!("^slot_(?P<slot>[0-9]+)$").captures(k)
+                        lazy_regex!("^slot_(?P<slot>[0-9]+)$").captures(slot_key)
                     {
                         // given the regex above, `captures.name` can never fail
                         captures
@@ -115,9 +116,11 @@ pub(super) fn item(
                             .unwrap()
                             .as_str()
                             .parse()
-                            .map_err(|err| format!("While checking if item is in {k}: {err}"))?
+                            .map_err(|err| {
+                                format!("While checking if item is in {slot_key}: {err}")
+                            })?
                     } else if let Some(captures) =
-                        lazy_regex!("^hotbar_(?P<slot>[0-8])$").captures(k)
+                        lazy_regex!("^hotbar_(?P<slot>[0-8])$").captures(slot_key)
                     {
                         // given the regex above, both `captures.name` and `parse::<i32>` can never fail
                         captures
@@ -127,18 +130,25 @@ pub(super) fn item(
                             .parse::<i8>()
                             .unwrap()
                     } else {
-                        match &**k {
+                        match &**slot_key {
                             "offhand" => -106,
                             "head" => 103,
                             "chest" => 102,
                             "legs" => 101,
                             "feet" => 100,
-                            _ => return Err(format!("Unexpected slot: `{k}`")),
+                            _ => return Err(format!("Unexpected slot: `{slot_key}`")),
                         }
                     };
-                    item.slot_checks
-                        .push((slot, inner_interpret(v, state, path, src_files, config)?));
+                    item.slot_checks.push((
+                        slot,
+                        inner_interpret(slot_value, state, path, src_files, config)?,
+                    ));
                 }
+            }
+            "custom_model" => {
+                custom_model_path = Some(String::try_from(value).map_err(|err| {
+                    format!("`custom_model` value should be a path to a file; {err}")
+                })?);
             }
             other => return Err(format!("Unexpected item property: `{other}`")),
         }
@@ -164,6 +174,11 @@ pub(super) fn item(
     let Nbt::Object(ref mut obj) = item.nbt else {
         return Err(format!("Item nbt should be an object; got `{}`", item.nbt))
     };
+    if let Some(custom_model_path) = custom_model_path {
+        let custom_model_value = (get_hash(&custom_model_path) & 0xFFFF_FFFF) as i32;
+        obj.insert("customModelData".into(), custom_model_value.into());
+        state.add_custom_model_data(item.base.clone(), custom_model_value, custom_model_path);
+    }
     match obj.get_mut("tag") {
         Some(Nbt::Object(ref mut inner)) => {
             inner.insert("_is_minescript".into(), item.name.clone().into());
