@@ -9,8 +9,8 @@ pub(super) fn operation(
     state: &mut InterRepr,
     config: &Config,
 ) -> SResult<VecCmd> {
-    let lhs = get_data_location(lhs)?;
-    match (lhs, op, rhs) {
+    let (mut commands, lhs) = get_data_location(lhs)?;
+    commands.extend(match (lhs, op, rhs) {
         // @s::xp
         (DataLocation::SelectorDoubleColon(sel, ident), _, _) => {
             double_colon(&sel, &ident, op, rhs)
@@ -35,7 +35,8 @@ pub(super) fn operation(
             state,
             config,
         ),
-    }
+    }?);
+    Ok(commands)
 }
 
 /// Interpret an operation with a score on the left

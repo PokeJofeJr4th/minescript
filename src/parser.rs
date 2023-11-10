@@ -305,7 +305,7 @@ fn parse_annotation<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SRes
                     let Some(Token::Equal) = tokens.next() else {
                         return Err(String::from("Expected `=` for selector property"))
                     };
-                    selector_buf.insert(ident.clone(), inner_parse(tokens)?);
+                    selector_buf.insert(ident.clone(), inner_parse_expr_greedy(tokens, 0)?);
                 }
             }
             Ok(Syntax::Selector(Selector {
@@ -322,7 +322,7 @@ fn parse_annotation<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SRes
         }
         _ => Ok(Syntax::Annotation(
             identifier,
-            Box::new(inner_parse(tokens)?),
+            Box::new(inner_parse_expr_greedy(tokens, 0)?),
         )),
     }
 }

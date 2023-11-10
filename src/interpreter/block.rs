@@ -28,8 +28,8 @@ pub(super) fn block(
             },
             _,
         ) => {
-            let left = get_data_location(left)?;
-            interpret_if(
+            let (mut commands, left) = get_data_location(left)?;
+            commands.extend(interpret_if(
                 block_type == BlockType::Unless,
                 &left,
                 *op,
@@ -38,7 +38,8 @@ pub(super) fn block(
                 &format!("__internal__/if_{:x}", get_hash(body)),
                 state,
                 config,
-            )
+            )?);
+            Ok(commands)
         }
         // for _ in 1..10 {}
         (
@@ -54,10 +55,11 @@ pub(super) fn block(
             },
             _,
         ) => {
-            let left = get_data_location(left)?;
-            loop_block(
+            let (mut commands, left) = get_data_location(left)?;
+            commands.extend(loop_block(
                 block_type, left, *op, right, body, state, path, src_files, config,
-            )
+            )?);
+            Ok(commands)
         }
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
@@ -279,17 +281,21 @@ fn interpret_if(
     };
     let options = match right {
         Syntax::Identifier(_) | Syntax::BinaryOp { .. } | Syntax::SelectorColon(_, _) => {
-            let (source, source_objective) = match right {
-                Syntax::Identifier(ident) => (ident.clone(), config.dummy_objective.clone()),
+            let (source, source_objective, mut commands) = match right {
+                Syntax::Identifier(ident) => (
+                    ident.clone(),
+                    config.dummy_objective.clone(),
+                    VecCmd::default(),
+                ),
                 Syntax::BinaryOp {
                     lhs: left,
                     operation: Operation::Colon,
                     rhs: right,
                 } => {
-                    let left = get_data_location(left)?;
+                    let (mut commands, left) = get_data_location(left)?;
                     match &**right {
                         Syntax::Identifier(ident) => {
-                            (left.stringify_scoreboard_target()?, ident.clone())
+                            (left.stringify_scoreboard_target()?, ident.clone(), commands)
                         }
                         _ => {
                             return Err(format!(
@@ -298,9 +304,11 @@ fn interpret_if(
                         }
                     }
                 }
-                Syntax::SelectorColon(selector, right) => {
-                    (selector.stringify()?.to_string().into(), right.clone())
-                }
+                Syntax::SelectorColon(selector, right) => (
+                    selector.stringify()?.to_string().into(),
+                    right.clone(),
+                    VecCmd::default(),
+                ),
                 _ => return Err(format!("Can't compare to `{right:?}`")),
             };
             if !state.objectives.contains_key(&source_objective) {

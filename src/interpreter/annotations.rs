@@ -94,13 +94,14 @@ pub(super) fn annotations(
             let Syntax::BinaryOp { lhs, operation: Operation::In, rhs } = properties else {
                 return Err(format!("`@random` annotation takes `{{var}} in {{...}}`; got `{properties:?}`"))
             };
-            let lhs = get_data_location(lhs)?;
-            return random(
+            let (mut commands, lhs) = get_data_location(lhs)?;
+            commands.extend(random(
                 lhs.stringify_scoreboard_target()?,
                 lhs.stringify_scoreboard_objective(config)?,
                 rhs,
                 state,
-            );
+            )?);
+            return Ok(commands);
         }
         other => return Err(format!("Unexpected annotation `{other}`")),
     }

@@ -48,15 +48,16 @@ fn inner_interpret(
             operation: operation @ (Operation::ColonEq | Operation::QuestionEq),
             rhs,
         } => {
-            let lhs = get_data_location(lhs)?;
-            return store::storage_op(
+            let (mut commands, lhs) = get_data_location(lhs)?;
+            commands.extend(store::storage_op(
                 lhs,
                 *operation == Operation::QuestionEq,
                 inner_interpret(rhs, state, path, src_files, config)?,
                 &format!("__internal__/{:x}", get_hash(rhs)),
                 state,
                 config,
-            );
+            )?);
+            return Ok(commands);
         }
         Syntax::BinaryOp {
             lhs,
@@ -76,9 +77,9 @@ fn inner_interpret(
     Ok(VecCmd::default())
 }
 
-fn get_data_location(src: &Syntax) -> SResult<DataLocation> {
+fn get_data_location(src: &Syntax) -> SResult<(VecCmd, DataLocation)> {
     if let Ok(data) = DataLocation::try_from(src.clone()) {
-        return Ok(data);
+        return Ok((VecCmd::default(), data));
     }
     match src {
         other => Err(format!("Can't get data location from `{other:?}`")),
