@@ -26,7 +26,7 @@ pub mod prelude {
     pub use super::nbt::{Nbt, NbtLocation, NbtPathPart};
     pub use super::repr::{CompiledRepr, InterRepr, Item};
     pub use super::selector::{Selector, SelectorType};
-    pub use super::syntax::{BlockType, OpLeft, Operation, Syntax};
+    pub use super::syntax::{BlockType, DataLocation, Operation, Syntax};
     pub use super::token::Token;
     pub use super::versioning::Versioned;
     pub use crate::nbt;

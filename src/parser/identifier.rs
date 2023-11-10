@@ -2,30 +2,24 @@ use std::iter::Peekable;
 
 use crate::types::prelude::*;
 
-use super::{get_op, inner_parse, parse_nbt_path};
+use super::{inner_parse, inner_parse_expr_greedy, parse_nbt_path};
 /// parse a statement that starts with an identifier
 #[allow(clippy::too_many_lines)]
 pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
     tokens: &mut Peekable<T>,
     id: RStr,
 ) -> SResult<Syntax> {
-    if let Some(op) = get_op(tokens) {
-        Ok(Syntax::BinaryOp {
-            lhs: OpLeft::Ident(id),
-            operation: op,
-            rhs: Box::new(inner_parse(tokens)?),
-        })
-    } else if tokens.peek() == Some(&Token::PlusPlus) {
+    if tokens.peek() == Some(&Token::PlusPlus) {
         tokens.next();
         Ok(Syntax::BinaryOp {
-            lhs: OpLeft::Ident(id),
+            lhs: Box::new(Syntax::Identifier(id)),
             operation: Operation::AddEq,
             rhs: Box::new(Syntax::Integer(1)),
         })
     } else if tokens.peek() == Some(&Token::TackTack) {
         tokens.next();
         Ok(Syntax::BinaryOp {
-            lhs: OpLeft::Ident(id),
+            lhs: Box::new(Syntax::Identifier(id)),
             operation: Operation::SubEq,
             rhs: Box::new(Syntax::Integer(1)),
         })
@@ -54,7 +48,7 @@ pub(super) fn parse_identifier<T: Iterator<Item = Token>>(
         }
         Ok(Syntax::Block(
             block_type,
-            Box::new(inner_parse(tokens)?),
+            Box::new(inner_parse_expr_greedy(tokens, 0)?),
             Box::new(inner_parse(tokens)?),
         ))
     } else {

@@ -5,7 +5,7 @@ use std::{
 
 use lazy_regex::lazy_regex;
 
-use super::{inner_interpret, InterRepr};
+use super::{get_data_location, inner_interpret, InterRepr};
 use crate::{interpreter::operation::operation, types::prelude::*, Config};
 
 pub(super) fn block(
@@ -27,16 +27,19 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => interpret_if(
-            block_type == BlockType::Unless,
-            left,
-            *op,
-            right,
-            inner_interpret(body, state, path, src_files, config)?,
-            &format!("__internal__/if_{:x}", get_hash(body)),
-            state,
-            config,
-        ),
+        ) => {
+            let left = get_data_location(left)?;
+            interpret_if(
+                block_type == BlockType::Unless,
+                &left,
+                *op,
+                right,
+                inner_interpret(body, state, path, src_files, config)?,
+                &format!("__internal__/if_{:x}", get_hash(body)),
+                state,
+                config,
+            )
+        }
         // for _ in 1..10 {}
         (
             BlockType::For
@@ -50,9 +53,12 @@ pub(super) fn block(
                 rhs: right,
             },
             _,
-        ) => loop_block(
-            block_type, left, *op, right, body, state, path, src_files, config,
-        ),
+        ) => {
+            let left = get_data_location(left)?;
+            loop_block(
+                block_type, left, *op, right, body, state, path, src_files, config,
+            )
+        }
         // switch _ { case _ { ...}* }
         (BlockType::Switch, _, Syntax::Array(arr)) => {
             switch_block(lhs, arr, state, path, src_files, config)
@@ -131,7 +137,7 @@ fn switch_block(
 ) -> SResult<VecCmd> {
     let switch_var: RStr = format!("__internal__/switch_{:x}", get_hash(&arr)).into();
     let mut cmd_buf = operation(
-        &OpLeft::Ident(switch_var.clone()),
+        &Syntax::Identifier(switch_var.clone()),
         Operation::Equal,
         lhs,
         state,
@@ -143,7 +149,7 @@ fn switch_block(
                 };
         cmd_buf.extend(interpret_if(
             false,
-            &OpLeft::Ident(switch_var.clone()),
+            &DataLocation::Ident(switch_var.clone()),
             Operation::Equal,
             match_value,
             inner_interpret(body, state, path, src_files, config)?,
@@ -160,7 +166,7 @@ fn switch_block(
 #[allow(clippy::too_many_arguments)]
 fn loop_block(
     block_type: BlockType,
-    left: &OpLeft,
+    left: DataLocation,
     op: Operation,
     right: &Syntax,
     block: &Syntax,
@@ -176,10 +182,10 @@ fn loop_block(
     };
     let fn_name: RStr = format!("__internal__/{:x}", get_hash(block)).into();
     // for _ in .. => replace `_` with hash
-    let left = if block_type == BlockType::For && left == &OpLeft::Ident("_".into()) {
-        OpLeft::Ident(format!("{:x}", get_hash(block)).into())
+    let left = if block_type == BlockType::For && left == DataLocation::Ident("_".into()) {
+        DataLocation::Ident(format!("{:x}", get_hash(block)).into())
     } else {
-        left.clone()
+        left
     };
     let binding = interpret_if(
         invert,
@@ -240,7 +246,7 @@ fn loop_block(
 )]
 fn interpret_if(
     invert: bool,
-    left: &OpLeft,
+    left: &DataLocation,
     op: Operation,
     right: &Syntax,
     content: VecCmd,
@@ -263,7 +269,7 @@ fn interpret_if(
         (target_player, target_objective)
     } else {
         setter = Some(operation(
-            &OpLeft::Ident("__if__".into()),
+            &Syntax::Identifier("__if__".into()),
             Operation::Equal,
             &left.clone().into(),
             state,
@@ -279,16 +285,19 @@ fn interpret_if(
                     lhs: left,
                     operation: Operation::Colon,
                     rhs: right,
-                } => match &**right {
-                    Syntax::Identifier(ident) => {
-                        (left.stringify_scoreboard_target()?, ident.clone())
+                } => {
+                    let left = get_data_location(left)?;
+                    match &**right {
+                        Syntax::Identifier(ident) => {
+                            (left.stringify_scoreboard_target()?, ident.clone())
+                        }
+                        _ => {
+                            return Err(format!(
+                                "Scoreboard must be indexed by an identifier; got {right:?}"
+                            ))
+                        }
                     }
-                    _ => {
-                        return Err(format!(
-                            "Scoreboard must be indexed by an identifier; got {right:?}"
-                        ))
-                    }
-                },
+                }
                 Syntax::SelectorColon(selector, right) => {
                     (selector.stringify()?.to_string().into(), right.clone())
                 }

@@ -32,7 +32,7 @@ pub enum Syntax {
     NbtStorage(NbtPath),
     /// A binary operation like x += 2
     BinaryOp {
-        lhs: OpLeft,
+        lhs: Box<Syntax>,
         operation: Operation,
         rhs: Box<Syntax>,
     },
@@ -82,24 +82,6 @@ impl Debug for Syntax {
             Self::CaretCoord(coord) => write!(f, "^{coord}"),
             Self::Float(float) => write!(f, "{float}"),
             Self::Unit => write!(f, "()"),
-        }
-    }
-}
-
-impl From<OpLeft> for Syntax {
-    fn from(value: OpLeft) -> Self {
-        match value {
-            OpLeft::Ident(id) => Self::Identifier(id),
-            OpLeft::Colon(lhs, rhs) => Self::BinaryOp {
-                lhs: OpLeft::Ident(lhs),
-                operation: Operation::Equal,
-                rhs: Box::new(Self::Identifier(rhs)),
-            },
-            OpLeft::Selector(sel) => Self::Selector(sel),
-            OpLeft::SelectorColon(sel, id) => Self::SelectorColon(sel, id),
-            OpLeft::SelectorDoubleColon(sel, id) => Self::SelectorDoubleColon(sel, id),
-            OpLeft::SelectorNbt(sel, nbt) => Self::SelectorNbt(sel, nbt),
-            OpLeft::NbtStorage(storage) => Self::NbtStorage(storage),
         }
     }
 }
@@ -197,7 +179,7 @@ impl Hash for Syntax {
 }
 
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum OpLeft {
+pub enum DataLocation {
     /// An imaginary player's dummy objective
     Ident(RStr),
     /// An imaginary player's specified objective
@@ -214,7 +196,7 @@ pub enum OpLeft {
     NbtStorage(NbtPath),
 }
 
-impl OpLeft {
+impl DataLocation {
     pub fn stringify_scoreboard_target(&self) -> SResult<RStr> {
         match self {
             Self::Ident(id) | Self::Colon(id, _) => Ok(format!("%{id}").into()),
@@ -242,16 +224,19 @@ impl OpLeft {
     }
 }
 
-impl TryFrom<Syntax> for OpLeft {
+impl TryFrom<Syntax> for DataLocation {
     type Error = ();
     fn try_from(value: Syntax) -> Result<Self, Self::Error> {
         match value {
             Syntax::Identifier(ident) => Ok(Self::Ident(ident)),
             Syntax::BinaryOp {
-                lhs: Self::Ident(lhs),
+                lhs,
                 operation: Operation::Equal,
                 rhs,
             } => {
+                let Syntax::Identifier(lhs) = *lhs else {
+                    return Err(())
+                };
                 let Syntax::Identifier(rhs) = *rhs else {
                     return Err(())
                 };
@@ -263,6 +248,24 @@ impl TryFrom<Syntax> for OpLeft {
             Syntax::SelectorNbt(sel, nbt) => Ok(Self::SelectorNbt(sel, nbt)),
             Syntax::NbtStorage(storage) => Ok(Self::NbtStorage(storage)),
             _ => Err(()),
+        }
+    }
+}
+
+impl From<DataLocation> for Syntax {
+    fn from(value: DataLocation) -> Self {
+        match value {
+            DataLocation::Colon(lhs, rhs) => Self::BinaryOp {
+                lhs: Box::new(Self::Identifier(lhs)),
+                operation: Operation::Colon,
+                rhs: Box::new(Self::Identifier(rhs)),
+            },
+            DataLocation::Ident(id) => Self::Identifier(id),
+            DataLocation::NbtStorage(nbt) => Self::NbtStorage(nbt),
+            DataLocation::Selector(sel) => Self::Selector(sel),
+            DataLocation::SelectorColon(sel, id) => Self::SelectorColon(sel, id),
+            DataLocation::SelectorDoubleColon(sel, id) => Self::SelectorDoubleColon(sel, id),
+            DataLocation::SelectorNbt(sel, nbt) => Self::SelectorNbt(sel, nbt),
         }
     }
 }
@@ -348,6 +351,44 @@ impl Display for Operation {
                 Self::FpDivEq => "./=",
             }
         )
+    }
+}
+
+impl TryFrom<Token> for Operation {
+    type Error = ();
+    /// get and consume an operation from the next token(s)
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::Colon => Ok(Self::Colon),
+            Token::DoubleColon => Ok(Self::DoubleColon),
+            Token::Equal => Ok(Self::Equal),
+            Token::LCaretEq => Ok(Self::LCaretEq),
+            Token::RCaretEq => Ok(Self::RCaretEq),
+            Token::LCaret => Ok(Self::LCaret),
+            Token::RCaret => Ok(Self::RCaret),
+            Token::RLCaret => Ok(Self::Swap),
+            Token::BangEq => Ok(Self::BangEq),
+            Token::PlusEq => Ok(Self::AddEq),
+            Token::TackEq => Ok(Self::SubEq),
+            Token::StarEq => Ok(Self::MulEq),
+            Token::SlashEq => Ok(Self::DivEq),
+            Token::PercEq => Ok(Self::ModEq),
+            Token::ColonEq => Ok(Self::ColonEq),
+            Token::QuestionEq => Ok(Self::QuestionEq),
+            Token::DotEq => Ok(Self::FpEq),
+            Token::DotPlusEq => Ok(Self::FpAddEq),
+            Token::DotTackEq => Ok(Self::FpSubEq),
+            Token::DotStarEq => Ok(Self::FpMulEq),
+            Token::DotSlashEq => Ok(Self::FpDivEq),
+            Token::Identifier(ident) => {
+                if ident.as_ref() == "in" {
+                    Ok(Self::In)
+                } else {
+                    Err(())
+                }
+            }
+            _ => Err(()),
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use crate::types::prelude::*;
 mod identifier;
 
 pub fn parse(tokens: Vec<Token>) -> SResult<Syntax> {
-    inner_parse(&mut tokens.into_iter().peekable())
+    inner_parse_expr_greedy(&mut tokens.into_iter().peekable(), 0)
 }
 
 fn inner_parse_expr_greedy(
@@ -18,10 +18,64 @@ fn inner_parse_expr_greedy(
     let mut start = inner_parse_expr_greedy(tokens, priority + 1)?;
     loop {
         match tokens.peek() {
-            Some(Token::Plus | Token::Tack) => {
-                todo!()
+            Some(Token::Star | Token::Slash) if priority == 0 => {
+                let op = tokens.next().unwrap().try_into().unwrap();
+                let rhs = inner_parse_expr_greedy(tokens, priority + 1)?;
+                start = Syntax::BinaryOp {
+                    lhs: Box::new(start),
+                    operation: op,
+                    rhs: Box::new(rhs),
+                };
             }
-            _ => todo!(),
+            Some(Token::Plus | Token::Tack) if priority == 1 => {
+                let op = tokens.next().unwrap().try_into().unwrap();
+                let rhs = inner_parse_expr_greedy(tokens, priority + 1)?;
+                start = Syntax::BinaryOp {
+                    lhs: Box::new(start),
+                    operation: op,
+                    rhs: Box::new(rhs),
+                };
+            }
+            Some(Token::Identifier(id)) if priority == 2 && &**id == "in" => {
+                let op = tokens.next().unwrap().try_into().unwrap();
+                let rhs = inner_parse_expr_greedy(tokens, priority + 1)?;
+                start = Syntax::BinaryOp {
+                    lhs: Box::new(start),
+                    operation: op,
+                    rhs: Box::new(rhs),
+                };
+            }
+            Some(
+                Token::Equal
+                | Token::Colon
+                | Token::DotEq
+                | Token::DotPlusEq
+                | Token::DotTackEq
+                | Token::DotStarEq
+                | Token::DotSlashEq
+                | Token::RLCaret
+                | Token::LCaret
+                | Token::LCaretEq
+                | Token::RCaret
+                | Token::RCaretEq
+                | Token::PlusEq
+                | Token::TackEq
+                | Token::StarEq
+                | Token::SlashEq
+                | Token::PercEq
+                | Token::QuestionEq
+                | Token::BangEq
+                | Token::ColonEq,
+            ) if priority == 3 => {
+                let op = tokens.next().unwrap().try_into().unwrap();
+                let rhs = inner_parse_expr_greedy(tokens, priority + 1)?;
+                start = Syntax::BinaryOp {
+                    lhs: Box::new(start),
+                    operation: op,
+                    rhs: Box::new(rhs),
+                };
+            }
+            _ => return Ok(start),
         }
     }
 }
@@ -77,17 +131,18 @@ fn inner_parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<S
                 return Err(String::from("Selectors can only be indexed with `:<identifier>`, `::<identifier>`, or `.<nbt>`"))
             };
             let left = match tok {
-                Some(Token::Colon) => OpLeft::SelectorColon(sel.clone(), ident),
-                Some(Token::DoubleColon) => OpLeft::SelectorDoubleColon(sel.clone(), ident),
+                Some(Token::Colon) => Syntax::SelectorColon(sel.clone(), ident),
+                Some(Token::DoubleColon) => Syntax::SelectorDoubleColon(sel.clone(), ident),
                 Some(Token::Dot) => {
                     let mut nbt = vec![NbtPathPart::Ident(ident)];
                     nbt.extend(parse_nbt_path(tokens)?);
-                    OpLeft::SelectorNbt(sel.clone(), nbt)
+                    Syntax::SelectorNbt(sel.clone(), nbt)
                 }
                 _ => unreachable!(),
             };
-            let (op, right) = if let Some(op) = get_op(tokens) {
+            let (op, right) = if let Ok(op) = tokens.peek().unwrap().clone().try_into() {
                 // println!("Secondary Operation");
+                tokens.next();
                 (op, inner_parse(tokens)?)
             } else if tokens.peek() == Some(&Token::PlusPlus) {
                 tokens.next();
@@ -96,19 +151,10 @@ fn inner_parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<S
                 tokens.next();
                 (Operation::SubEq, Syntax::Integer(1))
             } else {
-                match left {
-                    OpLeft::SelectorColon(sel, ident) => {
-                        return Ok(Syntax::SelectorColon(sel, ident))
-                    }
-                    OpLeft::SelectorDoubleColon(sel, ident) => {
-                        return Ok(Syntax::SelectorDoubleColon(sel, ident))
-                    }
-                    OpLeft::SelectorNbt(sel, nbt) => return Ok(Syntax::SelectorNbt(sel, nbt)),
-                    _ => unreachable!(),
-                }
+                return Ok(left);
             };
             return Ok(Syntax::BinaryOp {
-                lhs: left,
+                lhs: Box::new(left),
                 operation: op,
                 rhs: Box::new(right),
             });
@@ -117,7 +163,7 @@ fn inner_parse<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> SResult<S
         if Some(&Token::Equal) == tokens.peek() {
             tokens.next();
             return Ok(Syntax::BinaryOp {
-                lhs: OpLeft::NbtStorage(nbt.clone()),
+                lhs: Box::new(Syntax::NbtStorage(nbt.clone())),
                 operation: Operation::Equal,
                 rhs: Box::new(inner_parse(tokens)?),
             });
@@ -204,7 +250,7 @@ fn parse_block<T: Iterator<Item = Token>>(
         tokens.next();
         return Ok(default());
     }
-    statements_buf.push(inner_parse(tokens)?);
+    statements_buf.push(inner_parse_expr_greedy(tokens, 0)?);
 
     while let Some(tok) = tokens.peek() {
         if tok == closing {
@@ -214,17 +260,20 @@ fn parse_block<T: Iterator<Item = Token>>(
             tokens.next();
         } else {
             // println!("Curly Object");
-            statements_buf.push(inner_parse(tokens)?);
+            statements_buf.push(inner_parse_expr_greedy(tokens, 0)?);
         }
     }
     statements_buf
         .iter()
         .map(|syn| match syn {
             Syntax::BinaryOp {
-                lhs: OpLeft::Ident(k),
+                lhs: k,
                 operation: Operation::Colon,
                 rhs: v,
-            } => Some((k.clone(), *(*v).clone())),
+            } => {
+                let Syntax::Identifier(k) = &**k else { return None };
+                Some((k.clone(), *(*v).clone()))
+            }
             _ => None,
         })
         .collect::<Option<BTreeMap<_, _>>>()
@@ -232,45 +281,6 @@ fn parse_block<T: Iterator<Item = Token>>(
             || Ok(Syntax::Array(statements_buf.into())),
             |props| Ok(Syntax::Object(props)),
         )
-}
-
-/// get and consume an operation from the next token(s)
-fn get_op<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Option<Operation> {
-    let val = match tokens.peek() {
-        Some(Token::Colon) => Some(Operation::Colon),
-        Some(Token::DoubleColon) => Some(Operation::DoubleColon),
-        Some(Token::Equal) => Some(Operation::Equal),
-        Some(Token::LCaretEq) => Some(Operation::LCaretEq),
-        Some(Token::RCaretEq) => Some(Operation::RCaretEq),
-        Some(Token::LCaret) => Some(Operation::LCaret),
-        Some(Token::RCaret) => Some(Operation::RCaret),
-        Some(Token::RLCaret) => Some(Operation::Swap),
-        Some(Token::BangEq) => Some(Operation::BangEq),
-        Some(Token::PlusEq) => Some(Operation::AddEq),
-        Some(Token::TackEq) => Some(Operation::SubEq),
-        Some(Token::StarEq) => Some(Operation::MulEq),
-        Some(Token::SlashEq) => Some(Operation::DivEq),
-        Some(Token::PercEq) => Some(Operation::ModEq),
-        Some(Token::ColonEq) => Some(Operation::ColonEq),
-        Some(Token::QuestionEq) => Some(Operation::QuestionEq),
-        Some(Token::DotEq) => Some(Operation::FpEq),
-        Some(Token::DotPlusEq) => Some(Operation::FpAddEq),
-        Some(Token::DotTackEq) => Some(Operation::FpSubEq),
-        Some(Token::DotStarEq) => Some(Operation::FpMulEq),
-        Some(Token::DotSlashEq) => Some(Operation::FpDivEq),
-        Some(Token::Identifier(ident)) => {
-            if ident.as_ref() == "in" {
-                Some(Operation::In)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
-    if val.is_some() {
-        tokens.next();
-    }
-    val
 }
 
 /// parse a statement that starts with `@`

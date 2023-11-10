@@ -1,10 +1,10 @@
 use crate::{
-    types::{Command, ExecuteOption, InterRepr, NbtLocation, OpLeft, SResult, VecCmd},
+    types::{Command, DataLocation, ExecuteOption, InterRepr, NbtLocation, SResult, VecCmd},
     Config,
 };
 
 pub(super) fn storage_op(
-    lhs: &OpLeft,
+    lhs: DataLocation,
     is_success: bool,
     cmd: VecCmd,
     hash: &str,
@@ -22,16 +22,16 @@ pub(super) fn storage_op(
         }]
     } else {
         match lhs {
-            OpLeft::SelectorDoubleColon(_, _) => {
+            DataLocation::SelectorDoubleColon(_, _) => {
                 return Err(String::from("Can't assign a command result to an xp level"))
             }
-            OpLeft::SelectorNbt(sel, nbt) => vec![ExecuteOption::StoreNBT {
-                location: NbtLocation::Entity(sel.stringify()?, nbt.clone()),
+            DataLocation::SelectorNbt(sel, nbt) => vec![ExecuteOption::StoreNBT {
+                location: NbtLocation::Entity(sel.stringify()?, nbt),
                 is_success,
                 scale: 1.0,
             }],
-            OpLeft::NbtStorage(nbt) => vec![ExecuteOption::StoreNBT {
-                location: NbtLocation::Storage(nbt.clone()),
+            DataLocation::NbtStorage(nbt) => vec![ExecuteOption::StoreNBT {
+                location: NbtLocation::Storage(nbt),
                 is_success,
                 scale: 1.0,
             }],

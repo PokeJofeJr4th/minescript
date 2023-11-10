@@ -1,30 +1,33 @@
-use super::InterRepr;
+use super::{get_data_location, InterRepr};
 use crate::{types::prelude::*, Config};
 
 /// interpret an operation, like `x += 1`
 pub(super) fn operation(
-    lhs: &OpLeft,
+    lhs: &Syntax,
     op: Operation,
     rhs: &Syntax,
     state: &mut InterRepr,
     config: &Config,
 ) -> SResult<VecCmd> {
+    let lhs = get_data_location(lhs)?;
     match (lhs, op, rhs) {
         // @s::xp
-        (OpLeft::SelectorDoubleColon(sel, ident), _, _) => double_colon(sel, ident, op, rhs),
+        (DataLocation::SelectorDoubleColon(sel, ident), _, _) => {
+            double_colon(&sel, &ident, op, rhs)
+        }
         // @s.name
-        (OpLeft::SelectorNbt(sel, nbt), _, _) => nbt_op(
-            NbtLocation::Entity(sel.stringify()?, nbt.clone()),
+        (DataLocation::SelectorNbt(sel, nbt), _, _) => nbt_op(
+            NbtLocation::Entity(sel.stringify()?, nbt),
             op,
             rhs,
             state,
             config,
         ),
-        (OpLeft::NbtStorage(nbt), _, _) => {
-            nbt_op(NbtLocation::Storage(nbt.clone()), op, rhs, state, config)
+        (DataLocation::NbtStorage(nbt), _, _) => {
+            nbt_op(NbtLocation::Storage(nbt), op, rhs, state, config)
         }
         // x | @s:score | var:x
-        _ => simple_operation(
+        (lhs, op, rhs) => simple_operation(
             lhs.stringify_scoreboard_target()?,
             lhs.stringify_scoreboard_objective(config)?,
             op,
@@ -450,7 +453,7 @@ fn nbt_op(
         )),
         // {{nbt}} .= {{score}}
         (Operation::FpEq, rhs) => {
-            let Ok(score) = OpLeft::try_from(rhs.clone()) else { return Err(format!("Expected a score; got `{rhs:?}`")) };
+            let Ok(score) = DataLocation::try_from(rhs.clone()) else { return Err(format!("Expected a score; got `{rhs:?}`")) };
             let scoreboard_target = score.stringify_scoreboard_target()?;
             let scoreboard_objective = score.stringify_scoreboard_objective(config)?;
             Ok(Command::execute(

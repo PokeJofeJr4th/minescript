@@ -58,12 +58,15 @@ fn tellraw_component(src: &Syntax, config: &Config) -> SResult<Nbt> {
         })),
         // named score
         Syntax::BinaryOp {
-            lhs: OpLeft::Ident(ident),
+            lhs,
             operation: Operation::Colon,
-            rhs: syn,
+            rhs,
         } => {
-            let Syntax::Identifier(objective) = &**syn else {
-            return Err(format!("Expected score identifier, not `{syn:?}`"))
+            let Syntax::Identifier(ident) = &**lhs else {
+            return Err(format!("Expected name identifier, not `{lhs:?}`"))
+        };
+            let Syntax::Identifier(objective) = &**rhs else {
+            return Err(format!("Expected score identifier, not `{rhs:?}`"))
         };
             Ok(nbt!({
                 score: nbt!({name: format!("%{ident}"), objective: objective})
@@ -101,11 +104,14 @@ fn tellraw_component(src: &Syntax, config: &Config) -> SResult<Nbt> {
                     },
                     // key-value pair
                     Syntax::BinaryOp {
-                        lhs: OpLeft::Ident(ident),
+                        lhs,
                         operation: Operation::Colon,
-                        rhs: syn,
-                    } => {
-                        let content = String::try_from(&**syn)?;
+                        rhs,
+                    } if matches!(&**lhs, Syntax::Identifier(_)) => {
+                        let Syntax::Identifier(ident) = &**lhs else {
+                            unreachable!()
+                        };
+                        let content = String::try_from(&**rhs)?;
                         nbt_buf.insert(ident.clone(), content.into());
                     }
                     other => base = tellraw_component(other, config)?.get_obj()?.clone(),

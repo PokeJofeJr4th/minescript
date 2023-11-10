@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::inner_interpret;
+use super::{get_data_location, inner_interpret};
 use crate::{lexer::tokenize, parser::parse, types::prelude::*, Config};
 
 mod effect;
@@ -94,6 +94,7 @@ pub(super) fn annotations(
             let Syntax::BinaryOp { lhs, operation: Operation::In, rhs } = properties else {
                 return Err(format!("`@random` annotation takes `{{var}} in {{...}}`; got `{properties:?}`"))
             };
+            let lhs = get_data_location(lhs)?;
             return random(
                 lhs.stringify_scoreboard_target()?,
                 lhs.stringify_scoreboard_objective(config)?,

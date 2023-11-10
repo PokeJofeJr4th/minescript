@@ -54,7 +54,7 @@ fn as_s_if_score() {
                 Box::new(Syntax::Block(
                     BlockType::If,
                     Box::new(Syntax::BinaryOp {
-                        lhs: OpLeft::SelectorColon(Selector::s(), "count".into()),
+                        lhs: Box::new(Syntax::SelectorColon(Selector::s(), "count".into())),
                         operation: Operation::RCaretEq,
                         rhs: Box::new(Syntax::Integer(3))
                     }),
@@ -113,7 +113,7 @@ fn tellraw() {
 fn xp_ops() {
     assert_eq!(
         test_interpret(&Syntax::BinaryOp {
-            lhs: OpLeft::SelectorDoubleColon(Selector::s(), "level".into()),
+            lhs: Box::new(Syntax::SelectorDoubleColon(Selector::s(), "level".into())),
             operation: Operation::AddEq,
             rhs: Box::new(Syntax::Integer(2))
         }),
@@ -125,7 +125,7 @@ fn xp_ops() {
     );
     assert_eq!(
         test_interpret(&Syntax::BinaryOp {
-            lhs: OpLeft::Ident("x".into()),
+            lhs: Box::new(Syntax::Identifier("x".into())),
             operation: Operation::MulEq,
             rhs: Box::new(Syntax::SelectorDoubleColon(Selector::s(), "lvl".into()))
         }),

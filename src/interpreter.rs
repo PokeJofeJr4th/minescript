@@ -48,6 +48,7 @@ fn inner_interpret(
             operation: operation @ (Operation::ColonEq | Operation::QuestionEq),
             rhs,
         } => {
+            let lhs = get_data_location(lhs)?;
             return store::storage_op(
                 lhs,
                 *operation == Operation::QuestionEq,
@@ -55,7 +56,7 @@ fn inner_interpret(
                 &format!("__internal__/{:x}", get_hash(rhs)),
                 state,
                 config,
-            )
+            );
         }
         Syntax::BinaryOp {
             lhs,
@@ -73,6 +74,15 @@ fn inner_interpret(
         other => return Err(format!("Unexpected item `{other:?}`")),
     }
     Ok(VecCmd::default())
+}
+
+fn get_data_location(src: &Syntax) -> SResult<DataLocation> {
+    if let Ok(data) = DataLocation::try_from(src.clone()) {
+        return Ok(data);
+    }
+    match src {
+        other => Err(format!("Can't get data location from `{other:?}`")),
+    }
 }
 
 /// ## Testing Only
